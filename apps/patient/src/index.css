@@ -8,6 +8,14 @@ html, body, #root {
   overscroll-behavior: none;
 }
 
+/* ── Utility classes not in Tailwind config ─────────────────────────────── */
+.bg-white\/8  { background-color: rgb(255 255 255 / 0.08); }
+.bg-white\/5  { background-color: rgb(255 255 255 / 0.05); }
+
+/* ── iOS safe area helpers ─────────────────────────────────────────────── */
+.pt-safe-top  { padding-top:    env(safe-area-inset-top,    0px); }
+.pb-safe-bot  { padding-bottom: env(safe-area-inset-bottom, 0px); }
+
 /* ── Font size scaling from Settings ──────────────────────────────────── */
 html.text-size-sm .chat-bubble { font-size: 0.75rem; }
 html.text-size-md .chat-bubble { font-size: 0.875rem; }

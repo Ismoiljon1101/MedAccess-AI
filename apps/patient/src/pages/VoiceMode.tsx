@@ -1,57 +1,49 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { X, Mic, MicOff, Volume2, VolumeX, ChevronDown } from 'lucide-react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { X, Mic, MicOff, Volume2, VolumeX, ChevronDown, Loader2 } from 'lucide-react';
 import { LiveKitRoom, RoomAudioRenderer } from '@livekit/components-react';
 import { AiAvatar } from '@/components/AiAvatar';
 import type { AvatarState } from '@/components/AiAvatar';
-import {
-  getVoiceToken, getVoiceStatus,
-  streamChatRequest, transcribeAudio,
-  type VoiceToken,
-} from '@/lib/api';
+import { getVoiceToken, getVoiceStatus, streamChatRequest, transcribeAudio } from '@/lib/api';
+import type { VoiceToken } from '@/lib/api';
 import { useAppStore } from '@/store/app';
 
-// ── Free OpenRouter voice-capable models ───────────────────────────────
+// ── Free OpenRouter models for voice ──────────────────────────────────
 const VOICE_MODELS = [
-  { id: 'meta-llama/llama-3.3-70b-instruct:free',  label: 'Llama 3.3 70B (free)' },
-  { id: 'google/gemini-2.0-flash-exp:free',         label: 'Gemini 2.0 Flash (free)' },
-  { id: 'deepseek/deepseek-r1:free',               label: 'DeepSeek R1 (free)' },
-  { id: 'meta-llama/llama-3.1-8b-instruct:free',   label: 'Llama 3.1 8B (fast, free)' },
+  { id: 'meta-llama/llama-3.3-70b-instruct:free', label: 'Llama 3.3 70B' },
+  { id: 'google/gemini-2.0-flash-exp:free',        label: 'Gemini 2.0 Flash' },
+  { id: 'deepseek/deepseek-r1:free',              label: 'DeepSeek R1' },
+  { id: 'meta-llama/llama-3.1-8b-instruct:free',  label: 'Llama 3.1 8B (fast)' },
 ];
 
-// ── State machine ──────────────────────────────────────────────────────
 type VoiceState = 'idle' | 'listening' | 'thinking' | 'speaking';
 
-// ── Waveform bars ──────────────────────────────────────────────────────
-function WaveformBars({ active }: { active: boolean }) {
+// ── Animated waveform ─────────────────────────────────────────────────
+function Waveform({ active, color = 'brand' }: { active: boolean; color?: string }) {
+  const bars = 11;
   return (
-    <div className="flex items-center justify-center gap-1 h-8">
-      {Array.from({ length: 9 }).map((_, i) => (
+    <div className="flex items-center justify-center gap-[3px] h-10">
+      {Array.from({ length: bars }).map((_, i) => (
         <div
           key={i}
-          className={`w-1 rounded-full bg-brand-400 transition-all ${active ? 'waveform-bar' : 'h-1 opacity-30'}`}
-          style={active ? { animationDelay: `${i * 0.07}s` } : {}}
+          className={`w-[3px] rounded-full transition-all duration-150 ${
+            active ? `bg-${color}-400` : 'bg-slate-700'
+          }`}
+          style={
+            active
+              ? {
+                  height: `${8 + Math.sin(i * 0.8) * 8}px`,
+                  animation: `waveform ${0.6 + (i % 3) * 0.15}s ease-in-out ${i * 0.06}s infinite alternate`,
+                }
+              : { height: '3px' }
+          }
         />
       ))}
     </div>
   );
 }
 
-// ── Transcript / subtitle bubble ───────────────────────────────────────
-function Subtitle({ text, role }: { text: string; role: 'user' | 'assistant' }) {
-  if (!text) return null;
-  return (
-    <div className={`mx-6 mt-4 rounded-2xl px-4 py-3 text-sm text-center ${
-      role === 'user'
-        ? 'bg-brand-600/20 text-brand-300'
-        : 'bg-surface-700 text-slate-200'
-    }`}>
-      {text}
-    </div>
-  );
-}
-
-// ── Main voice UI (no LiveKit room needed) ─────────────────────────────
+// ── Core voice UI ─────────────────────────────────────────────────────
 function VoiceUI({
   model,
   sessionId,
@@ -59,7 +51,7 @@ function VoiceUI({
   onEnd,
 }: {
   model: string;
-  sessionId: string | undefined;
+  sessionId?: string;
   language: string;
   onEnd: () => void;
 }) {
@@ -67,265 +59,276 @@ function VoiceUI({
   const [userText, setUserText]     = useState('');
   const [aiText, setAiText]         = useState('');
   const [muted, setMuted]           = useState(false);
-  const [liveSessionId, setLiveSessionId] = useState(sessionId);
+  const [liveSession, setLiveSession] = useState(sessionId);
 
   const mediaRef  = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const abortRef  = useRef<AbortController | null>(null);
-  const synthRef  = useRef<SpeechSynthesisUtterance | null>(null);
 
-  // Avatar state mapping
-  const avatarState: AvatarState =
-    voiceState === 'listening' ? 'listening' :
-    voiceState === 'thinking'  ? 'thinking'  : 'idle';
-
-  // Cleanup on unmount
   useEffect(() => {
     return () => {
       abortRef.current?.abort();
-      if (window.speechSynthesis.speaking) window.speechSynthesis.cancel();
+      window.speechSynthesis?.cancel();
       mediaRef.current?.stop();
     };
   }, []);
 
-  // ── Speak text via Web Speech API (TTS) ───────────────────────────
+  const avatarState: AvatarState =
+    voiceState === 'listening' ? 'listening' :
+    voiceState === 'thinking'  ? 'thinking'  : 'idle';
+
   function speak(text: string) {
-    if (muted || !text) return;
+    if (muted || !text || !window.speechSynthesis) return;
     window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.rate  = 1.05;
-    utterance.pitch = 1.0;
-    // Prefer a natural-sounding voice
+    const utt = new SpeechSynthesisUtterance(text);
+    utt.rate  = 1.05;
     const voices = window.speechSynthesis.getVoices();
-    const preferred = voices.find(
+    const best = voices.find(
       (v) => v.lang.startsWith('en') && (v.name.includes('Google') || v.name.includes('Natural') || v.name.includes('Premium')),
     ) ?? voices.find((v) => v.lang.startsWith('en'));
-    if (preferred) utterance.voice = preferred;
-
-    utterance.onstart = () => setVoiceState('speaking');
-    utterance.onend   = () => setVoiceState('idle');
-    utterance.onerror = () => setVoiceState('idle');
-    synthRef.current = utterance;
-    window.speechSynthesis.speak(utterance);
+    if (best) utt.voice = best;
+    utt.onstart = () => setVoiceState('speaking');
+    utt.onend   = () => setVoiceState('idle');
+    utt.onerror = () => setVoiceState('idle');
+    window.speechSynthesis.speak(utt);
   }
 
-  // ── LLM call → stream response → speak ───────────────────────────
-  const askLLM = useCallback(
-    async (text: string) => {
-      setVoiceState('thinking');
-      setAiText('');
-      abortRef.current?.abort();
-      const ctrl = new AbortController();
-      abortRef.current = ctrl;
-
-      try {
-        let assembled = '';
-        for await (const event of streamChatRequest(text, liveSessionId, language, ctrl.signal)) {
-          if (ctrl.signal.aborted) break;
-          if (event.type === 'meta' && event.data.sessionId) {
-            setLiveSessionId(event.data.sessionId);
-          } else if (event.type === 'token') {
-            assembled += event.data.delta ?? '';
-            setAiText(assembled);
-          } else if (event.type === 'done' || event.type === 'error') {
-            break;
-          }
-        }
-        speak(assembled);
-      } catch (err: any) {
-        if (err.name !== 'AbortError') setVoiceState('idle');
+  const askLLM = useCallback(async (text: string) => {
+    setVoiceState('thinking');
+    setAiText('');
+    abortRef.current?.abort();
+    const ctrl = new AbortController();
+    abortRef.current = ctrl;
+    try {
+      let assembled = '';
+      for await (const ev of streamChatRequest(text, liveSession, language, ctrl.signal)) {
+        if (ctrl.signal.aborted) break;
+        if (ev.type === 'meta' && ev.data.sessionId) setLiveSession(ev.data.sessionId);
+        else if (ev.type === 'token') { assembled += ev.data.delta ?? ''; setAiText(assembled); }
+        else if (ev.type === 'done' || ev.type === 'error') break;
       }
-    },
-    [liveSessionId, language],
-  );
-
-  // ── Toggle recording ─────────────────────────────────────────────
-  async function toggleListening() {
-    // If AI is speaking, stop and let user talk
-    if (voiceState === 'speaking') {
-      window.speechSynthesis.cancel();
-      setVoiceState('idle');
-      return;
+      speak(assembled);
+    } catch (e: any) {
+      if (e.name !== 'AbortError') setVoiceState('idle');
     }
+  }, [liveSession, language]);
 
-    // Stop recording
-    if (voiceState === 'listening') {
-      mediaRef.current?.stop();
-      return;
-    }
-
-    // Start recording
+  async function toggleListen() {
+    if (voiceState === 'speaking') { window.speechSynthesis?.cancel(); setVoiceState('idle'); return; }
+    if (voiceState === 'listening') { mediaRef.current?.stop(); return; }
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mr     = new MediaRecorder(stream);
+      const mr = new MediaRecorder(stream);
       chunksRef.current = [];
       mr.ondataavailable = (e) => chunksRef.current.push(e.data);
       mr.onstop = async () => {
         stream.getTracks().forEach((t) => t.stop());
-        if (voiceState === 'idle') return; // cancelled
-
         setVoiceState('thinking');
         const blob = new Blob(chunksRef.current, { type: 'audio/webm' });
         try {
           const text = await transcribeAudio(blob, language);
-          if (text) {
-            setUserText(text);
-            await askLLM(text);
-          } else {
-            setVoiceState('idle');
-          }
-        } catch {
-          setVoiceState('idle');
-        }
+          if (text) { setUserText(text); await askLLM(text); }
+          else setVoiceState('idle');
+        } catch { setVoiceState('idle'); }
       };
       mr.start();
       mediaRef.current = mr;
       setVoiceState('listening');
       setUserText('');
       setAiText('');
-    } catch {
-      // mic permission denied
-    }
+    } catch { /* mic denied */ }
   }
 
+  const isBusy     = voiceState === 'thinking';
   const isListening = voiceState === 'listening';
-  const isBusy      = voiceState === 'thinking';
+  const isSpeaking  = voiceState === 'speaking';
 
   return (
-    <div className="voice-layout">
-      {/* ── Header bar ───────────────────────────────────────────── */}
-      <div className="voice-header">
-        <button type="button" onClick={onEnd} className="voice-close-btn">
-          <X size={20} />
-        </button>
-        <span className="text-sm font-semibold text-white">Voice Mode</span>
+    /* Full-screen overlay — sits above everything */
+    <div className="fixed inset-0 z-50 flex flex-col bg-[#060c18] overflow-hidden">
+
+      {/* Radial glow behind avatar */}
+      <div
+        className="pointer-events-none absolute inset-0"
+        style={{
+          background: isListening
+            ? 'radial-gradient(ellipse 60% 50% at 50% 45%, rgba(59,130,246,0.18) 0%, transparent 70%)'
+            : isSpeaking
+            ? 'radial-gradient(ellipse 60% 50% at 50% 45%, rgba(34,197,94,0.12) 0%, transparent 70%)'
+            : isBusy
+            ? 'radial-gradient(ellipse 50% 40% at 50% 45%, rgba(59,130,246,0.10) 0%, transparent 70%)'
+            : 'radial-gradient(ellipse 45% 35% at 50% 45%, rgba(59,130,246,0.06) 0%, transparent 70%)',
+          transition: 'background 0.6s ease',
+        }}
+      />
+
+      {/* ── Top bar ─────────────────────────────────────────────── */}
+      <div className="shrink-0 flex items-center justify-between px-5 pt-safe-top py-4">
         <button
           type="button"
-          onClick={() => {
-            setMuted((m) => !m);
-            if (!muted) window.speechSynthesis.cancel();
-          }}
-          className="voice-mute-btn"
-          aria-label={muted ? 'Unmute AI' : 'Mute AI'}
+          onClick={onEnd}
+          className="flex h-9 w-9 items-center justify-center rounded-full bg-white/8 text-slate-400 hover:text-white transition"
         >
-          {muted ? <VolumeX size={18} className="text-slate-500" /> : <Volume2 size={18} className="text-brand-400" />}
+          <X size={18} />
+        </button>
+
+        <div className="text-center">
+          <p className="text-xs font-semibold tracking-widest uppercase text-slate-400">Voice Mode</p>
+        </div>
+
+        <button
+          type="button"
+          onClick={() => { setMuted((m) => !m); if (!muted) window.speechSynthesis?.cancel(); }}
+          className="flex h-9 w-9 items-center justify-center rounded-full bg-white/8 text-slate-400 hover:text-white transition"
+        >
+          {muted ? <VolumeX size={17} /> : <Volume2 size={17} className="text-brand-400" />}
         </button>
       </div>
 
-      {/* ── Avatar ───────────────────────────────────────────────── */}
-      <div className="voice-avatar-area">
-        <AiAvatar state={avatarState} size={120} />
+      {/* ── Avatar + status ──────────────────────────────────────── */}
+      <div className="flex flex-1 flex-col items-center justify-center px-6 min-h-0 gap-6">
 
-        {/* Status label */}
-        <p className={`mt-5 text-sm font-medium ${
-          voiceState === 'listening' ? 'text-brand-400' :
-          voiceState === 'thinking'  ? 'text-slate-400' :
-          voiceState === 'speaking'  ? 'text-ok-400'    : 'text-slate-500'
-        }`}>
-          {voiceState === 'listening' ? 'Listening…'       :
-           voiceState === 'thinking'  ? 'Thinking…'        :
-           voiceState === 'speaking'  ? 'Speaking…'        :
-           'Tap the mic to speak'}
-        </p>
-
-        {/* Waveform */}
-        <div className="mt-3">
-          <WaveformBars active={isListening || voiceState === 'speaking'} />
+        {/* Avatar with extra outer glow ring */}
+        <div className="relative">
+          {/* Outer ambient glow */}
+          <div
+            className="absolute -inset-8 rounded-full pointer-events-none"
+            style={{
+              background: isListening
+                ? 'radial-gradient(circle, rgba(59,130,246,0.25) 0%, transparent 70%)'
+                : isSpeaking
+                ? 'radial-gradient(circle, rgba(34,197,94,0.20) 0%, transparent 70%)'
+                : 'radial-gradient(circle, rgba(59,130,246,0.10) 0%, transparent 70%)',
+              transition: 'background 0.5s ease',
+            }}
+          />
+          <AiAvatar state={avatarState} size={140} />
         </div>
+
+        {/* Status */}
+        <div className="text-center space-y-1">
+          <p className={`text-base font-semibold tracking-wide transition-colors ${
+            isListening ? 'text-brand-400' :
+            isBusy      ? 'text-slate-400' :
+            isSpeaking  ? 'text-ok-400'    :
+                          'text-slate-500'
+          }`}>
+            {isListening ? 'Listening…'        :
+             isBusy      ? 'Thinking…'         :
+             isSpeaking  ? 'Speaking…'         :
+                           'Tap to speak'}
+          </p>
+          {isBusy && (
+            <div className="flex items-center justify-center gap-1.5 text-xs text-slate-600">
+              <Loader2 size={12} className="animate-spin" /> Powered by OpenRouter
+            </div>
+          )}
+        </div>
+
+        {/* Waveform visualizer */}
+        <Waveform active={isListening || isSpeaking} color={isSpeaking ? 'ok' : 'brand'} />
+
       </div>
 
-      {/* ── Subtitles ────────────────────────────────────────────── */}
-      <div className="voice-subtitles">
-        <Subtitle text={userText} role="user" />
-        <Subtitle text={aiText}   role="assistant" />
+      {/* ── Transcript area ──────────────────────────────────────── */}
+      <div className="shrink-0 min-h-[80px] px-6 flex flex-col items-center gap-2 justify-end pb-2">
+        {userText && (
+          <div className="w-full max-w-sm rounded-2xl bg-brand-600/15 border border-brand-500/20 px-4 py-2.5 text-sm text-brand-300 text-center">
+            {userText}
+          </div>
+        )}
+        {aiText && (
+          <div className="w-full max-w-sm rounded-2xl bg-white/5 border border-white/10 px-4 py-2.5 text-sm text-slate-200 text-center leading-relaxed">
+            {aiText.length > 120 ? `${aiText.slice(0, 120)}…` : aiText}
+          </div>
+        )}
       </div>
 
       {/* ── Mic button ───────────────────────────────────────────── */}
-      <div className="voice-controls">
+      <div className="shrink-0 flex flex-col items-center gap-3 py-8"
+           style={{ paddingBottom: 'max(32px, env(safe-area-inset-bottom, 0px))' }}>
+
         <button
           type="button"
-          onClick={toggleListening}
+          onClick={toggleListen}
           disabled={isBusy}
-          aria-label={isListening ? 'Stop' : 'Speak'}
+          aria-label={isListening ? 'Stop speaking' : 'Speak'}
           className={`voice-mic-btn ${isListening ? 'voice-mic-active' : ''}`}
         >
-          {isListening ? <MicOff size={28} /> : <Mic size={28} />}
+          {isListening ? <MicOff size={30} /> : <Mic size={30} />}
         </button>
-        <p className="mt-3 text-xs text-slate-600">
-          {isListening ? 'Tap to stop' : voiceState === 'speaking' ? 'Tap to interrupt' : 'Tap to speak'}
+
+        <p className="text-xs text-slate-600">
+          {isListening ? 'Tap to stop' : isSpeaking ? 'Tap to interrupt' : isBusy ? 'Please wait…' : 'Tap to speak'}
         </p>
       </div>
+
     </div>
   );
 }
 
-// ── Wrapper: gets LiveKit token & optionally connects to a room ────────
+// ── Root: fetch token → optionally wrap in LiveKitRoom ────────────────
 export default function VoiceMode() {
-  const { language, upsertSession } = useAppStore();
-  const navigate     = useNavigate();
-  const [roomToken, setRoomToken]   = useState<VoiceToken | null>(null);
+  const { language }     = useAppStore();
+  const navigate         = useNavigate();
+  const [searchParams]   = useSearchParams();
+  const sessionId        = searchParams.get('s') ?? undefined;
+
+  const [roomToken, setRoomToken]       = useState<VoiceToken | null>(null);
   const [livekitReady, setLivekitReady] = useState(false);
   const [selectedModel, setSelectedModel] = useState(VOICE_MODELS[0].id);
-  const [showModelPicker, setShowModelPicker] = useState(false);
-  const [sessionId]  = useState<string | undefined>(() =>
-    new URLSearchParams(window.location.search).get('s') ?? undefined,
-  );
+  const [showPicker, setShowPicker]     = useState(false);
 
-  // Check if LiveKit is configured & get token
   useEffect(() => {
     getVoiceStatus().then(({ configured }) => {
-      if (configured) {
-        getVoiceToken(sessionId)
-          .then((t) => { setRoomToken(t); setLivekitReady(true); })
-          .catch(() => setLivekitReady(false));
-      }
+      if (!configured) return;
+      getVoiceToken(sessionId)
+        .then((t) => { setRoomToken(t); setLivekitReady(true); })
+        .catch(() => { /* standalone fallback */ });
     });
   }, [sessionId]);
-
-  function handleEnd() {
-    navigate(-1);
-  }
 
   const voiceUI = (
     <VoiceUI
       model={selectedModel}
       sessionId={sessionId}
       language={language}
-      onEnd={handleEnd}
+      onEnd={() => navigate(-1)}
     />
   );
 
   return (
-    <div className="flex-1 flex flex-col overflow-hidden bg-surface-900 relative">
-      {/* Model picker (top overlay) */}
-      <div className="absolute top-14 right-4 z-20">
+    <>
+      {/* Model picker floating pill — above the overlay */}
+      <div className="fixed top-16 left-1/2 -translate-x-1/2 z-[60]">
         <button
           type="button"
-          onClick={() => setShowModelPicker((p) => !p)}
-          className="flex items-center gap-1.5 rounded-xl border border-surface-600 bg-surface-800/90 backdrop-blur px-3 py-1.5 text-xs text-slate-400 hover:text-slate-200 transition"
+          onClick={() => setShowPicker((p) => !p)}
+          className="flex items-center gap-1.5 rounded-full border border-white/15 bg-white/8 backdrop-blur px-4 py-1.5 text-[11px] font-medium text-slate-400 hover:text-slate-200 transition"
         >
-          {VOICE_MODELS.find((m) => m.id === selectedModel)?.label.split(' ').slice(0, 2).join(' ')}
-          <ChevronDown size={12} />
+          {VOICE_MODELS.find((m) => m.id === selectedModel)?.label}
+          <ChevronDown size={11} />
         </button>
-        {showModelPicker && (
-          <div className="absolute right-0 mt-1 w-52 rounded-xl border border-surface-600 bg-surface-800 shadow-xl overflow-hidden z-30">
+        {showPicker && (
+          <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 w-52 rounded-2xl border border-white/10 bg-[#111827] shadow-2xl overflow-hidden">
             {VOICE_MODELS.map((m) => (
               <button
                 key={m.id}
                 type="button"
-                onClick={() => { setSelectedModel(m.id); setShowModelPicker(false); }}
-                className={`w-full px-4 py-2.5 text-left text-xs transition hover:bg-surface-700 ${
-                  selectedModel === m.id ? 'text-brand-400 bg-brand-600/10' : 'text-slate-300'
+                onClick={() => { setSelectedModel(m.id); setShowPicker(false); }}
+                className={`w-full px-4 py-3 text-left text-xs transition hover:bg-white/5 ${
+                  selectedModel === m.id ? 'text-brand-400' : 'text-slate-300'
                 }`}
               >
                 {m.label}
+                {selectedModel === m.id && <span className="float-right text-brand-500">✓</span>}
               </button>
             ))}
           </div>
         )}
       </div>
 
-      {/* If LiveKit is configured, wrap in a room */}
+      {/* Voice UI — LiveKit room if configured, standalone otherwise */}
       {livekitReady && roomToken ? (
         <LiveKitRoom
           token={roomToken.token}
@@ -333,16 +336,14 @@ export default function VoiceMode() {
           connect
           audio
           video={false}
-          onDisconnected={handleEnd}
-          className="flex-1 flex flex-col"
+          onDisconnected={() => navigate(-1)}
         >
           <RoomAudioRenderer />
           {voiceUI}
         </LiveKitRoom>
       ) : (
-        // Standalone mode — no server needed
         voiceUI
       )}
-    </div>
+    </>
   );
 }

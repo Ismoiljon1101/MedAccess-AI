@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { Mic, MicOff, Send, Phone, Plus, Radio } from 'lucide-react';
+import { Mic, MicOff, Send, Phone, Plus, Headphones } from 'lucide-react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { AiAvatar, type AvatarState } from '@/components/AiAvatar';
 import { streamChatRequest, transcribeAudio, loadSession } from '@/lib/api';
@@ -288,6 +288,17 @@ export default function Chat() {
           disabled={isThinking || recording}
         />
 
+        {/* Voice mode button */}
+        <button
+          type="button"
+          onClick={() => navigate(`/voice${sessionId ? `?s=${sessionId}` : ''}`)}
+          aria-label="Voice mode"
+          title="Voice Mode"
+          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-brand-500/40 bg-brand-600/15 text-brand-400 transition hover:bg-brand-600/25 hover:border-brand-400"
+        >
+          <Headphones size={18} />
+        </button>
+
         <button
           type="button"
           onClick={() => sendMessage(input)}
@@ -296,18 +307,6 @@ export default function Chat() {
           className="chat-send-btn"
         >
           <Send size={18} />
-        </button>
-      </div>
-
-      {/* ── Voice mode entry ─────────────────────────────────────── */}
-      <div className="shrink-0 flex justify-center pb-1">
-        <button
-          type="button"
-          onClick={() => navigate(`/voice${sessionId ? `?s=${sessionId}` : ''}`)}
-          className="flex items-center gap-2 rounded-full border border-brand-500/30 bg-brand-600/10 px-4 py-1.5 text-xs font-medium text-brand-400 hover:bg-brand-600/20 transition"
-        >
-          <Radio size={13} />
-          Switch to Voice Mode
         </button>
       </div>
     </div>
