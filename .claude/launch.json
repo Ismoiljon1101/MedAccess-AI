@@ -14,10 +14,16 @@
       "port": 4000
     },
     {
-      "name": "web-dev",
+      "name": "clinic-dev",
       "runtimeExecutable": "pnpm",
-      "runtimeArgs": ["--filter", "@medaccess/web", "run", "dev"],
+      "runtimeArgs": ["--filter", "@medaccess/clinic", "run", "dev"],
       "port": 5173
+    },
+    {
+      "name": "patient-dev",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--filter", "@medaccess/patient", "run", "dev"],
+      "port": 5174
     }
   ]
 }

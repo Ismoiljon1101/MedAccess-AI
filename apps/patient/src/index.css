@@ -1,0 +1,22 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html { font-family: 'Inter', system-ui, sans-serif; }
+  body { @apply bg-surface-900 text-slate-100 antialiased; }
+}
+
+@layer components {
+  .card        { @apply rounded-2xl border border-surface-700 bg-surface-800; }
+  .card-pad    { @apply p-5; }
+  .btn         { @apply inline-flex items-center gap-2 rounded-xl border border-surface-600 bg-surface-700 px-4 py-2.5 text-sm font-medium text-slate-100 transition hover:border-brand-500/50 hover:bg-surface-600 disabled:cursor-not-allowed disabled:opacity-50; }
+  .btn-primary { @apply btn border-brand-600 bg-brand-600 text-white hover:bg-brand-700 hover:border-brand-700; }
+  .btn-danger  { @apply btn border-danger-500/60 bg-danger-500/20 text-danger-400 hover:bg-danger-500/30; }
+  .input       { @apply w-full rounded-xl border border-surface-600 bg-surface-700 px-3 py-2.5 text-sm text-slate-100 placeholder-slate-500 outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500/40; }
+  .label       { @apply mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-400; }
+  .chip        { @apply inline-flex items-center rounded-full border px-3 py-1 text-xs font-medium; }
+  .chip-ok     { @apply border-ok-500/40 bg-ok-500/10 text-ok-400; }
+  .chip-warn   { @apply border-warn-500/40 bg-warn-500/10 text-warn-400; }
+  .chip-danger { @apply border-danger-500/40 bg-danger-500/10 text-danger-400; }
+}
