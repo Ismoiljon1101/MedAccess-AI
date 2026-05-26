@@ -1,8 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { X, Mic, MicOff, Volume2, VolumeX, ChevronDown } from 'lucide-react';
-import { LiveKitRoom, useVoiceAssistant, RoomAudioRenderer, useRoomContext } from '@livekit/components-react';
-import '@livekit/components-styles';
+import { LiveKitRoom, RoomAudioRenderer } from '@livekit/components-react';
 import { AiAvatar } from '@/components/AiAvatar';
 import type { AvatarState } from '@/components/AiAvatar';
 import {
