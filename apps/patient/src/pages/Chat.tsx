@@ -23,7 +23,7 @@ const GREETING: Message = {
   id: 'greeting',
   role: 'assistant',
   content:
-    "Hi, I'm your AI health assistant. Tell me what's bothering you today — describe your symptoms and I'll help you understand what might be going on. You can type or tap the mic to speak.",
+    "Hi, I'm MA Agent — your MedAccess health assistant. Tell me what's bothering you today and I'll help you understand what might be going on. Type your symptoms or tap the mic to speak.",
 };
 
 export default function Chat() {
@@ -45,6 +45,7 @@ export default function Chat() {
   const mediaRef    = useRef<MediaRecorder | null>(null);
   const chunksRef   = useRef<Blob[]>([]);
   const abortRef    = useRef<AbortController | null>(null);
+  const speechRef   = useRef<SpeechRecognition | null>(null);
   // Track first user message for history preview
   const previewRef  = useRef<string>('');
   const msgCountRef = useRef<number>(0);
@@ -170,9 +171,37 @@ export default function Chat() {
     [sessionId, language],
   );
 
-  // ── Voice recording ───────────────────────────────────────────────────
+  // ── Voice recording (Web Speech API primary, MediaRecorder fallback) ─────
   async function toggleVoice() {
-    if (recording) { mediaRef.current?.stop(); return; }
+    if (recording) {
+      speechRef.current?.stop();
+      mediaRef.current?.stop();
+      return;
+    }
+
+    // Try Web Speech API first (no server key needed)
+    const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (SR) {
+      const sr: SpeechRecognition = new SR();
+      sr.lang = language || 'en-US';
+      sr.interimResults = false;
+      sr.maxAlternatives = 1;
+      speechRef.current = sr;
+      setRecording(true);
+      setAvatarState('listening');
+      sr.onresult = (e: SpeechRecognitionEvent) => {
+        const text = e.results[0]?.[0]?.transcript?.trim();
+        if (text) sendMessage(text);
+        else setAvatarState('idle');
+        setRecording(false);
+      };
+      sr.onerror = () => { setRecording(false); setAvatarState('idle'); };
+      sr.onend   = () => { setRecording(false); };
+      sr.start();
+      return;
+    }
+
+    // Fallback: MediaRecorder → backend Whisper
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const mr = new MediaRecorder(stream);

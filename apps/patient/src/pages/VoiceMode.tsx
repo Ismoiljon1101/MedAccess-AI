@@ -64,11 +64,13 @@ function VoiceUI({
   const mediaRef  = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const abortRef  = useRef<AbortController | null>(null);
+  const speechRef = useRef<SpeechRecognition | null>(null);
 
   useEffect(() => {
     return () => {
       abortRef.current?.abort();
       window.speechSynthesis?.cancel();
+      speechRef.current?.stop();
       mediaRef.current?.stop();
     };
   }, []);
@@ -115,7 +117,36 @@ function VoiceUI({
 
   async function toggleListen() {
     if (voiceState === 'speaking') { window.speechSynthesis?.cancel(); setVoiceState('idle'); return; }
-    if (voiceState === 'listening') { mediaRef.current?.stop(); return; }
+    if (voiceState === 'listening') {
+      speechRef.current?.stop();
+      mediaRef.current?.stop();
+      return;
+    }
+
+    setUserText('');
+    setAiText('');
+
+    // Web Speech API (no server key needed)
+    const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (SR) {
+      const sr: SpeechRecognition = new SR();
+      sr.lang = language || 'en-US';
+      sr.interimResults = false;
+      sr.maxAlternatives = 1;
+      speechRef.current = sr;
+      setVoiceState('listening');
+      sr.onresult = async (e: SpeechRecognitionEvent) => {
+        const text = e.results[0]?.[0]?.transcript?.trim();
+        if (text) { setUserText(text); await askLLM(text); }
+        else setVoiceState('idle');
+      };
+      sr.onerror = () => setVoiceState('idle');
+      sr.onend   = () => { if (voiceState === 'listening') setVoiceState('idle'); };
+      sr.start();
+      return;
+    }
+
+    // Fallback: MediaRecorder → backend Whisper
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const mr = new MediaRecorder(stream);
@@ -134,8 +165,6 @@ function VoiceUI({
       mr.start();
       mediaRef.current = mr;
       setVoiceState('listening');
-      setUserText('');
-      setAiText('');
     } catch { /* mic denied */ }
   }
 
@@ -173,7 +202,7 @@ function VoiceUI({
         </button>
 
         <div className="text-center">
-          <p className="text-xs font-semibold tracking-widest uppercase text-slate-400">Voice Mode</p>
+          <p className="text-xs font-semibold tracking-widest uppercase text-slate-400">MA Agent · Voice</p>
         </div>
 
         <button
