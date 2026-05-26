@@ -156,6 +156,38 @@ export default function Symptoms() {
             defaultValue={patient.knownConditions?.join(', ') ?? ''}
           />
         </div>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div>
+            <label className="label text-xs">Active medications (comma-separated)</label>
+            <input
+              className="input"
+              placeholder="e.g. metformin, lisinopril"
+              onBlur={(e) => {
+                const vals = e.target.value
+                  .split(',')
+                  .map((s) => s.trim())
+                  .filter(Boolean);
+                setPatient((p) => ({ ...p, medications: vals.length ? vals : undefined }));
+              }}
+              defaultValue={patient.medications?.join(', ') ?? ''}
+            />
+          </div>
+          <div>
+            <label className="label text-xs">Allergies (comma-separated)</label>
+            <input
+              className="input"
+              placeholder="e.g. penicillin, peanuts"
+              onBlur={(e) => {
+                const vals = e.target.value
+                  .split(',')
+                  .map((s) => s.trim())
+                  .filter(Boolean);
+                setPatient((p) => ({ ...p, allergies: vals.length ? vals : undefined }));
+              }}
+              defaultValue={patient.allergies?.join(', ') ?? ''}
+            />
+          </div>
+        </div>
       </section>
 
       <button

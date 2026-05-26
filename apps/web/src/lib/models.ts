@@ -10,48 +10,64 @@ export interface ModelOption {
 }
 
 export const MODEL_OPTIONS: ModelOption[] = [
+  // --- Free tier (OpenRouter :free suffix) ---
+  {
+    id: 'meta-llama/llama-3.3-70b-instruct:free',
+    label: 'Llama 3.3 70B (free)',
+    vendor: 'Meta',
+    note: 'Free — strong reasoning, no vision',
+    vision: false,
+  },
+  {
+    id: 'google/gemini-2.0-flash-exp:free',
+    label: 'Gemini 2.0 Flash (free)',
+    vendor: 'Google',
+    note: 'Free — vision-capable',
+    vision: true,
+  },
+  {
+    id: 'deepseek/deepseek-r1:free',
+    label: 'DeepSeek R1 (free)',
+    vendor: 'DeepSeek',
+    note: 'Free — strong reasoning',
+    vision: false,
+  },
+  {
+    id: 'qwen/qwen-2.5-72b-instruct:free',
+    label: 'Qwen 2.5 72B (free)',
+    vendor: 'Alibaba',
+    note: 'Free — multilingual',
+    vision: false,
+  },
+  {
+    id: 'mistralai/mistral-7b-instruct:free',
+    label: 'Mistral 7B (free)',
+    vendor: 'Mistral',
+    note: 'Free — fast & lightweight',
+    vision: false,
+  },
+  // --- Paid (better quality) ---
   {
     id: 'anthropic/claude-sonnet-4.5',
     label: 'Claude Sonnet 4.5',
     vendor: 'Anthropic',
-    note: 'Strong clinical reasoning, vision-capable',
+    note: 'Paid — best clinical reasoning + vision',
     vision: true,
   },
   {
     id: 'openai/gpt-4o',
     label: 'GPT-4o',
     vendor: 'OpenAI',
-    note: 'Balanced quality + vision',
+    note: 'Paid — vision-capable',
     vision: true,
   },
   {
     id: 'openai/gpt-4o-mini',
     label: 'GPT-4o mini',
     vendor: 'OpenAI',
-    note: 'Cheap & fast',
+    note: 'Paid — cheap & fast',
     vision: true,
-  },
-  {
-    id: 'google/gemini-2.0-flash-exp:free',
-    label: 'Gemini 2.0 Flash (free)',
-    vendor: 'Google',
-    note: 'Free tier — vision-capable',
-    vision: true,
-  },
-  {
-    id: 'meta-llama/llama-3.3-70b-instruct',
-    label: 'Llama 3.3 70B',
-    vendor: 'Meta',
-    note: 'Open-weight, no vision',
-    vision: false,
-  },
-  {
-    id: 'deepseek/deepseek-chat',
-    label: 'DeepSeek Chat',
-    vendor: 'DeepSeek',
-    note: 'Very cheap, no vision',
-    vision: false,
   },
 ];
 
-export const DEFAULT_MODEL_ID = 'anthropic/claude-sonnet-4.5';
+export const DEFAULT_MODEL_ID = 'meta-llama/llama-3.3-70b-instruct:free';

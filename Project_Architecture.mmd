@@ -1,0 +1,89 @@
+graph TB
+    subgraph CLIENT["Client Layer"]
+        PWA["PWA (installable)"]
+        BROWSER["Browser"]
+        MOBILE["Mobile (future: React Native)"]
+    end
+
+    subgraph WEB["apps/web · React 18 + Vite + TS"]
+        ROUTER["react-router v6"]
+        PAGES["Pages: Home / Interview / Symptoms / Reports / Triage"]
+        COMP["Components: Layout / Sidebar / Header / VoiceButton / TriageBadge / ProbabilityBar / CitationList"]
+        STATE["Zustand store (lang, model, prefs)"]
+        APICLIENT["lib/api.ts (typed client + SSE)"]
+        SW["Service Worker (Workbox)"]
+    end
+
+    subgraph SHARED["packages/shared"]
+        SCHEMAS["Zod schemas"]
+        PROMPTS["System prompts"]
+        KB["Seed RAG knowledge (15 docs)"]
+        TYPES["TS types"]
+    end
+
+    subgraph API["apps/api · Express + TS"]
+        MIDDLEWARE["Middleware: cors / json / multer / error"]
+        AUTH_FUTURE["AuthN/AuthZ (FUTURE: JWT + RBAC)"]
+        ROUTES["Routes: /chat /symptoms /triage /reports /transcribe /health"]
+        SERVICES["Services: llm.ts / vision.ts / transcribe.ts / rag.ts"]
+        SESSIONS["In-memory sessions (TTL sweep)"]
+    end
+
+    subgraph EXTERNAL["External Providers"]
+        OPENROUTER["OpenRouter Gateway"]
+        WHISPER["OpenAI Whisper (optional)"]
+    end
+
+    subgraph MODELS["LLM Models (via OpenRouter)"]
+        CLAUDE["Claude Sonnet 4.5"]
+        GPT["GPT-4o / GPT-4o-mini"]
+        GEMINI["Gemini 2.0 Flash"]
+        LLAMA["Llama 3.3 70B"]
+        DEEPSEEK["DeepSeek"]
+    end
+
+    subgraph FUTURE["Persistence Layer (FUTURE)"]
+        POSTGRES["PostgreSQL (users, patients, encounters, audit)"]
+        REDIS["Redis (sessions, rate limit)"]
+        PGVECTOR["pgvector (RAG embeddings)"]
+        S3["S3/MinIO (image uploads)"]
+        AUDIT["Audit log stream"]
+    end
+
+    PWA --> BROWSER
+    BROWSER --> ROUTER
+    MOBILE -.future.-> APICLIENT
+    ROUTER --> PAGES
+    PAGES --> COMP
+    PAGES --> STATE
+    PAGES --> APICLIENT
+    SW -.caches.-> COMP
+
+    APICLIENT -->|HTTPS /api/*| MIDDLEWARE
+    MIDDLEWARE --> AUTH_FUTURE
+    AUTH_FUTURE --> ROUTES
+    ROUTES --> SERVICES
+    SERVICES --> SESSIONS
+
+    SHARED --> WEB
+    SHARED --> API
+
+    SERVICES -->|chat/vision| OPENROUTER
+    SERVICES -->|STT| WHISPER
+    OPENROUTER --> CLAUDE
+    OPENROUTER --> GPT
+    OPENROUTER --> GEMINI
+    OPENROUTER --> LLAMA
+    OPENROUTER --> DEEPSEEK
+
+    SESSIONS -.migrate.-> REDIS
+    ROUTES -.persist.-> POSTGRES
+    SERVICES -.upgrade RAG.-> PGVECTOR
+    ROUTES -.store images.-> S3
+    AUTH_FUTURE -.emit.-> AUDIT
+    AUDIT -.write.-> POSTGRES
+
+    classDef current fill:#1e3a3a,stroke:#22b8a3,color:#fff
+    classDef future fill:#3a2d1e,stroke:#d97706,color:#fff,stroke-dasharray: 5 5
+    class WEB,API,SHARED,EXTERNAL,MODELS,CLIENT current
+    class FUTURE,AUTH_FUTURE future
