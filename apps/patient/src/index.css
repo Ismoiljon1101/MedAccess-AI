@@ -39,7 +39,7 @@ html, body, #root {
   }
 
   .app-disclaimer {
-    @apply shrink-0 border-b border-warn-500/20 bg-warn-500/8 px-4 py-1.5 text-center text-[10px] text-warn-400/80;
+    @apply shrink-0 border-b border-warn-500/20 bg-warn-500/10 px-4 py-1.5 text-center text-[10px] text-warn-400;
   }
 
   /* Bottom tab bar — respects iOS safe-area-inset-bottom */

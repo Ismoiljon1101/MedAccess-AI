@@ -1,6 +1,6 @@
 import { type ReactNode, useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { MessageCircle, Activity, Globe2, Heart } from 'lucide-react';
+import { MessageCircle, Activity, Globe2, Heart, FileImage } from 'lucide-react';
 import { useAppStore } from '@/store/app';
 import { getHealth } from '@/lib/api';
 
@@ -12,6 +12,7 @@ const LANGUAGES = [
 
 const TABS = [
   { to: '/',          label: 'Chat',      Icon: MessageCircle },
+  { to: '/reports',   label: 'Images',    Icon: FileImage },
   { to: '/emergency', label: 'Emergency', Icon: Activity },
 ];
 
@@ -76,7 +77,7 @@ export default function Layout({ children }: { children: ReactNode }) {
       {/* ── Bottom tab navigation ─────────────────────────────── */}
       <nav className="app-bottom-nav">
         {TABS.map(({ to, label, Icon }) => {
-          const active = location.pathname === to || (to === '/' && location.pathname === '/symptoms');
+          const active = location.pathname === to || (to === '/' && location.pathname === '/symptoms') || (to === '/' && location.pathname === '/chat');
           return (
             <Link
               key={to}

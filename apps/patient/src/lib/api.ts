@@ -159,6 +159,33 @@ export async function* streamChatRequest(
   }
 }
 
+// ---------- report analysis (image upload) ──────────────────────────────
+
+export interface ReportAnalysisResult {
+  imageType: string;
+  qualityNotes: string;
+  keyObservations: string[];
+  findings: Array<{ finding: string; confidence: 'high' | 'moderate' | 'low'; notes: string }>;
+  suggestedFollowUp: string[];
+  disclaimer: string;
+}
+
+export async function analyzeReport(
+  imageBlob: Blob,
+  language?: string,
+  sessionId?: string,
+): Promise<ReportAnalysisResult> {
+  const form = new FormData();
+  form.append('image', imageBlob, `report.${imageBlob.type.split('/')[1] || 'jpg'}`);
+  if (language) form.append('language', language);
+  if (sessionId) form.append('sessionId', sessionId);
+
+  const res = await fetch(`${BASE}/api/reports/analyze`, { method: 'POST', body: form });
+  if (!res.ok) throw await safeError(res);
+  const data = await res.json();
+  return data.analysis;
+}
+
 // ---------- transcribe (voice) --------------------------------------------
 
 export async function transcribeAudio(blob: Blob, language?: string): Promise<string> {
