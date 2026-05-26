@@ -8,6 +8,11 @@ html, body, #root {
   overscroll-behavior: none;
 }
 
+/* ── Font size scaling from Settings ──────────────────────────────────── */
+html.text-size-sm .chat-bubble { font-size: 0.75rem; }
+html.text-size-md .chat-bubble { font-size: 0.875rem; }
+html.text-size-lg .chat-bubble { font-size: 1rem; }
+
 @layer base {
   html { font-family: 'Inter', system-ui, sans-serif; }
   body { @apply bg-surface-900 text-slate-100 antialiased; }

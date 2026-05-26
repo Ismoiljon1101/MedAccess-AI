@@ -104,6 +104,20 @@ export async function checkEmergency(opts: EmergencyCheckOptions): Promise<Emerg
   };
 }
 
+// ---------- session load (for history resume) ─────────────────────────
+
+export interface StoredMessage {
+  role: 'user' | 'assistant';
+  content: string;
+}
+
+export async function loadSession(sessionId: string): Promise<StoredMessage[]> {
+  const res = await fetch(`${BASE}/api/chat/session/${sessionId}`);
+  if (!res.ok) throw await safeError(res);
+  const data = await res.json();
+  return (data.messages ?? []) as StoredMessage[];
+}
+
 // ---------- chat (conversational AI) -------------------------------------
 
 export interface ChatStreamEvent {

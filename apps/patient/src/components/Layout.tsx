@@ -1,35 +1,38 @@
 import { type ReactNode, useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { MessageCircle, Activity, Globe2, Heart, FileImage } from 'lucide-react';
+import { MessageCircle, Activity, Globe2, Heart, FileImage, History, Settings } from 'lucide-react';
 import { useAppStore } from '@/store/app';
 import { getHealth } from '@/lib/api';
 
-const LANGUAGES = [
-  'English', 'Spanish', 'French', 'Portuguese', 'Arabic', 'Hindi',
-  'Bengali', 'Urdu', 'Swahili', 'Amharic', 'Hausa', 'Uzbek',
-  'Russian', 'Chinese', 'Indonesian', 'Turkish',
-];
-
 const TABS = [
-  { to: '/',          label: 'Chat',      Icon: MessageCircle },
-  { to: '/reports',   label: 'Images',    Icon: FileImage },
-  { to: '/emergency', label: 'Emergency', Icon: Activity },
+  { to: '/',          label: 'Chat',      Icon: MessageCircle, exact: true },
+  { to: '/history',   label: 'History',   Icon: History,       exact: false },
+  { to: '/reports',   label: 'Images',    Icon: FileImage,     exact: false },
+  { to: '/emergency', label: 'Emergency', Icon: Activity,      exact: false },
+  { to: '/settings',  label: 'Settings',  Icon: Settings,      exact: false },
 ];
 
 export default function Layout({ children }: { children: ReactNode }) {
-  const { language, setLanguage } = useAppStore();
+  const { language, setLanguage, fontSize } = useAppStore();
   const location = useLocation();
   const [online, setOnline] = useState<boolean | null>(null);
 
   useEffect(() => {
-    getHealth()
-      .then(() => setOnline(true))
-      .catch(() => setOnline(false));
+    getHealth().then(() => setOnline(true)).catch(() => setOnline(false));
   }, []);
+
+  // Only show language picker on non-settings pages (settings has it inline)
+  const isSettings = location.pathname === '/settings';
+
+  // Apply fontSize to the whole app via a CSS class on body
+  useEffect(() => {
+    document.documentElement.classList.remove('text-size-sm', 'text-size-md', 'text-size-lg');
+    document.documentElement.classList.add(`text-size-${fontSize}`);
+  }, [fontSize]);
 
   return (
     <div className="app-shell">
-      {/* ── Header ────────────────────────────────────────────── */}
+      {/* ── Header ──────────────────────────────────────────────── */}
       <header className="app-header">
         <Link to="/" className="flex items-center gap-2 text-white min-w-0">
           <Heart size={15} className="text-brand-400 shrink-0" />
@@ -40,51 +43,53 @@ export default function Layout({ children }: { children: ReactNode }) {
         </Link>
 
         <div className="flex items-center gap-2.5 shrink-0">
-          {/* Connection dot */}
           <div
             title={online === null ? 'Connecting…' : online ? 'Connected' : 'Offline'}
             className={`h-1.5 w-1.5 rounded-full ${
               online === null ? 'bg-slate-500' : online ? 'bg-ok-500' : 'bg-danger-500'
             }`}
           />
-          {/* Language picker */}
-          <div className="flex items-center gap-1">
-            <Globe2 size={13} className="text-slate-500" />
-            <select
-              className="bg-transparent text-xs text-slate-400 outline-none cursor-pointer max-w-[80px]"
-              value={language}
-              onChange={(e) => setLanguage(e.target.value)}
-            >
-              {LANGUAGES.map((l) => (
-                <option key={l} value={l} className="bg-surface-800 text-slate-100">{l}</option>
-              ))}
-            </select>
-          </div>
+          {!isSettings && (
+            <div className="flex items-center gap-1">
+              <Globe2 size={13} className="text-slate-500" />
+              <select
+                className="bg-transparent text-xs text-slate-400 outline-none cursor-pointer max-w-[80px]"
+                value={language}
+                onChange={(e) => setLanguage(e.target.value)}
+              >
+                {['English','Spanish','French','Portuguese','Arabic','Hindi','Bengali','Urdu','Swahili','Amharic','Hausa','Uzbek','Russian','Chinese','Indonesian','Turkish'].map((l) => (
+                  <option key={l} value={l} className="bg-surface-800 text-slate-100">{l}</option>
+                ))}
+              </select>
+            </div>
+          )}
         </div>
       </header>
 
-      {/* ── Disclaimer bar ────────────────────────────────────── */}
+      {/* ── Disclaimer ──────────────────────────────────────────── */}
       <div className="app-disclaimer">
         Educational only — not a substitute for a doctor.&nbsp;
         For emergencies call&nbsp;<strong className="text-warn-400">112 / 911 / 999</strong>
       </div>
 
-      {/* ── Main content (flex-1, overflow handled by each page) ── */}
+      {/* ── Main ────────────────────────────────────────────────── */}
       <main className="flex-1 overflow-hidden flex flex-col min-h-0">
         {children}
       </main>
 
-      {/* ── Bottom tab navigation ─────────────────────────────── */}
+      {/* ── Bottom tab bar ──────────────────────────────────────── */}
       <nav className="app-bottom-nav">
-        {TABS.map(({ to, label, Icon }) => {
-          const active = location.pathname === to || (to === '/' && location.pathname === '/symptoms') || (to === '/' && location.pathname === '/chat');
+        {TABS.map(({ to, label, Icon, exact }) => {
+          const active = exact
+            ? location.pathname === to || location.pathname === '/symptoms'
+            : location.pathname === to;
           return (
             <Link
               key={to}
               to={to}
               className={`app-tab ${active ? 'app-tab-active' : 'app-tab-inactive'}`}
             >
-              <Icon size={22} strokeWidth={active ? 2.2 : 1.5} />
+              <Icon size={20} strokeWidth={active ? 2.2 : 1.5} />
               <span>{label}</span>
             </Link>
           );

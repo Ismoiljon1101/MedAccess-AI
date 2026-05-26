@@ -1,7 +1,8 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { Mic, MicOff, Send, Phone } from 'lucide-react';
+import { Mic, MicOff, Send, Phone, Plus } from 'lucide-react';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import { AiAvatar, type AvatarState } from '@/components/AiAvatar';
-import { streamChatRequest, transcribeAudio } from '@/lib/api';
+import { streamChatRequest, transcribeAudio, loadSession } from '@/lib/api';
 import { useAppStore } from '@/store/app';
 
 interface Message {
@@ -19,26 +20,50 @@ const GREETING: Message = {
 };
 
 export default function Chat() {
-  const { language } = useAppStore();
+  const { language, upsertSession } = useAppStore();
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
+
+  const resumeId = searchParams.get('s') ?? undefined;
 
   const [messages, setMessages]       = useState<Message[]>([GREETING]);
   const [input, setInput]             = useState('');
-  const [sessionId, setSessionId]     = useState<string | undefined>();
+  const [sessionId, setSessionId]     = useState<string | undefined>(resumeId);
   const [avatarState, setAvatarState] = useState<AvatarState>('idle');
   const [recording, setRecording]     = useState(false);
+  const [loadError, setLoadError]     = useState<string | null>(null);
 
-  const bottomRef  = useRef<HTMLDivElement>(null);
+  const bottomRef   = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const mediaRef   = useRef<MediaRecorder | null>(null);
-  const chunksRef  = useRef<Blob[]>([]);
-  const abortRef   = useRef<AbortController | null>(null);
+  const mediaRef    = useRef<MediaRecorder | null>(null);
+  const chunksRef   = useRef<Blob[]>([]);
+  const abortRef    = useRef<AbortController | null>(null);
+  // Track first user message for history preview
+  const previewRef  = useRef<string>('');
+  const msgCountRef = useRef<number>(0);
 
-  // Auto-scroll to bottom whenever messages change
+  // ── Load resumed session ──────────────────────────────────────────────
+  useEffect(() => {
+    if (!resumeId) return;
+    loadSession(resumeId)
+      .then((msgs) => {
+        if (!msgs.length) return;
+        setMessages(
+          msgs.map((m) => ({ id: crypto.randomUUID(), role: m.role, content: m.content })),
+        );
+        msgCountRef.current = msgs.length;
+        const firstUser = msgs.find((m) => m.role === 'user');
+        if (firstUser) previewRef.current = firstUser.content.slice(0, 80);
+      })
+      .catch(() => setLoadError('Session not found or expired. Starting a new chat.'));
+  }, [resumeId]);
+
+  // ── Auto-scroll ───────────────────────────────────────────────────────
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  // Auto-resize textarea
+  // ── Auto-resize textarea ─────────────────────────────────────────────
   function resizeTextarea() {
     const el = textareaRef.current;
     if (!el) return;
@@ -46,20 +71,34 @@ export default function Chat() {
     el.style.height = `${Math.min(el.scrollHeight, 128)}px`;
   }
 
+  // ── Persist session metadata to store ────────────────────────────────
+  function persistSession(sid: string, extraCount = 0) {
+    msgCountRef.current += extraCount;
+    upsertSession({
+      sessionId:    sid,
+      preview:      previewRef.current || 'New chat',
+      messageCount: msgCountRef.current,
+      language,
+      createdAt:    Date.now(),
+    });
+  }
+
+  // ── Send / stream message ─────────────────────────────────────────────
   const sendMessage = useCallback(
     async (text: string) => {
       const trimmed = text.trim();
       if (!trimmed) return;
 
+      // Save first user message as preview
+      if (!previewRef.current) previewRef.current = trimmed.slice(0, 80);
+
       setInput('');
       if (textareaRef.current) textareaRef.current.style.height = 'auto';
 
-      // Append user bubble
       const userId = crypto.randomUUID();
       setMessages((prev) => [...prev, { id: userId, role: 'user', content: trimmed }]);
       setAvatarState('thinking');
 
-      // Append empty AI bubble that will stream into
       const aiId = crypto.randomUUID();
       setMessages((prev) => [
         ...prev,
@@ -72,17 +111,13 @@ export default function Chat() {
 
       try {
         let assembled = '';
+        let resolvedSid = sessionId;
 
-        for await (const event of streamChatRequest(
-          trimmed,
-          sessionId,
-          language,
-          ctrl.signal,
-        )) {
+        for await (const event of streamChatRequest(trimmed, sessionId, language, ctrl.signal)) {
           if (ctrl.signal.aborted) break;
-
           if (event.type === 'meta' && event.data.sessionId) {
-            setSessionId(event.data.sessionId);
+            resolvedSid = event.data.sessionId;
+            setSessionId(resolvedSid);
           } else if (event.type === 'token') {
             assembled += event.data.delta ?? '';
             setMessages((prev) =>
@@ -96,16 +131,15 @@ export default function Chat() {
         setMessages((prev) =>
           prev.map((m) => (m.id === aiId ? { ...m, streaming: false } : m)),
         );
+
+        // Persist to local history
+        if (resolvedSid) persistSession(resolvedSid, 2); // +user +assistant
       } catch (err: any) {
         if (err.name !== 'AbortError') {
           setMessages((prev) =>
             prev.map((m) =>
               m.id === aiId
-                ? {
-                    ...m,
-                    content: "Sorry, I couldn't reach the server. Please check your connection and try again.",
-                    streaming: false,
-                  }
+                ? { ...m, content: "Sorry, I couldn't reach the server. Please try again.", streaming: false }
                 : m,
             ),
           );
@@ -114,19 +148,17 @@ export default function Chat() {
         setAvatarState('idle');
       }
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [sessionId, language],
   );
 
+  // ── Voice recording ───────────────────────────────────────────────────
   async function toggleVoice() {
-    if (recording) {
-      mediaRef.current?.stop();
-      return;
-    }
+    if (recording) { mediaRef.current?.stop(); return; }
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const mr = new MediaRecorder(stream);
       chunksRef.current = [];
-
       mr.ondataavailable = (e) => chunksRef.current.push(e.data);
       mr.onstop = async () => {
         stream.getTracks().forEach((t) => t.stop());
@@ -134,35 +166,35 @@ export default function Chat() {
         const blob = new Blob(chunksRef.current, { type: 'audio/webm' });
         try {
           const text = await transcribeAudio(blob, language);
-          if (text) {
-            await sendMessage(text);
-          } else {
-            setAvatarState('idle');
-          }
-        } catch {
-          setAvatarState('idle');
-        }
+          if (text) await sendMessage(text);
+          else setAvatarState('idle');
+        } catch { setAvatarState('idle'); }
       };
-
       mr.start();
       mediaRef.current = mr;
       setRecording(true);
       setAvatarState('listening');
-    } catch {
-      // mic permission denied or not available
-    }
+    } catch { /* mic denied */ }
   }
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      sendMessage(input);
-    }
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(input); }
+  }
+
+  function startNewChat() {
+    abortRef.current?.abort();
+    previewRef.current = '';
+    msgCountRef.current = 0;
+    setMessages([GREETING]);
+    setInput('');
+    setSessionId(undefined);
+    setLoadError(null);
+    setAvatarState('idle');
+    navigate('/');
   }
 
   const isThinking = avatarState === 'thinking';
 
-  // Which AI message index gets the animated avatar
   const lastAiIdx = messages.reduce<number>(
     (acc, msg, i) => (msg.role === 'assistant' ? i : acc),
     -1,
@@ -170,16 +202,35 @@ export default function Chat() {
 
   return (
     <div className="chat-layout">
-      {/* ── Messages ──────────────────────────────────────────── */}
+      {/* ── Top bar: New chat button (only when session active) ───── */}
+      {(sessionId || resumeId) && (
+        <div className="flex items-center justify-between px-3 py-2 border-b border-surface-700 shrink-0">
+          <span className="text-xs text-slate-500 truncate">
+            {previewRef.current || 'Active session'}
+          </span>
+          <button
+            type="button"
+            onClick={startNewChat}
+            className="flex items-center gap-1 rounded-lg border border-surface-600 bg-surface-700 px-2.5 py-1.5 text-xs font-medium text-slate-300 hover:border-brand-500/50 transition"
+          >
+            <Plus size={13} /> New chat
+          </button>
+        </div>
+      )}
+
+      {/* ── Session load error ───────────────────────────────────── */}
+      {loadError && (
+        <div className="mx-3 mt-3 rounded-xl border border-warn-500/30 bg-warn-500/10 px-3 py-2 text-xs text-warn-400 shrink-0">
+          {loadError}
+        </div>
+      )}
+
+      {/* ── Messages ─────────────────────────────────────────────── */}
       <div className="chat-messages">
         {messages.map((msg, idx) => {
           const isLastAi = msg.role === 'assistant' && idx === lastAiIdx;
-
-          // Active avatar state on the last AI message
           const thisState: AvatarState = isLastAi
-            ? msg.streaming
-              ? 'thinking'
-              : avatarState
+            ? msg.streaming ? 'thinking' : avatarState
             : 'idle';
 
           return (
@@ -192,12 +243,7 @@ export default function Chat() {
                   <AiAvatar state={thisState} size={56} />
                 </div>
               )}
-
-              <div
-                className={`chat-bubble ${
-                  msg.role === 'user' ? 'chat-bubble-user' : 'chat-bubble-ai'
-                }`}
-              >
+              <div className={`chat-bubble ${msg.role === 'user' ? 'chat-bubble-user' : 'chat-bubble-ai'}`}>
                 {msg.content || (msg.streaming && (
                   <span className="chat-typing" aria-label="Thinking…">
                     <span /><span /><span />
@@ -207,29 +253,23 @@ export default function Chat() {
             </div>
           );
         })}
-
-        {/* Scroll anchor */}
         <div ref={bottomRef} className="h-1" />
       </div>
 
-      {/* ── Emergency pill ────────────────────────────────────── */}
-      <div className="flex items-center justify-center gap-1.5 py-1.5 text-[10px]">
+      {/* ── Emergency pill ───────────────────────────────────────── */}
+      <div className="flex items-center justify-center gap-1.5 py-1.5 text-[10px] shrink-0">
         <Phone size={11} className="text-danger-400 shrink-0" />
         <span className="text-slate-500">Life-threatening?</span>
         <a href="tel:112" className="font-semibold text-danger-400">112 / 911 / 999</a>
       </div>
 
-      {/* ── Input bar ─────────────────────────────────────────── */}
+      {/* ── Input bar ────────────────────────────────────────────── */}
       <div className="chat-input-bar">
         <button
           type="button"
           onClick={toggleVoice}
           aria-label={recording ? 'Stop recording' : 'Voice input'}
-          className={`chat-mic-btn ${
-            recording
-              ? 'border-danger-500/50 bg-danger-500/15 text-danger-400'
-              : 'text-slate-400'
-          }`}
+          className={`chat-mic-btn ${recording ? 'border-danger-500/50 bg-danger-500/15 text-danger-400' : 'text-slate-400'}`}
         >
           {recording ? <MicOff size={20} /> : <Mic size={20} />}
           {recording && (
