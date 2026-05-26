@@ -1,15 +1,22 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { Mic, MicOff, Send, Phone, Plus, Headphones } from 'lucide-react';
+import { Mic, MicOff, Send, Phone, Plus, Headphones, BookText } from 'lucide-react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { AiAvatar, type AvatarState } from '@/components/AiAvatar';
 import { streamChatRequest, transcribeAudio, loadSession } from '@/lib/api';
 import { useAppStore } from '@/store/app';
+
+interface RagCitation {
+  id: string;
+  title: string;
+  score: number;
+}
 
 interface Message {
   id: string;
   role: 'user' | 'assistant';
   content: string;
   streaming?: boolean;
+  citations?: RagCitation[];
 }
 
 const GREETING: Message = {
@@ -113,11 +120,18 @@ export default function Chat() {
         let assembled = '';
         let resolvedSid = sessionId;
 
+        let resolvedCitations: RagCitation[] = [];
+
         for await (const event of streamChatRequest(trimmed, sessionId, language, ctrl.signal)) {
           if (ctrl.signal.aborted) break;
-          if (event.type === 'meta' && event.data.sessionId) {
-            resolvedSid = event.data.sessionId;
-            setSessionId(resolvedSid);
+          if (event.type === 'meta') {
+            if (event.data.sessionId) {
+              resolvedSid = event.data.sessionId;
+              setSessionId(resolvedSid);
+            }
+            if (event.data.citations?.length) {
+              resolvedCitations = event.data.citations;
+            }
           } else if (event.type === 'token') {
             assembled += event.data.delta ?? '';
             setMessages((prev) =>
@@ -129,7 +143,11 @@ export default function Chat() {
         }
 
         setMessages((prev) =>
-          prev.map((m) => (m.id === aiId ? { ...m, streaming: false } : m)),
+          prev.map((m) =>
+            m.id === aiId
+              ? { ...m, streaming: false, citations: resolvedCitations.length ? resolvedCitations : undefined }
+              : m,
+          ),
         );
 
         // Persist to local history
@@ -234,22 +252,37 @@ export default function Chat() {
             : 'idle';
 
           return (
-            <div
-              key={msg.id}
-              className={`chat-row ${msg.role === 'user' ? 'chat-row-user' : 'chat-row-ai'}`}
-            >
-              {msg.role === 'assistant' && (
-                <div className="chat-avatar-wrap">
-                  <AiAvatar state={thisState} size={56} />
+            <div key={msg.id} className="flex flex-col">
+              <div className={`chat-row ${msg.role === 'user' ? 'chat-row-user' : 'chat-row-ai'}`}>
+                {msg.role === 'assistant' && (
+                  <div className="chat-avatar-wrap">
+                    <AiAvatar state={thisState} size={56} />
+                  </div>
+                )}
+                <div className={`chat-bubble ${msg.role === 'user' ? 'chat-bubble-user' : 'chat-bubble-ai'}`}>
+                  {msg.content || (msg.streaming && (
+                    <span className="chat-typing" aria-label="Thinking…">
+                      <span /><span /><span />
+                    </span>
+                  ))}
                 </div>
-              )}
-              <div className={`chat-bubble ${msg.role === 'user' ? 'chat-bubble-user' : 'chat-bubble-ai'}`}>
-                {msg.content || (msg.streaming && (
-                  <span className="chat-typing" aria-label="Thinking…">
-                    <span /><span /><span />
-                  </span>
-                ))}
               </div>
+              {msg.role === 'assistant' && !msg.streaming && msg.citations?.length ? (
+                <div className="ml-[68px] mt-1 flex flex-wrap items-center gap-1.5">
+                  <span className="inline-flex items-center gap-1 text-[10px] uppercase tracking-wider text-slate-500">
+                    <BookText size={10} /> sources
+                  </span>
+                  {msg.citations.map((c) => (
+                    <span
+                      key={c.id}
+                      title={`Relevance: ${c.score}`}
+                      className="inline-flex items-center rounded-full border border-brand-500/25 bg-brand-500/10 px-2 py-0.5 text-[10px] font-medium text-brand-400"
+                    >
+                      {c.title}
+                    </span>
+                  ))}
+                </div>
+              ) : null}
             </div>
           );
         })}
