@@ -5,6 +5,7 @@ import {
   triagePrompt,
   type TriageResult,
 } from '@medaccess/shared';
+import { TriageResult as TriageResultModel, dbReady } from '@medaccess/db';
 import { chat, safeParseJson } from '../services/llm.js';
 import { HttpError } from '../middleware/error.js';
 
@@ -43,11 +44,23 @@ router.post('/', async (req, res, next) => {
     if (!json) throw new HttpError(502, 'Upstream returned non-JSON', { code: 'ParseError' });
 
     const validated = TriageResultSchema.safeParse(json);
+    const triage = validated.success ? validated.data : json as TriageResult;
 
-    res.json({
-      triage: validated.success ? validated.data : json,
-      model,
-    });
+    if (dbReady()) {
+      TriageResultModel.create({
+        sessionId:        req.body.sessionId,
+        caseSummary:      parsed.caseSummary,
+        level:            triage.level,
+        levelLabel:       triage.levelLabel,
+        targetTimeToCare: triage.targetTimeToCare,
+        rationale:        triage.rationale,
+        actions:          triage.actions,
+        warningSigns:     triage.warningSigns,
+        model,
+      }).catch(() => { /* non-fatal */ });
+    }
+
+    res.json({ triage, model });
   } catch (err: any) {
     if (err.name === 'ZodError') {
       return next(new HttpError(400, 'Invalid request', { code: 'ValidationError', publicMessage: err.errors?.[0]?.message }));

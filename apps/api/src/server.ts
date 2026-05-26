@@ -8,6 +8,7 @@ dotenv.config({ path: resolve(__dirname, '../../../.env') });
 
 import express from 'express';
 import cors from 'cors';
+import { connectDB, dbReady } from '@medaccess/db';
 
 import chatRouter from './routes/chat.js';
 import symptomsRouter from './routes/symptoms.js';
@@ -23,7 +24,12 @@ const app = express();
 const PORT = Number(process.env.PORT) || 4000;
 const CORS_ORIGIN = process.env.CORS_ORIGIN || 'http://localhost:5173';
 
-app.use(cors({ origin: CORS_ORIGIN, credentials: false }));
+// Allow both clinic and patient portals in CORS
+const allowedOrigins = [
+  CORS_ORIGIN,
+  'http://localhost:5174',  // patient portal
+];
+app.use(cors({ origin: allowedOrigins, credentials: false }));
 app.use(express.json({ limit: '2mb' }));
 
 app.get('/api/health', (_req, res) => {
@@ -37,6 +43,7 @@ app.get('/api/health', (_req, res) => {
     },
     defaultModel: defaultChatModel(),
     rag: ragStatus(),
+    db: { connected: dbReady() },
     time: new Date().toISOString(),
   });
 });
@@ -50,17 +57,27 @@ app.use('/api/transcribe', transcribeRouter);
 app.use(notFoundHandler);
 app.use(errorHandler);
 
-app.listen(PORT, () => {
-  const hasOR = Boolean(process.env.OPENROUTER_API_KEY);
-  const hasOA = Boolean(process.env.OPENAI_API_KEY);
-  console.log(`\nMedAccess AI server listening on http://localhost:${PORT}`);
-  console.log(`  CORS origin   : ${CORS_ORIGIN}`);
-  console.log(`  OpenRouter key: ${hasOR ? 'detected' : 'MISSING'}`);
-  console.log(`  OpenAI key    : ${hasOA ? 'detected (Whisper enabled)' : 'absent (Whisper -> browser fallback)'}`);
-  console.log(`  Default model : ${defaultChatModel()}`);
-  console.log(`  RAG index     : ${ragStatus().size} docs`);
-  if (!hasOR) {
-    console.warn('\n  WARNING: OPENROUTER_API_KEY missing. Chat/symptoms/triage/reports will return 503.');
-    console.warn('  Copy .env.example to .env at the repo root and add your key.\n');
-  }
-});
+// Connect to MongoDB then start HTTP server
+const hasOR = Boolean(process.env.OPENROUTER_API_KEY);
+const hasOA = Boolean(process.env.OPENAI_API_KEY);
+
+connectDB()
+  .catch((err) => {
+    console.warn(`  WARNING: MongoDB connection failed — ${(err as Error).message}`);
+    console.warn('  Set MONGODB_URI in .env. Running without DB (sessions in-memory only).\n');
+  })
+  .finally(() => {
+    app.listen(PORT, () => {
+      console.log(`\nMedAccess AI server listening on http://localhost:${PORT}`);
+      console.log(`  CORS origins  : ${allowedOrigins.join(', ')}`);
+      console.log(`  OpenRouter key: ${hasOR ? 'detected' : 'MISSING'}`);
+      console.log(`  OpenAI key    : ${hasOA ? 'detected (Whisper enabled)' : 'absent (Whisper → browser fallback)'}`);
+      console.log(`  Default model : ${defaultChatModel()}`);
+      console.log(`  RAG index     : ${ragStatus().size} docs`);
+      console.log(`  MongoDB       : ${dbReady() ? 'connected' : 'not connected (in-memory fallback)'}`);
+      if (!hasOR) {
+        console.warn('\n  WARNING: OPENROUTER_API_KEY missing. Chat/symptoms/triage/reports will return 503.');
+        console.warn('  Copy .env.example to .env at the repo root and add your key.\n');
+      }
+    });
+  });

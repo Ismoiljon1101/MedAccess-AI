@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { ChatRequestSchema, interviewSystemPrompt } from '@medaccess/shared';
+import { Interview, dbReady } from '@medaccess/db';
 import { chat, chatStream } from '../services/llm.js';
 import { formatContext, ragStatus, retrieve, toCitations } from '../services/rag.js';
 import { appendMessage, ensureSession, getSession, newSessionId, replaceMessages } from '../utils/sessions.js';
@@ -33,6 +34,18 @@ router.post('/', async (req, res, next) => {
     });
 
     appendMessage(sessionId, { role: 'assistant', content: text });
+
+    if (dbReady()) {
+      const msgs = getSession(sessionId)!.messages;
+      Interview.findOneAndUpdate(
+        { sessionId },
+        {
+          $set: { language: parsed.language, model },
+          $push: { messages: { $each: msgs.slice(-2) } },
+        },
+        { upsert: true, new: true },
+      ).catch(() => { /* non-fatal */ });
+    }
 
     res.json({
       sessionId,
@@ -91,6 +104,19 @@ router.post('/stream', async (req, res, next) => {
     }
 
     appendMessage(sessionId, { role: 'assistant', content: assembled });
+
+    if (dbReady()) {
+      const msgs = getSession(sessionId)!.messages;
+      Interview.findOneAndUpdate(
+        { sessionId },
+        {
+          $set: { language: parsed.language },
+          $push: { messages: { $each: msgs.slice(-2) } },
+        },
+        { upsert: true, new: true },
+      ).catch(() => { /* non-fatal */ });
+    }
+
     res.write(`event: done\ndata: ${JSON.stringify({ sessionId })}\n\n`);
     res.end();
   } catch (err: any) {

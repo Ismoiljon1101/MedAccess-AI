@@ -5,6 +5,7 @@ import {
   symptomAnalysisPrompt,
   type SymptomsAnalysis,
 } from '@medaccess/shared';
+import { SymptomAnalysis, dbReady } from '@medaccess/db';
 import { chat, safeParseJson } from '../services/llm.js';
 import { formatContext, ragStatus, retrieve, toCitations } from '../services/rag.js';
 import { HttpError } from '../middleware/error.js';
@@ -47,8 +48,23 @@ router.post('/', async (req, res, next) => {
     // Best-effort validation; don't 500 if model is slightly off-spec.
     const validated = SymptomsAnalysisSchema.safeParse(json);
 
+    const analysis = validated.success ? validated.data : json as SymptomsAnalysis;
+
+    // Persist to MongoDB (fire-and-forget; don't block response)
+    if (dbReady()) {
+      SymptomAnalysis.create({
+        sessionId:            req.body.sessionId,
+        symptoms:             parsed.symptoms,
+        urgency:              analysis.urgency,
+        differentials:        analysis.differentials,
+        recommendedNextSteps: analysis.recommendedNextSteps,
+        disclaimer:           analysis.disclaimer,
+        model,
+      }).catch(() => { /* non-fatal */ });
+    }
+
     res.json({
-      analysis: validated.success ? validated.data : json,
+      analysis,
       model,
       citations: toCitations(results),
       ragStatus: ragStatus(),

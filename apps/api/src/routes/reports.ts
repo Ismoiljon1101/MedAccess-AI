@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { imageUpload } from '../middleware/upload.js';
 import { analyzeMedicalImage } from '../services/vision.js';
+import { ReportAnalysis, dbReady } from '@medaccess/db';
 import { HttpError } from '../middleware/error.js';
 
 const router: Router = Router();
@@ -19,6 +20,21 @@ router.post('/analyze', imageUpload.single('image'), async (req, res, next) => {
       language,
       model,
     });
+
+    if (dbReady() && result.analysis) {
+      ReportAnalysis.create({
+        sessionId:         req.body.sessionId,
+        imageType:         result.analysis.imageType,
+        qualityNotes:      result.analysis.qualityNotes,
+        keyObservations:   result.analysis.keyObservations,
+        findings:          result.analysis.possibleFindings,
+        suggestedFollowUp: result.analysis.suggestedFollowUp,
+        disclaimer:        result.analysis.disclaimer,
+        model:             result.model,
+        imageMimeType:     req.file!.mimetype,
+        imageSizeBytes:    req.file!.size,
+      }).catch(() => { /* non-fatal */ });
+    }
 
     res.json({
       model: result.model,
