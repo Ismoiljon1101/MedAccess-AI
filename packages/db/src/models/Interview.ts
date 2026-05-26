@@ -33,6 +33,4 @@ const InterviewSchema = new Schema<IInterview>({
   messages:    [MessageSchema],
 }, { timestamps: true });
 
-InterviewSchema.index({ sessionId: 1 });
-
 export const Interview = model<IInterview>('Interview', InterviewSchema);

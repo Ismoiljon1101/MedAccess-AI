@@ -18,7 +18,6 @@ const UserSchema = new Schema<IUser>({
   lastLoginAt:  { type: Date },
 }, { timestamps: true });
 
-UserSchema.index({ email: 1 });
 UserSchema.index({ clinicId: 1 });
 
 export const User = model<IUser>('User', UserSchema);

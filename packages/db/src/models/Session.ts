@@ -20,6 +20,4 @@ const SessionSchema = new Schema<ISession>({
   expiresAt: { type: Date, required: true, index: { expires: 0 } },
 }, { timestamps: true });
 
-SessionSchema.index({ sessionId: 1 });
-
 export const Session = model<ISession>('Session', SessionSchema);
