@@ -2,12 +2,19 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ── Mobile PWA: full viewport height, no scroll bounce ───────────────── */
+html, body, #root {
+  height: 100%;
+  overscroll-behavior: none;
+}
+
 @layer base {
   html { font-family: 'Inter', system-ui, sans-serif; }
   body { @apply bg-surface-900 text-slate-100 antialiased; }
 }
 
 @layer components {
+  /* ── Design tokens ─────────────────────────────────────────────────── */
   .card        { @apply rounded-2xl border border-surface-700 bg-surface-800; }
   .card-pad    { @apply p-5; }
   .btn         { @apply inline-flex items-center gap-2 rounded-xl border border-surface-600 bg-surface-700 px-4 py-2.5 text-sm font-medium text-slate-100 transition hover:border-brand-500/50 hover:bg-surface-600 disabled:cursor-not-allowed disabled:opacity-50; }
@@ -19,4 +26,164 @@
   .chip-ok     { @apply border-ok-500/40 bg-ok-500/10 text-ok-400; }
   .chip-warn   { @apply border-warn-500/40 bg-warn-500/10 text-warn-400; }
   .chip-danger { @apply border-danger-500/40 bg-danger-500/10 text-danger-400; }
+
+  /* ── App shell ─────────────────────────────────────────────────────── */
+  .app-shell {
+    @apply flex flex-col bg-surface-900;
+    height: 100dvh; /* dynamic viewport — shrinks when mobile keyboard opens */
+    overflow: hidden;
+  }
+
+  .app-header {
+    @apply flex shrink-0 items-center justify-between border-b border-surface-700 bg-surface-900/95 px-4 py-3 backdrop-blur;
+  }
+
+  .app-disclaimer {
+    @apply shrink-0 border-b border-warn-500/20 bg-warn-500/8 px-4 py-1.5 text-center text-[10px] text-warn-400/80;
+  }
+
+  /* Bottom tab bar — respects iOS safe-area-inset-bottom */
+  .app-bottom-nav {
+    @apply shrink-0 flex border-t border-surface-700 bg-surface-900;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  .app-tab {
+    @apply flex flex-1 flex-col items-center gap-1 pt-2.5 pb-2 text-[11px] font-medium transition-colors;
+  }
+  .app-tab-active   { @apply text-brand-400; }
+  .app-tab-inactive { @apply text-slate-500 hover:text-slate-300; }
+
+  /* ── Chat layout ───────────────────────────────────────────────────── */
+  .chat-layout {
+    @apply flex flex-1 flex-col overflow-hidden min-h-0;
+  }
+
+  .chat-messages {
+    @apply flex-1 overflow-y-auto overscroll-contain space-y-3 px-3 py-4;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Each message row */
+  .chat-row {
+    @apply flex items-end gap-2;
+  }
+  .chat-row-ai   { @apply flex-row; }
+  .chat-row-user { @apply flex-row-reverse; }
+
+  .chat-avatar-wrap {
+    @apply shrink-0 mb-0.5;
+  }
+
+  /* Bubbles */
+  .chat-bubble {
+    @apply rounded-2xl px-4 py-3 text-sm leading-relaxed;
+    max-width: 78%;
+    word-break: break-word;
+  }
+  /* AI bubble: off-white / very soft dark */
+  .chat-bubble-ai {
+    @apply bg-surface-700 text-slate-100 rounded-bl-sm;
+  }
+  /* User bubble: primary accent */
+  .chat-bubble-user {
+    @apply bg-brand-600 text-white rounded-br-sm;
+  }
+
+  /* ── Typing indicator (three bouncing dots) ────────────────────────── */
+  .chat-typing {
+    @apply inline-flex items-center gap-1 py-1;
+  }
+  .chat-typing span {
+    @apply block h-1.5 w-1.5 rounded-full bg-slate-400;
+    animation: chat-dot 1.2s ease-in-out infinite;
+  }
+  .chat-typing span:nth-child(2) { animation-delay: 0.18s; }
+  .chat-typing span:nth-child(3) { animation-delay: 0.36s; }
+
+  /* ── Chat input bar ────────────────────────────────────────────────── */
+  .chat-input-bar {
+    @apply shrink-0 flex items-end gap-2 border-t border-surface-700 bg-surface-900 px-3 py-3;
+    padding-bottom: max(12px, env(safe-area-inset-bottom, 0px));
+  }
+
+  .chat-input-field {
+    @apply flex-1 rounded-2xl border border-surface-600 bg-surface-800 px-4 py-3 text-sm text-slate-100 placeholder-slate-500 outline-none resize-none;
+    max-height: 128px;
+    line-height: 1.5;
+    transition: border-color 0.15s;
+  }
+  .chat-input-field:focus {
+    @apply border-brand-500;
+    box-shadow: 0 0 0 3px rgb(59 130 246 / 0.12);
+  }
+  .chat-input-field:disabled { @apply opacity-50; }
+
+  .chat-mic-btn {
+    @apply relative flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-surface-600 bg-surface-700 transition;
+  }
+  .chat-mic-btn:not([disabled]):hover { @apply border-brand-500/50 text-slate-200; }
+
+  .chat-send-btn {
+    @apply flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-brand-600 bg-brand-600 text-white transition;
+  }
+  .chat-send-btn:not([disabled]):hover { @apply bg-brand-700 border-brand-700; }
+  .chat-send-btn:disabled { @apply opacity-40 cursor-not-allowed; }
+}
+
+/* ── Lottie avatar wrapper + state rings ──────────────────────────────── */
+
+@layer components {
+  /* Outer container — clips Lottie, anchors rings */
+  .avatar-root {
+    @apply relative shrink-0 rounded-full overflow-visible;
+  }
+
+  /* Base ring — absolutely covers the avatar bounds */
+  .avatar-ring {
+    @apply absolute inset-0 rounded-full pointer-events-none;
+    border: 2px solid #3b82f6;
+  }
+
+  /* Idle: single ring that slowly breathes (opacity + scale) */
+  .avatar-ring-breathe {
+    animation: avatar-breathe 3s ease-in-out infinite;
+  }
+
+  /* Listening: ring expands outward and fades */
+  .avatar-ring-ripple {
+    animation: avatar-ripple 1.8s ease-out infinite;
+  }
+
+  /* Thinking: spinning dashed arc */
+  .avatar-ring-spin {
+    border-style: dashed;
+    border-color: #3b82f6;
+    border-width: 2px;
+    animation: avatar-spin 1.1s linear infinite;
+  }
+}
+
+/* Idle breathe */
+@keyframes avatar-breathe {
+  0%, 100% { opacity: 0.3;  transform: scale(1); }
+  50%       { opacity: 0.75; transform: scale(1.08); }
+}
+
+/* Listening ripple — ring expands and fades */
+@keyframes avatar-ripple {
+  0%   { transform: scale(1);    opacity: 0.6; }
+  100% { transform: scale(1.55); opacity: 0; }
+}
+
+/* Thinking spin */
+@keyframes avatar-spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+/* Chat typing dots bounce */
+@keyframes chat-dot {
+  0%, 60%, 100% { transform: translateY(0);    opacity: 0.35; }
+  30%           { transform: translateY(-5px); opacity: 1;    }
 }

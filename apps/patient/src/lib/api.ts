@@ -104,6 +104,61 @@ export async function checkEmergency(opts: EmergencyCheckOptions): Promise<Emerg
   };
 }
 
+// ---------- chat (conversational AI) -------------------------------------
+
+export interface ChatStreamEvent {
+  type: 'meta' | 'token' | 'done' | 'error' | string;
+  data: Record<string, any>;
+}
+
+export async function* streamChatRequest(
+  message: string,
+  sessionId: string | undefined,
+  language: string,
+  signal?: AbortSignal,
+): AsyncGenerator<ChatStreamEvent> {
+  const res = await fetch(`${BASE}/api/chat/stream`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ message, sessionId, language, useRag: true }),
+    signal,
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  if (!res.body) throw new Error('No response body');
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+
+      // SSE messages are separated by double newline
+      const parts = buffer.split('\n\n');
+      buffer = parts.pop() ?? '';
+
+      for (const part of parts) {
+        if (!part.trim()) continue;
+        let eventType = 'message';
+        let dataStr = '';
+        for (const line of part.split('\n')) {
+          if (line.startsWith('event: ')) eventType = line.slice(7).trim();
+          if (line.startsWith('data: '))  dataStr   = line.slice(6).trim();
+        }
+        if (dataStr) {
+          try { yield { type: eventType, data: JSON.parse(dataStr) }; }
+          catch { /* malformed — skip */ }
+        }
+      }
+    }
+  } finally {
+    reader.releaseLock();
+  }
+}
+
 // ---------- transcribe (voice) --------------------------------------------
 
 export async function transcribeAudio(blob: Blob, language?: string): Promise<string> {

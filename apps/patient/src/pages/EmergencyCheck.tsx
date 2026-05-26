@@ -58,7 +58,8 @@ export default function EmergencyCheck() {
   const meta = result ? LEVEL_CONFIG[result.level] : null;
 
   return (
-    <div className="space-y-5">
+    <div className="flex-1 overflow-y-auto overscroll-contain">
+    <div className="px-4 py-5 space-y-5 max-w-2xl mx-auto">
       <div>
         <h1 className="text-xl font-semibold text-white">Is this an emergency?</h1>
         <p className="mt-1 text-sm text-slate-400">
@@ -162,6 +163,7 @@ export default function EmergencyCheck() {
           )}
         </div>
       )}
+    </div>
     </div>
   );
 }
