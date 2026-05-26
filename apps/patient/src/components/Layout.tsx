@@ -1,12 +1,14 @@
 import { type ReactNode, useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { MessageCircle, Activity, Globe2, Heart, History, Settings } from 'lucide-react';
+import { MessageCircle, Activity, Globe2, Heart, History, Settings, MapPin, FolderOpen } from 'lucide-react';
 import { useAppStore } from '@/store/app';
 import { getHealth } from '@/lib/api';
 
 const TABS = [
   { to: '/',          label: 'Chat',      Icon: MessageCircle, exact: true },
+  { to: '/find-care', label: 'Find Care', Icon: MapPin,        exact: false },
   { to: '/emergency', label: 'Emergency', Icon: Activity,      exact: false },
+  { to: '/records',   label: 'Records',   Icon: FolderOpen,    exact: false },
   { to: '/settings',  label: 'Settings',  Icon: Settings,      exact: false },
 ];
 
