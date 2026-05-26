@@ -1,6 +1,6 @@
 import { type ReactNode, useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { MessageCircle, Activity, Globe2, Heart, History, Settings, MapPin, FolderOpen } from 'lucide-react';
+import { MessageCircle, Activity, Heart, History, Settings, MapPin, FolderOpen } from 'lucide-react';
 import { useAppStore } from '@/store/app';
 import { getHealth } from '@/lib/api';
 
@@ -13,16 +13,13 @@ const TABS = [
 ];
 
 export default function Layout({ children }: { children: ReactNode }) {
-  const { language, setLanguage, fontSize } = useAppStore();
+  const { fontSize } = useAppStore();
   const location = useLocation();
   const [online, setOnline] = useState<boolean | null>(null);
 
   useEffect(() => {
     getHealth().then(() => setOnline(true)).catch(() => setOnline(false));
   }, []);
-
-  // Only show language picker on non-settings pages (settings has it inline)
-  const isSettings = location.pathname === '/settings';
 
   // Apply fontSize to the whole app via a CSS class on body
   useEffect(() => {
@@ -42,39 +39,24 @@ export default function Layout({ children }: { children: ReactNode }) {
           </span>
         </Link>
 
-        <div className="flex items-center gap-2.5 shrink-0">
+        <div className="flex items-center gap-3 shrink-0">
           <div
             title={online === null ? 'Connecting…' : online ? 'Connected' : 'Offline'}
             className={`h-1.5 w-1.5 rounded-full ${
               online === null ? 'bg-slate-500' : online ? 'bg-ok-500' : 'bg-danger-500'
             }`}
           />
-          {/* History icon */}
           <Link
             to="/history"
             title="Chat History"
-            className={`flex items-center justify-center rounded-lg p-1.5 transition-colors ${
+            className={`flex items-center justify-center rounded-lg p-1 transition-colors ${
               location.pathname === '/history'
                 ? 'text-brand-400'
-                : 'text-slate-500 hover:text-slate-300'
+                : 'text-slate-400 hover:text-slate-200'
             }`}
           >
-            <History size={16} />
+            <History size={20} />
           </Link>
-          {!isSettings && (
-            <div className="flex items-center gap-1">
-              <Globe2 size={13} className="text-slate-500" />
-              <select
-                className="bg-transparent text-xs text-slate-400 outline-none cursor-pointer max-w-[80px]"
-                value={language}
-                onChange={(e) => setLanguage(e.target.value)}
-              >
-                {['English','Spanish','French','Portuguese','Arabic','Hindi','Bengali','Urdu','Swahili','Amharic','Hausa','Uzbek','Russian','Chinese','Indonesian','Turkish'].map((l) => (
-                  <option key={l} value={l} className="bg-surface-800 text-slate-100">{l}</option>
-                ))}
-              </select>
-            </div>
-          )}
         </div>
       </header>
 
