@@ -12,11 +12,12 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@medaccess/shared": "workspace:*",
     "@medaccess/db": "workspace:*",
+    "@medaccess/shared": "workspace:*",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
     "express": "^4.21.1",
+    "livekit-server-sdk": "^2.15.3",
     "multer": "^1.4.5-lts.1",
     "openai": "^4.73.0",
     "zod": "^3.23.8"

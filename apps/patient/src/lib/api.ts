@@ -104,6 +104,31 @@ export async function checkEmergency(opts: EmergencyCheckOptions): Promise<Emerg
   };
 }
 
+// ---------- voice mode (LiveKit) ─────────────────────────────────────
+
+export interface VoiceToken {
+  token: string;
+  url: string;
+  room: string;
+  identity: string;
+}
+
+export async function getVoiceToken(sessionId?: string): Promise<VoiceToken> {
+  const res = await fetch(`${BASE}/api/voice/token`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ sessionId }),
+  });
+  if (!res.ok) throw await safeError(res);
+  return res.json();
+}
+
+export async function getVoiceStatus(): Promise<{ configured: boolean }> {
+  const res = await fetch(`${BASE}/api/voice/status`);
+  if (!res.ok) return { configured: false };
+  return res.json();
+}
+
 // ---------- session load (for history resume) ─────────────────────────
 
 export interface StoredMessage {

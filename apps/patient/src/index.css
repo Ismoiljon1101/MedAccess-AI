@@ -187,6 +187,72 @@ html.text-size-lg .chat-bubble { font-size: 1rem; }
   to   { transform: rotate(360deg); }
 }
 
+/* ── Voice Mode ────────────────────────────────────────────────────────── */
+
+@layer components {
+  .voice-layout {
+    @apply flex flex-1 flex-col overflow-hidden min-h-0 relative;
+  }
+
+  .voice-header {
+    @apply flex shrink-0 items-center justify-between px-4 py-3 border-b border-surface-700;
+  }
+
+  .voice-close-btn {
+    @apply flex h-9 w-9 items-center justify-center rounded-full border border-surface-600 bg-surface-700 text-slate-400 hover:text-slate-200 transition;
+  }
+
+  .voice-mute-btn {
+    @apply flex h-9 w-9 items-center justify-center rounded-full border border-surface-600 bg-surface-700 transition hover:border-brand-500/50;
+  }
+
+  /* Centre area — avatar + status */
+  .voice-avatar-area {
+    @apply flex flex-1 flex-col items-center justify-center px-6 min-h-0;
+  }
+
+  .voice-subtitles {
+    @apply shrink-0 max-h-36 overflow-y-auto;
+  }
+
+  .voice-controls {
+    @apply shrink-0 flex flex-col items-center py-8;
+    padding-bottom: max(32px, env(safe-area-inset-bottom, 0px));
+  }
+
+  /* Big mic button */
+  .voice-mic-btn {
+    @apply flex h-20 w-20 items-center justify-center rounded-full border-2 border-brand-500 bg-brand-600/20 text-brand-400 transition;
+    box-shadow: 0 0 0 0 rgb(59 130 246 / 0.4);
+  }
+  .voice-mic-btn:not(:disabled):hover {
+    @apply bg-brand-600/30 border-brand-400;
+  }
+  .voice-mic-btn:disabled {
+    @apply opacity-40 cursor-not-allowed;
+  }
+  .voice-mic-active {
+    @apply border-danger-400 bg-danger-500/20 text-danger-400;
+    animation: mic-pulse 1.5s ease-in-out infinite;
+  }
+}
+
+/* Waveform bar animation */
+@keyframes waveform {
+  0%, 100% { height: 4px;  opacity: 0.5; }
+  50%       { height: 20px; opacity: 1;   }
+}
+.waveform-bar {
+  animation: waveform 0.8s ease-in-out infinite;
+}
+
+/* Mic active pulse ring */
+@keyframes mic-pulse {
+  0%   { box-shadow: 0 0 0 0   rgb(239 68 68 / 0.4); }
+  70%  { box-shadow: 0 0 0 16px rgb(239 68 68 / 0);   }
+  100% { box-shadow: 0 0 0 0   rgb(239 68 68 / 0);   }
+}
+
 /* Chat typing dots bounce */
 @keyframes chat-dot {
   0%, 60%, 100% { transform: translateY(0);    opacity: 0.35; }

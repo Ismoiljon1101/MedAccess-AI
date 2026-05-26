@@ -15,6 +15,7 @@ import symptomsRouter from './routes/symptoms.js';
 import triageRouter from './routes/triage.js';
 import reportsRouter from './routes/reports.js';
 import transcribeRouter from './routes/transcribe.js';
+import voiceRouter from './routes/voice.js';
 import { errorHandler, notFoundHandler } from './middleware/error.js';
 import { ragStatus } from './services/rag.js';
 import { defaultChatModel } from './services/llm.js';
@@ -53,6 +54,7 @@ app.use('/api/symptoms', symptomsRouter);
 app.use('/api/triage', triageRouter);
 app.use('/api/reports', reportsRouter);
 app.use('/api/transcribe', transcribeRouter);
+app.use('/api/voice', voiceRouter);
 
 app.use(notFoundHandler);
 app.use(errorHandler);
