@@ -1,13 +1,11 @@
 import { type ReactNode, useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { MessageCircle, Activity, Globe2, Heart, FileImage, History, Settings } from 'lucide-react';
+import { MessageCircle, Activity, Globe2, Heart, History, Settings } from 'lucide-react';
 import { useAppStore } from '@/store/app';
 import { getHealth } from '@/lib/api';
 
 const TABS = [
   { to: '/',          label: 'Chat',      Icon: MessageCircle, exact: true },
-  { to: '/history',   label: 'History',   Icon: History,       exact: false },
-  { to: '/reports',   label: 'Images',    Icon: FileImage,     exact: false },
   { to: '/emergency', label: 'Emergency', Icon: Activity,      exact: false },
   { to: '/settings',  label: 'Settings',  Icon: Settings,      exact: false },
 ];
@@ -49,6 +47,18 @@ export default function Layout({ children }: { children: ReactNode }) {
               online === null ? 'bg-slate-500' : online ? 'bg-ok-500' : 'bg-danger-500'
             }`}
           />
+          {/* History icon */}
+          <Link
+            to="/history"
+            title="Chat History"
+            className={`flex items-center justify-center rounded-lg p-1.5 transition-colors ${
+              location.pathname === '/history'
+                ? 'text-brand-400'
+                : 'text-slate-500 hover:text-slate-300'
+            }`}
+          >
+            <History size={16} />
+          </Link>
           {!isSettings && (
             <div className="flex items-center gap-1">
               <Globe2 size={13} className="text-slate-500" />
