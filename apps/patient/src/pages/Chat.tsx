@@ -1,8 +1,8 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { Mic, MicOff, Send, Phone, Plus, Headphones, BookText } from 'lucide-react';
+import { Mic, MicOff, Send, Phone, Plus, Headphones, BookText, Image as ImageIcon } from 'lucide-react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { AiAvatar, type AvatarState } from '@/components/AiAvatar';
-import { streamChatRequest, transcribeAudio, loadSession } from '@/lib/api';
+import { streamChatRequest, transcribeAudio, loadSession, analyzeReport } from '@/lib/api';
 import { useAppStore } from '@/store/app';
 
 interface RagCitation {
@@ -42,6 +42,7 @@ export default function Chat() {
 
   const bottomRef   = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
   const mediaRef    = useRef<MediaRecorder | null>(null);
   const chunksRef   = useRef<Blob[]>([]);
   const abortRef    = useRef<AbortController | null>(null);
@@ -228,6 +229,61 @@ export default function Chat() {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(input); }
   }
 
+  async function handleImageSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const userId = crypto.randomUUID();
+    const imageName = file.name || 'image.jpg';
+    const imageUrl = URL.createObjectURL(file);
+    setMessages((prev) => [...prev, {
+      id: userId,
+      role: 'user',
+      content: `[Uploaded: ${imageName}]`,
+    }]);
+
+    const aiId = crypto.randomUUID();
+    setMessages((prev) => [...prev, {
+      id: aiId,
+      role: 'assistant',
+      content: '',
+      streaming: true,
+    }]);
+
+    try {
+      const result = await analyzeReport(file, language, sessionId);
+      const analysisText = `
+**Medical Image Analysis:**
+- Type: ${result.imageType}
+- Quality: ${result.qualityNotes}
+
+**Key Observations:**
+${result.keyObservations.map((o) => `- ${o}`).join('\n')}
+
+**Findings:**
+${result.findings.map((f) => `- ${f.finding} (${f.confidence}): ${f.notes}`).join('\n')}
+
+**Suggested Follow-Up:**
+${result.suggestedFollowUp.map((s) => `- ${s}`).join('\n')}
+
+_${result.disclaimer}_
+      `.trim();
+
+      setMessages((prev) =>
+        prev.map((m) => (m.id === aiId ? { ...m, content: analysisText, streaming: false } : m)),
+      );
+
+      if (sessionId) persistSession(sessionId, 1);
+    } catch (err: any) {
+      setMessages((prev) =>
+        prev.map((m) => (m.id === aiId ? { ...m, content: `Error analyzing image: ${err.message}`, streaming: false } : m)),
+      );
+    } finally {
+      if (imageInputRef.current) imageInputRef.current.value = '';
+      bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
+  }
+
   function startNewChat() {
     abortRef.current?.abort();
     previewRef.current = '';
@@ -327,27 +383,33 @@ export default function Chat() {
 
       {/* ── Input bar ────────────────────────────────────────────── */}
       <div className="chat-input-bar">
+        {/* Image upload */}
+        <input
+          ref={imageInputRef}
+          type="file"
+          accept="image/*"
+          onChange={handleImageSelect}
+          className="hidden"
+          aria-label="Upload medical image"
+        />
         <button
           type="button"
-          onClick={toggleVoice}
-          aria-label={recording ? 'Stop recording' : 'Voice input'}
-          className={`chat-mic-btn ${recording ? 'border-danger-500/50 bg-danger-500/15 text-danger-400' : 'text-slate-400'}`}
+          onClick={() => imageInputRef.current?.click()}
+          aria-label="Upload image"
+          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-surface-600 bg-surface-700 text-slate-400 transition hover:border-brand-500/50 hover:text-slate-200"
         >
-          {recording ? <MicOff size={20} /> : <Mic size={20} />}
-          {recording && (
-            <span className="absolute -top-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-danger-500 border-2 border-surface-900" />
-          )}
+          <ImageIcon size={20} />
         </button>
 
         <textarea
           ref={textareaRef}
           className="chat-input-field"
           rows={1}
-          placeholder={recording ? 'Listening…' : 'Describe your symptoms…'}
+          placeholder="Describe your symptoms…"
           value={input}
           onChange={(e) => { setInput(e.target.value); resizeTextarea(); }}
           onKeyDown={handleKeyDown}
-          disabled={isThinking || recording}
+          disabled={isThinking}
         />
 
         {/* Voice mode button */}
