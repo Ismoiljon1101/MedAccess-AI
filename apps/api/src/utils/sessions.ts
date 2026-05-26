@@ -1,0 +1,68 @@
+import type { ChatMessage } from '@medaccess/shared';
+
+// Minimal in-memory session store for MVP.
+// Production should swap this for Redis with a TTL.
+
+const SESSION_TTL_MS = (Number(process.env.SESSION_TTL_MIN) || 60) * 60 * 1000;
+
+interface Session {
+  id: string;
+  messages: ChatMessage[];
+  createdAt: number;
+  updatedAt: number;
+}
+
+const store = new Map<string, Session>();
+
+function now(): number {
+  return Date.now();
+}
+
+function sweep(): void {
+  const cutoff = now() - SESSION_TTL_MS;
+  for (const [id, session] of store) {
+    if (session.updatedAt < cutoff) store.delete(id);
+  }
+}
+
+const timer = setInterval(sweep, 5 * 60 * 1000);
+timer.unref?.();
+
+export function newSessionId(): string {
+  return `s_${Math.random().toString(36).slice(2, 10)}${Date.now().toString(36)}`;
+}
+
+export function getSession(id: string | undefined): Session | null {
+  if (!id) return null;
+  const session = store.get(id);
+  if (!session) return null;
+  if (now() - session.updatedAt > SESSION_TTL_MS) {
+    store.delete(id);
+    return null;
+  }
+  return session;
+}
+
+export function ensureSession(id: string): Session {
+  const existing = getSession(id);
+  if (existing) return existing;
+  const fresh: Session = { id, messages: [], createdAt: now(), updatedAt: now() };
+  store.set(id, fresh);
+  return fresh;
+}
+
+export function appendMessage(id: string, message: ChatMessage): Session {
+  const session = ensureSession(id);
+  session.messages.push(message);
+  session.updatedAt = now();
+  store.set(id, session);
+  return session;
+}
+
+export function replaceMessages(id: string, messages: ChatMessage[]): Session {
+  const session = ensureSession(id);
+  session.messages = messages;
+  session.updatedAt = now();
+  store.set(id, session);
+  return session;
+}
