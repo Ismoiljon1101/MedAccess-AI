@@ -109,6 +109,54 @@ export const VisionAnalysisSchema = z.object({
   disclaimer: z.string(),
 });
 
+// ---------- Care Discovery -------------------------------------------
+
+/** Doctor summary returned inside ClinicResult / FacilityResult. */
+export const DoctorSummarySchema = z.object({
+  id:                  z.string(),
+  name:                z.string(),
+  specialty:           z.string(),
+  consultationMinutes: z.number().default(30),
+  languages:           z.array(z.string()).default([]),
+  bio:                 z.string().optional(),
+});
+
+/** Enrolled clinic in our network (Tier 1). */
+export const ClinicResultSchema = z.object({
+  id:               z.string(),
+  name:             z.string(),
+  city:             z.string().default(''),
+  country:          z.string().default(''),
+  address:          z.string().optional(),
+  phone:            z.string().optional(),
+  openingHours:     z.string().optional(),
+  lat:              z.number().optional(),
+  lng:              z.number().optional(),
+  offeredSpecialties: z.array(z.string()).default([]),
+  rating:           z.number().optional(),
+  avgWaitMinutes:   z.number().nullable().optional(),
+  distanceKm:       z.number().nullable().optional(),
+  enrolled:         z.boolean().default(true),
+  doctors:          z.array(DoctorSummarySchema).default([]),
+});
+
+/** Public map result from Google/Naver Places fallback (Tier 2). */
+export const MapPlaceSchema = z.object({
+  placeId:    z.string(),
+  name:       z.string(),
+  address:    z.string().optional(),
+  lat:        z.number(),
+  lng:        z.number(),
+  phone:      z.string().optional(),
+  rating:     z.number().optional(),
+  openNow:    z.boolean().optional(),
+  types:      z.array(z.string()).default([]),
+  distanceKm: z.number().nullable().optional(),
+  /** Deep-link URL for navigation (no API key needed). */
+  navUrl:     z.string(),
+  source:     z.enum(['google', 'naver', 'stub']).default('google'),
+});
+
 // ---------- Transcription --------------------------------------------
 
 export const TranscribeResponseSchema = z.object({
@@ -134,3 +182,6 @@ export type TriageResult = z.infer<typeof TriageResultSchema>;
 export type VisionFinding = z.infer<typeof VisionFindingSchema>;
 export type VisionAnalysis = z.infer<typeof VisionAnalysisSchema>;
 export type TranscribeResponse = z.infer<typeof TranscribeResponseSchema>;
+export type DoctorSummary = z.infer<typeof DoctorSummarySchema>;
+export type ClinicResult = z.infer<typeof ClinicResultSchema>;
+export type MapPlace = z.infer<typeof MapPlaceSchema>;

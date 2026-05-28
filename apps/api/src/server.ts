@@ -19,6 +19,7 @@ import voiceRouter from './routes/voice.js';
 import clinicsRouter from './routes/clinics.js';       // legacy referral API — kept for backward compat
 import facilitiesRouter from './routes/facilities.js'; // v0.2 facility/doctor/slot API
 import appointmentsRouter from './routes/appointments.js'; // v0.2 booking API
+import mapsRouter from './routes/maps.js';             // server-side Places proxy (API key never reaches browser)
 import { errorHandler, notFoundHandler } from './middleware/error.js';
 import { ragStatus } from './services/rag.js';
 import { defaultChatModel } from './services/llm.js';
@@ -61,6 +62,7 @@ app.use('/api/voice', voiceRouter);
 app.use('/api/clinics', clinicsRouter);           // legacy
 app.use('/api/facilities', facilitiesRouter);     // v0.2
 app.use('/api/appointments', appointmentsRouter); // v0.2
+app.use('/api/maps', mapsRouter);                 // server-side Places proxy
 
 app.use(notFoundHandler);
 app.use(errorHandler);

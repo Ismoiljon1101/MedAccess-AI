@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { Referral, dbReady } from '@medaccess/db';
+import { Referral, Doctor, dbReady } from '@medaccess/db';
 import { HttpError } from '../middleware/error.js';
 
 const router: Router = Router();
@@ -66,6 +66,50 @@ router.get('/', (req, res) => {
   }
 
   res.json({ clinics });
+});
+
+// ── GET /api/clinics/:id/doctors  ─────────────────────────────────────
+// Returns doctors for a clinic by matching clinicId to facilityId on Doctor model.
+// Falls back to seed data when DB unavailable.
+router.get('/:id/doctors', async (req, res, next) => {
+  try {
+    const clinicId = req.params.id;
+
+    if (dbReady()) {
+      // Clinic portal ID matches facilityId on Doctor documents
+      const docs = await Doctor.find({ facilityId: clinicId, active: true })
+        .select('name specialty consultationMinutes languages bio')
+        .lean();
+      return res.json({
+        clinicId,
+        doctors: docs.map((d) => ({
+          id:                  String(d._id),
+          name:                d.name,
+          specialty:           d.specialty,
+          consultationMinutes: d.consultationMinutes,
+          languages:           d.languages,
+          bio:                 d.bio,
+        })),
+      });
+    }
+
+    // In-memory fallback: pull doctors from facilities seed data
+    const { SEED_DOCTORS } = await import('./facilities.js');
+    const doctors = SEED_DOCTORS
+      .filter((d) => d.facilityId === clinicId)
+      .map((d) => ({
+        id:                  d.id,
+        name:                d.name,
+        specialty:           d.specialty,
+        consultationMinutes: d.consultationMinutes,
+        languages:           d.languages,
+        bio:                 d.bio,
+      }));
+    return res.json({ clinicId, doctors });
+
+  } catch (err) {
+    next(err);
+  }
 });
 
 // ── POST /api/referrals  ──────────────────────────────────────────────

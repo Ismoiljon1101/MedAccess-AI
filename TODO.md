@@ -23,7 +23,7 @@
 | Per-engineer agent files (`CLAUDE.md` + `docs/team/`) | ✅ Done |
 | Python image-ml sidecar (scaffold + contract) | ✅ Scaffold done · specialist models pending |
 | **Research folder** (`research/`) — Pareto disease + model + dataset survey | ✅ **Complete** ([`research/00-overview.md`](./research/00-overview.md)) |
-| Cheapest LLM switch — Qwen 3.6 Plus (free) | 📋 Todo (Ismail) |
+| Cheapest LLM switch — Qwen 3.x (qwen3.5-plus / qwen3.6-flash) | ✅ Done (Ismail) |
 | Patient image-quality guidance modal + checklist | 📋 Todo (Otabek, **research-confirmed REQUIRED, not optional**) |
 | Vision model upgrade (Sonnet 4.5) | ❌ **Cancelled** — going free-Chinese instead |
 | QA pass across both portals | 🚧 In progress (Mirsaid) |
@@ -119,17 +119,14 @@ Required components (Otabek):
 ## 3 · Per-Engineer Current Sprint (May 28 → Jun 9)
 
 ### Ismail
-1. **Switch all LLM defaults to cheapest Chinese / free models** — Qwen 3.6 Plus (free during preview) for chat + vision. Update `.env`:
-   - `OPENROUTER_CHAT_MODEL=qwen/qwen-3.6-plus` (verify exact OpenRouter slug)
-   - `OPENROUTER_FAST_MODEL=qwen/qwen-3.5-flash` ($0.065/$0.26)
-   - `OPENROUTER_VISION_MODEL=qwen/qwen-3.6-plus` if vision-capable, else next-cheapest Chinese vision model
-2. **Lead Pareto research** — fill in [`docs/research/01-pareto-diseases.md`](./docs/research/01-pareto-diseases.md) and downstream files. This unblocks Temirlan.
-3. Define Node ↔ Python image-ml HTTP contract (response shape stable, do not break).
-4. Wire `vision.ts` to call `services/image-ml` (feature-flagged by `IMAGE_ML_URL`) — after Temirlan ships first specialist model.
-5. Pair with Temirlan for first session on the Python sidecar — both must understand it.
-6. Review every PR touching `apps/api/`, `packages/shared/`, `packages/db/`.
-7. `pnpm typecheck` clean on all workspaces.
-8. Tag `v0.1.0` when DoD (§6) green.
+1. ✅ **Switch all LLM defaults to cheapest Chinese models** — `qwen3.5-plus-20260420` (chat/vision), `qwen3.6-flash` (fast/triage). All slugs verified on OpenRouter. `defaultFastModel()` added to `llm.ts`.
+2. ✅ **Lead Pareto research** — [`research/00-overview.md`](./research/00-overview.md) complete. Unblocked Temirlan.
+3. ✅ **Node ↔ Python image-ml HTTP contract** — defined in `vision.ts` (`MLFinding`, `MLAnalyzeResponse`), mirrored in `services/image-ml/main.py`. Contract stable.
+4. ✅ **Wire `vision.ts` → `services/image-ml`** — `analyzeImageFull()` runs LLM + sidecar in parallel, merges specialist findings. Feature-flagged by `IMAGE_ML_URL`.
+5. 📋 Pair with Temirlan for first session on the Python sidecar (in-person / call).
+6. 📋 Review every PR touching `apps/api/`, `packages/shared/`, `packages/db/`.
+7. ✅ `pnpm typecheck` clean on all workspaces.
+8. 📋 Tag `v0.1.0` when DoD (§6) green.
 
 ### Mirsaid
 1. OpenRouter credit ≥ $20 in account.
