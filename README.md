@@ -74,36 +74,52 @@ analyzes X-rays / ECGs / lab photos via multimodal vision.
 It is **not** a diagnostic device. It is the second pair of eyes a clinician
 working alone never had.
 
-### Two Portals, One API
+### Two Portals + One Shared API + Optional Python Sidecar
 
-| Portal | URL | Who it's for |
+| Service | URL | Who it's for |
 |---|---|---|
-| **`apps/clinic`** | `:5173` | Doctors, nurses, frontline clinicians — full clinical toolset, model picker, RAG citations, probability bars |
-| **`apps/patient`** | `:5174` | Patients — simplified symptom checker and emergency guide, plain language, no technical details |
-| **`apps/api`** | `:4000` | Shared backend serving both portals |
+| **`apps/clinic`** | `:5173` | Doctors, nurses, frontline clinicians — full clinical toolset + **Patients queue** for incoming referrals |
+| **`apps/patient`** | `:5174` | Patients — MA Agent chat, voice mode, image upload, Find Care booking, Records |
+| **`apps/api`** | `:4000` | Shared Node/Express backend serving both portals |
+| **`services/image-ml`** | `:5001` | **(optional)** Python FastAPI sidecar for specialist medical-image inference (skin lesions, chest X-ray). Node degrades gracefully if unset. |
 
-Both portals share the same API and `packages/shared` contract. The patient portal intentionally hides model selection, probability percentages — surfacing only plain-language results and urgency guidance.
+Both portals share the same API and `packages/shared` contract. The patient portal intentionally hides model selection and probability percentages — surfacing only plain-language results and urgency guidance.
 
-### Five Core Modules
+### The closed loop (what makes this not just a chatbot)
+
+```
+Patient: describes symptoms to MA Agent  →  Clinical Snapshot after ~3 turns
+       → "Find Care →" CTA appears (specialty + urgency pre-detected)
+       → Patient picks GPS-sorted clinic, books via bottom sheet
+       → Clinic portal /patients queue: urgency-badged referral with MA Agent summary
+       → Clinician confirms → patient sees confirmation
+```
+
+Most clinical-AI products stop at the read. We close the loop.
+
+### Seven Core Modules
 
 | # | Module | Portal | What it does |
 |---|---|---|---|
-| 1 | **MA Agent Chat** | Patient | Conversational health assistant — structured interview, image upload inline, RAG-grounded, citation chips, session history |
-| 2 | **Interview** | Clinic | Structured diagnostic intake for clinicians — one focused question at a time, RAG context, citation chips per turn |
-| 3 | **Symptom Analysis** | Clinic | Ranked differential (3–6 conditions) with calibrated probabilities, urgency level, red-flag callouts |
-| 4 | **Report Reading** | Both | Upload X-ray / ECG / lab photo → structured plain-language reading with findings + confidence levels |
-| 5 | **Triage** | Both | Manchester-style colors (RED → BLUE) with target time-to-care and immediate action list |
+| 1 | **MA Agent Chat** | Patient | Conversational health assistant — structured interview, image upload inline, RAG-grounded, citation chips, session history, Connect-to-Care CTA |
+| 2 | **Find Care + Booking** | Patient | GPS-sorted clinic list, specialty filter (pre-filled from MA Agent), in-app appointment request with MA summary attached |
+| 3 | **Patients Queue** | Clinic | Incoming referral queue with urgency badges (RED→GREEN), MA Agent summary, full session context, Confirm/Decline actions |
+| 4 | **Interview** | Clinic | Structured diagnostic intake for clinicians — one focused question at a time, RAG context, citation chips per turn |
+| 5 | **Symptom Analysis** | Clinic | Ranked differential (3–6 conditions) with calibrated probabilities, urgency level, red-flag callouts |
+| 6 | **Report Reading** | Both | Upload X-ray / ECG / lab / dermatology photo → structured plain-language reading. Hybrid: multimodal LLM + (optional) specialist CV models from `services/image-ml/` |
+| 7 | **Triage** | Both | Manchester-style colors (RED → BLUE) with target time-to-care and immediate action list |
 
-### Five Cross-cutting Differentiators
+### Seven Cross-cutting Differentiators
 
 | # | Differentiator | Why it matters |
 |---|---|---|
-| 1 | **MA Agent identity** | Patients talk to "MA Agent" — a named, trusted assistant. Refuses to reveal underlying model or provider. |
-| 2 | **Multilingual** (auto-detect, 17 surfaced) | The model mirrors the user's language. Hindi → Hindi, Uzbek → Uzbek. |
-| 3 | **Voice-first** | Full-screen immersive voice mode (LiveKit + Web Speech API) + inline mic in chat — zero API key needed for demos. |
-| 4 | **Multimodal vision** | Snap a photo of an ECG strip or chest X-ray directly in the chat — get a structured read inline. |
-| 5 | **Medical RAG** | Every chat turn grounded in 31 vetted clinical docs; sources surface as chips below each answer. |
-| 6 | **Installable PWA** | One tap on a phone → standalone app icon → works under spotty connectivity. |
+| 1 | **Closed patient → clinic loop** | Read isn't the product. Booking is. MA Agent's snapshot becomes a referral with one tap. |
+| 2 | **MA Agent identity** | Patients talk to "MA Agent" — a named, trusted assistant. System prompt refuses to reveal model/provider. |
+| 3 | **Multilingual** (auto-detect, 17 surfaced) | Model mirrors the user's language. Hindi → Hindi, Uzbek → Uzbek. |
+| 4 | **Voice-first** | Full-screen immersive voice mode (LiveKit + Web Speech API) + inline mic — zero API key needed for demos. |
+| 5 | **Hybrid multimodal vision** | Snap an X-ray or skin photo → generalist multimodal LLM **plus** (optional) specialist CV sidecar (`services/image-ml/`) for body-part accuracy. Both reads shown — disagreements flagged, never silently overridden. |
+| 6 | **Medical RAG** | Every chat turn grounded in 31 vetted clinical docs; sources surface as chips below each answer. |
+| 7 | **Installable PWA** | One tap on a phone → standalone app icon → works under spotty connectivity. |
 
 ---
 
@@ -150,11 +166,26 @@ pnpm dev:clinic   # Clinic portal only
 pnpm dev:patient  # Patient portal only
 ```
 
-- **Clinic portal** `http://localhost:5173` — dark dashboard with 4 module cards (Interview, Symptoms, Reports, Triage), model picker, RAG citations, probability bars.
-- **Patient portal** `http://localhost:5174` — MA Agent chat (streaming, voice, inline image upload), Find Care, Emergency triage, Records, Settings. Installable as PWA.
+- **Clinic portal** `http://localhost:5173` — dark dashboard with **Patients queue**, Interview, Symptoms, Reports, Triage, model picker, RAG citations, probability bars.
+- **Patient portal** `http://localhost:5174` — MA Agent chat (streaming, voice, inline image upload, Connect-to-Care CTA), Find Care + booking, Emergency triage, Records, Settings. Installable as PWA.
 
 To install as a PWA: open either site in Chrome on your phone (or desktop) →
 address-bar "Install" icon → done.
+
+### Optional: run the Python image-ml sidecar
+
+```bash
+cd services/image-ml
+python -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\activate
+pip install -r requirements.txt
+uvicorn main:app --reload --port 5001
+```
+
+Then add `IMAGE_ML_URL=http://localhost:5001` to your root `.env`. If unset, the Node API runs the multimodal LLM only — no breakage.
+
+### Team workflow (5 engineers, role-based agent files)
+
+When any team member starts a Claude Code / Cursor / Codex session in this repo, the agent reads [`CLAUDE.md`](./CLAUDE.md) and asks: *"Which team member am I helping?"* It then loads the matching file from [`docs/team/`](./docs/team/) — scoping permissions, escalation rules, and current sprint tasks per person. See [`TODO.md`](./TODO.md) §2 for ownership.
 
 ---
 
@@ -168,42 +199,43 @@ address-bar "Install" icon → done.
                ▼                                                   ▼
 ┌─────────────────────────────────┐         ┌──────────────────────────────────┐
 │  apps/clinic  :5173             │         │  apps/patient  :5174             │
-│  (Vite + React + TS)            │         │  (Vite + React + TS)             │
-│  ── Sidebar · Header            │         │  ── MA Agent (named identity)    │
-│  ── Model picker (8 models)     │         │  ── No model picker exposed      │
-│  ── Pages: Home · Interview     │         │  ── Pages: Chat · VoiceMode      │
-│       Symptoms · Reports        │         │       EmergencyCheck · FindCare  │
-│       Triage                    │         │       MyRecords · Settings       │
-│  ── RAG citations visible       │         │  ── Citation chips under replies │
-│  ── Probability % bars          │         │  ── No % bars                    │
-│  ── VoiceButton                 │         │  ── Inline image upload in chat  │
+│  (Vite + React + TS)            │         │  (Vite + React + TS, PWA)        │
+│  ── Pages: Home · Patients ★    │         │  ── MA Agent (named identity)    │
+│       Interview · Symptoms      │         │  ── Pages: Chat · VoiceMode      │
+│       Reports · Triage          │         │       EmergencyCheck · FindCare ★│
+│  ── RAG citations + % bars      │         │       MyRecords · Settings       │
+│  ── Confirm/Decline referrals ★ │         │  ── Connect-to-Care CTA ★        │
+│                                 │         │  ── Booking bottom sheet ★       │
 └──────────────┬──────────────────┘         └──────────────┬───────────────────┘
                │   /api/*  (Vite proxy → :4000)            │   /api/*
                └──────────────────────┬────────────────────┘
                                        ▼
 ┌─────────────────────────────────────────────────────────────────────────────────┐
 │                              apps/api  :4000  (Express + TS)                     │
-│                                                                                  │
-│   routes/  ── chat (+stream) · symptoms · triage · reports · transcribe · voice │
+│   routes/                                                                        │
+│     chat (+stream) · symptoms · triage · reports · transcribe · voice           │
+│     clinics + clinics/referrals ★ (GET / POST / PATCH)                          │
 │   services/                                                                      │
-│      ├── llm.ts          → OpenRouter (OpenAI SDK, baseURL swap)                │
-│      ├── vision.ts       → multimodal image → structured JSON                   │
-│      ├── transcribe.ts   → OpenAI Whisper (optional key)                        │
-│      └── rag.ts          → BM25 over 31 seed clinical docs                      │
-│   middleware/  ── error · upload (multer)                                        │
-│   utils/       ── sessions (in-memory + TTL)                                    │
-│   packages/db  ── MongoDB + Mongoose (Interview model, fire-and-forget)         │
-└──────────────────────────┬──────────────────────────────┬───────────────────────┘
-                            │                              │
-                            ▼                              ▼
-               ┌────────────────────┐           ┌──────────────────┐
-               │  OpenRouter API    │           │  OpenAI Whisper  │
-               │  (one key,         │           │  (optional)      │
-               │   any model)       │           └──────────────────┘
-               └────────────────────┘
-                            │
+│     llm.ts        → OpenRouter (OpenAI SDK, baseURL swap)                       │
+│     vision.ts     → multimodal LLM + (optional) image-ml sidecar merge ★        │
+│     transcribe.ts → OpenAI Whisper (optional)                                   │
+│     rag.ts        → BM25 over 31 seed clinical docs                             │
+│   middleware/ error · upload (multer)                                            │
+│   utils/      sessions (in-memory + TTL)                                        │
+└──────────┬─────────────────────────┬────────────────────────┬──────────────────┘
+           │                          │                         │
+           ▼                          ▼                         ▼
+  ┌────────────────┐      ┌──────────────────────┐    ┌──────────────────────┐
+  │  packages/db   │      │   OpenRouter API     │    │ services/image-ml ★  │
+  │  MongoDB +     │      │   (one key,          │    │ Python FastAPI :5001 │
+  │  Mongoose      │      │    any model)        │    │ YOLOv8-HAM10000,     │
+  │  + Referral ★  │      └──────────────────────┘    │ TorchXRayVision,     │
+  └────────────────┘             │                    │ EyePACS DR (planned) │
+                                  ▼                    └──────────────────────┘
    anthropic/claude-sonnet-4.5  ·  openai/gpt-4o  ·  google/gemini-2.0-flash
-   meta-llama/llama-3.3-70b:free  ·  deepseek/deepseek-r1:free  ·  + more
+   meta-llama/llama-3.3-70b:free  ·  deepseek/deepseek-r1:free  ·  + 50 more
+
+★ = added since v0.0 — the patient → clinic loop, image-ml sidecar, and persistent referrals.
 ```
 
 ### Single Source of Truth
@@ -227,7 +259,7 @@ Our frontend UI architecture implements the **Atomic Design methodology** to org
 - **Atoms:** `TriageBadge` · `ProbabilityBar` · `VoiceButton` · `AiAvatar` (Lottie, 3 states)
 - **Molecules:** `MessageBubble` · `CitationList`
 - **Organisms:** `Header` · `Sidebar` · `Disclaimer` · `Layout`
-- **Pages (Clinic):** `Home` · `Interview` · `Symptoms` · `Reports` · `Triage`
+- **Pages (Clinic):** `Home` · `Patients` · `Interview` · `Symptoms` · `Reports` · `Triage`
 - **Pages (Patient):** `Chat` · `VoiceMode` · `EmergencyCheck` · `FindCare` · `MyRecords` · `History` · `Settings`
 
 ### Request Lifecycle (Symptom Analysis example)
@@ -249,10 +281,14 @@ Our frontend UI architecture implements the **Atomic Design methodology** to org
 
 | File | Description |
 |---|---|
-| [`docs/ER_model.mmd`](./docs/ER_model.mmd) | Full ER diagram — post-MVP database schema (Mermaid) |
-| [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md) | Layered system architecture with Mermaid diagram |
-| [`docs/ER_MODEL.md`](./docs/ER_MODEL.md) | ER model with annotations, migration path from MVP |
-| [`TODO.md`](./TODO.md) | Sprint tracker, acceptance criteria, risk log |
+| [`CLAUDE.md`](./CLAUDE.md) · [`AGENTS.md`](./AGENTS.md) · [`.cursorrules`](./.cursorrules) | Cross-IDE agent router — identity check + per-engineer scoping |
+| [`docs/team/`](./docs/team/) | Per-engineer files (Ismail, Mirsaid, Temirlan, Otabek, Sobirov) — role, lane, owned files, sprint tasks |
+| [`docs/qa/issues.md`](./docs/qa/issues.md) | QA bug inbox (Mirsaid files, engineers pull) |
+| [`docs/architecture/image-pipeline.md`](./docs/architecture/image-pipeline.md) | Hybrid LLM + specialist CV pipeline design |
+| [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md) | Layered system architecture |
+| [`docs/ER_MODEL.md`](./docs/ER_MODEL.md) · [`docs/ER_model.mmd`](./docs/ER_model.mmd) | Database schema + Mermaid diagram |
+| [`services/image-ml/README.md`](./services/image-ml/README.md) | Python sidecar service spec |
+| [`TODO.md`](./TODO.md) | Sprint tracker, ownership, acceptance criteria, risk log |
 
 ---
 
@@ -277,8 +313,9 @@ Our frontend UI architecture implements the **Atomic Design methodology** to org
 | **Avatar** | Lottie (`lottie-react`) | Animated doctor avatar, 3 states: idle / listening / thinking |
 | **RAG** | BM25 over **31 seed docs** | Zero infra; covers 25+ clinical topics; embeddings deferred |
 | **Sessions** | In-memory map + TTL sweep | Zero infra; Redis deferred |
-| **Persistence** | MongoDB + Mongoose (`packages/db`) | Fire-and-forget; app works even if DB is down |
-| **Tooling** | tsx (dev), tsc (build) | Single-file dev loop |
+| **Persistence** | MongoDB + Mongoose (`packages/db`) | Fire-and-forget; app works even if DB is down. Includes `Referral` model for the patient → clinic loop. |
+| **Image ML (specialist)** | Python + FastAPI + PyTorch + OpenCV in `services/image-ml/` | YOLOv8 / TorchXRayVision for body-part accuracy that generic multimodal LLMs cannot match. Optional sidecar — Node degrades gracefully. |
+| **Tooling** | tsx (dev), tsc (build), uvicorn (Python dev) | Single-file dev loop per service |
 
 ---
 
@@ -469,6 +506,37 @@ Requires `OPENAI_API_KEY`.
 ### `GET /api/transcribe/status`
 Returns `{ available: boolean, provider: 'openai-whisper' | 'web-speech-api-fallback' }`.
 
+### `GET /api/clinics?lat=&lng=&specialty=`
+Returns clinics sorted by Haversine distance, optionally filtered by specialty.
+```json
+{ "clinics": [{ "id": "c1", "name": "City General Outpatient", "specialty": ["..."], "distanceKm": 1.5, "waitMinutes": 15, "available": true, "...": "..." }] }
+```
+
+### `POST /api/clinics/referrals`
+Patient books an appointment from Find Care.
+```json
+{
+  "sessionId": "ses_abc", "patientName": "Aisha K.", "patientPhone": "+1 555 0100",
+  "clinicId": "c1", "clinicName": "City General", "specialty": "Cardiology",
+  "urgency": "urgent", "summary": "Crushing chest pain, 45M, 30min onset",
+  "preferredTime": "Today afternoon"
+}
+```
+Returns `{ referralId, status: 'pending', message }`.
+
+### `GET /api/clinics/referrals`
+Clinic portal pulls the patient queue. Returns `{ referrals: [...] }`.
+
+### `PATCH /api/clinics/referrals/:id`
+Clinician confirms or cancels. Body `{ status: 'confirmed' | 'cancelled' | 'pending' }`.
+
+### Python sidecar (separate process, optional)
+
+| Endpoint | Notes |
+|---|---|
+| `GET  http://localhost:5001/healthz` | Liveness + loaded models list |
+| `POST http://localhost:5001/analyze` | Multipart `image` + optional `hint` (`skin`/`xray`/`eye`). Returns structured `findings` or `skipped: true`. Contract in [`services/image-ml/README.md`](./services/image-ml/README.md). |
+
 ---
 
 ## Environment Variables
@@ -490,6 +558,7 @@ All env vars live in a **single `.env` at the repo root**. Copy from `.env.examp
 | `LIVEKIT_URL` | no | — | `wss://your-project.livekit.cloud` — enables LiveKit voice mode |
 | `LIVEKIT_API_KEY` | no | — | From LiveKit dashboard |
 | `LIVEKIT_API_SECRET` | no | — | From LiveKit dashboard |
+| `IMAGE_ML_URL` | no | — | e.g. `http://localhost:5001`. Enables Python image-ml sidecar. Unset = LLM-only image analysis. |
 | `PORT` | no | `4000` | API port |
 | `CORS_ORIGIN` | no | `http://localhost:5173` | Comma-separate for multiple ports |
 | `MAX_UPLOAD_MB` | no | `15` | Image / audio size cap |
@@ -587,10 +656,12 @@ they are conscious cuts to ship a credible demo in 14 days.
 | RAG | Embeddings + pgvector; ingest WHO / MSF / CDC corpus (~5k docs) |
 | EHR | HL7 / FHIR write-back of clinician-signed summaries |
 | Auth | Clinician auth, RBAC, multi-tenant clinics |
-| Models | Evaluate fine-tuned medical models (Med-PaLM, Apollo) |
+| Models (text) | Evaluate fine-tuned medical models (Med-PaLM, Apollo) |
+| Models (image) | Wire in chest X-ray (TorchXRayVision), DR (EyePACS), brain MRI lesion detection. GPU inference. |
 | Mobile | React Native port (PWA-shared 70%+ of code) |
 | Imaging | DICOM upload; PDF lab parsing |
 | Voice | Text-to-speech read-back; on-device Whisper.cpp for offline STT |
+| Loop closure | SMS / push when clinician confirms referral; in-app messaging clinic ↔ patient |
 | Observability | OpenTelemetry traces, cost-per-session dashboard |
 | Testing | Playwright E2E, Vitest unit, k6 load |
 
@@ -621,11 +692,23 @@ The E2E test suite (Playwright) is in the [deferred list](#roadmap--deferred-wor
 The live task tracker is [TODO.md](./TODO.md). It lists every task, owner,
 acceptance criterion, risk, and deferred item.
 
+### Team (5 engineers, scoped via per-engineer agent files)
+
+| Member | Role | File |
+|---|---|---|
+| **Ismail** | CTO — architecture, integrations, system prompts, releases | [`docs/team/ismail.md`](./docs/team/ismail.md) |
+| **Mirsaid** | Ops + QA — API keys, MongoDB Atlas, LiveKit, manual QA inbox | [`docs/team/mirsaid.md`](./docs/team/mirsaid.md) |
+| **Temirlan** | Python ML — `services/image-ml/` specialist medical-image models | [`docs/team/temirlan.md`](./docs/team/temirlan.md) |
+| **Otabek** | TS shipper — patient + clinic UI features, polish, PWA | [`docs/team/otabek.md`](./docs/team/otabek.md) |
+| **Sobirov** | Freshman (guided) — screenshots, copy, accessibility, SEV-3/4 bugs | [`docs/team/sobirov.md`](./docs/team/sobirov.md) |
+
+Any AI coding agent in this repo asks *"which team member am I helping?"* on first turn (per [`CLAUDE.md`](./CLAUDE.md)), then loads the matching file. This gives each engineer the right scope, escalation rules, and current sprint tasks automatically.
+
 **Branching:** feature branches → PR into `develop` → squash-merge. Tag
 `v0.1.0` from `develop`, then merge to `main` at submission.
 
 **Commits:** [Conventional Commits](https://www.conventionalcommits.org/)
-(`feat(web): ...`, `fix(api): ...`, `docs: ...`, `chore: ...`).
+(`feat(api): ...`, `fix(patient): ...`, `docs: ...`, `chore: ...`).
 
 ---
 
