@@ -402,3 +402,61 @@ export async function transcribeAudio(blob: Blob, language?: string): Promise<st
   const data = await res.json();
   return data.text as string;
 }
+
+// ---------- maps proxy (Tier 2 facility fallback) -------------------------
+
+export interface MapPlace {
+  placeId: string;
+  name: string;
+  address?: string;
+  lat: number;
+  lng: number;
+  phone?: string;
+  rating?: number;
+  openNow?: boolean;
+  types: string[];
+  distanceKm?: number | null;
+  navUrl: string;
+  source: 'google' | 'naver' | 'stub';
+}
+
+export interface MapNearbyResult {
+  places: MapPlace[];
+  source: string;
+  total?: number;
+  message?: string; // present in stub mode
+}
+
+export async function searchMapNearby(opts: {
+  lat: number;
+  lng: number;
+  type?: string;
+  radius?: number;
+  keyword?: string;
+}): Promise<MapNearbyResult> {
+  const params = new URLSearchParams({
+    lat:    String(opts.lat),
+    lng:    String(opts.lng),
+    type:   opts.type   || 'hospital',
+    radius: String(opts.radius || 5000),
+  });
+  if (opts.keyword) params.set('keyword', opts.keyword);
+  const res = await fetch(`${BASE}/api/maps/nearby?${params}`);
+  if (!res.ok) throw await safeError(res);
+  return res.json();
+}
+
+/** Returns a navigation deep-link URL (Google or Naver by locale). */
+export async function getNavLink(lat: number, lng: number, name: string, locale?: string): Promise<string> {
+  const params = new URLSearchParams({ lat: String(lat), lng: String(lng), name });
+  if (locale) params.set('locale', locale);
+  try {
+    const res = await fetch(`${BASE}/api/maps/navlink?${params}`);
+    if (!res.ok) throw new Error('navlink failed');
+    const data = await res.json();
+    return data.url as string;
+  } catch {
+    // Fallback: inline Google Maps direction URL (no API key needed)
+    return `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
+  }
+}
