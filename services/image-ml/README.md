@@ -67,14 +67,17 @@ Multipart form: `image` (file, required), `hint` (string, optional — one of `s
 
 ## Roadmap (Temirlan's sprint)
 
-| Phase | Model | Dataset | Target accuracy |
-|---|---|---|---|
-| **1. Skin lesions** (ship first — most photogenic for demo) | YOLOv8 fine-tuned | HAM10000 (7 classes) | ≥ 90% top-3 |
-| **2. Chest X-ray** | TorchXRayVision DenseNet121 | CheXpert (14 pathologies) | ≥ 0.85 AUROC avg |
-| **3. Diabetic retinopathy** | ResNet50 transfer | EyePACS | ≥ 88% binary referable |
-| **4. Image triage** | Small CNN or LLM call | curated mixed set | ≥ 95% routing accuracy |
+**Research locked** (see [`research/00-overview.md`](../../research/00-overview.md) + [`research/Medical ML for Rural Settings.md`](../../research/Medical%20ML%20for%20Rural%20Settings.md)):
 
-Eval results go into `services/image-ml/eval/results.md` — committed alongside model code so reviewers can verify claims.
+| Phase | Disease | Model | Dataset | License | Target accuracy | Status |
+|---|---|---|---|---|---|---|
+| **1. Malaria** (ship first — MIT, fastest inference) | Malaria smear | YOLOv8n-Malaria | NIH Thin Blood Smear | MIT ✅ | ≥ 96% sensitivity | 🔲 Todo |
+| **2. Pneumonia** (coordinate with Otabek on X-ray alignment UI) | Pneumonia | TorchXRayVision DenseNet121 | VinDr-CXR + CheXpert + MIMIC-CXR + PadChest | Apache 2.0 ✅ | ≥ 0.85 AUROC | 🔲 Todo |
+| **3. Skin lesions** (non-commercial pilot only) | Skin/melanoma | YOLOv8n-cls + CLAHE | HAM10000 (7 classes) | CC BY-NC ⚠️ | ≥ 91% top-3 (w/ CLAHE) | 🔲 Todo |
+| *Defer v0.1* | Diabetic retinopathy | ResNet50-DR | EyePACS + APTOS + Messidor | Non-commercial ⚠️ | ≥ 0.89 AUROC | Deferred |
+| *Defer v0.1* | Scabies | MobileNetV2-ScabAI | CMCH Scabio | Non-commercial ❌ | 87.5% accuracy | Deferred — dataset too small |
+
+Eval results go into `services/image-ml/eval/results.md` per phase — committed alongside model code so reviewers can verify clinical claims.
 
 ---
 
