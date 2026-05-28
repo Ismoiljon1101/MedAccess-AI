@@ -1,4 +1,5 @@
-import Lottie from 'lottie-react';
+import { useEffect, useRef } from 'react';
+import Lottie, { type LottieRefCurrentProps } from 'lottie-react';
 import doctorAvatarData from '../assets/doctor-avatar.json';
 
 export type AvatarState = 'idle' | 'listening' | 'thinking';
@@ -10,9 +11,14 @@ interface Props {
 }
 
 export function AiAvatar({ state = 'idle', size = 40, className = '' }: Props) {
+  const lottieRef = useRef<LottieRefCurrentProps>(null);
   const speed =
     state === 'listening' ? 1.0 :
     state === 'thinking'  ? 1.6 : 0.5;
+
+  useEffect(() => {
+    lottieRef.current?.setSpeed(speed);
+  }, [speed]);
 
   return (
     <div
@@ -23,10 +29,10 @@ export function AiAvatar({ state = 'idle', size = 40, className = '' }: Props) {
       {/* Lottie clipped to circle */}
       <div className="absolute inset-0 rounded-full overflow-hidden ring-2 ring-white/10">
         <Lottie
+          lottieRef={lottieRef}
           animationData={doctorAvatarData}
           loop
           autoplay
-          speed={speed}
           style={{ width: '100%', height: '100%' }}
           rendererSettings={{ preserveAspectRatio: 'xMidYMid slice' }}
         />

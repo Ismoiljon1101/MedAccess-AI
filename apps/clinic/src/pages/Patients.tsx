@@ -48,7 +48,7 @@ export default function Patients() {
 
   useEffect(() => { load(); }, [load]);
 
-  async function handleStatus(id: string, status: 'confirmed' | 'cancelled') {
+  async function handleStatus(id: string, status: 'confirmed' | 'cancelled' | 'pending') {
     setUpdating(id);
     try {
       const updated = await updateReferral(id, status);
