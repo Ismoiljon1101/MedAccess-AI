@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { Send, Phone, Plus, Headphones, BookText, Image as ImageIcon, MapPin } from 'lucide-react';
+import { Send, Phone, Plus, Headphones, BookText, Image as ImageIcon, MapPin, X } from 'lucide-react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { AiAvatar, type AvatarState } from '@/components/AiAvatar';
 import { streamChatRequest, loadSession, analyzeReport } from '@/lib/api';
@@ -388,7 +388,7 @@ _${result.disclaimer}_
 
       {/* ── Connect to Care CTA ──────────────────────────────────── */}
       {ctaSpec && !isThinking && (
-        <div className="shrink-0 mx-3 mb-1 rounded-xl border border-brand-500/30 bg-brand-500/10 px-3 py-2.5 flex items-center gap-3">
+        <div className="shrink-0 mx-3 mb-1 rounded-xl border border-brand-500/30 bg-brand-500/10 px-3 py-2.5 flex items-center gap-2">
           <MapPin size={16} className="text-brand-400 shrink-0" />
           <div className="flex-1 min-w-0">
             <p className="text-xs font-semibold text-brand-300">Ready to see a {ctaSpec.specialty} provider?</p>
@@ -407,6 +407,15 @@ _${result.disclaimer}_
             className="shrink-0 rounded-xl border border-brand-500/40 bg-brand-600/20 px-3 py-1.5 text-xs font-semibold text-brand-400 hover:bg-brand-600/30 transition whitespace-nowrap"
           >
             Find Care →
+          </button>
+          <button
+            type="button"
+            onClick={() => setCtaSpec(null)}
+            aria-label="Dismiss recommendation"
+            title="Dismiss"
+            className="shrink-0 rounded-full p-1 text-slate-500 hover:text-slate-200 hover:bg-surface-700/60 transition"
+          >
+            <X size={14} />
           </button>
         </div>
       )}
