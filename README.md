@@ -260,8 +260,8 @@ When any team member starts a Claude Code / Cursor / Codex session in this repo,
   │  + Referral ★  │      └──────────────────────┘    │ TorchXRayVision,     │
   └────────────────┘             │                    │ EyePACS DR (planned) │
                                   ▼                    └──────────────────────┘
-   anthropic/claude-sonnet-4.5  ·  openai/gpt-4o  ·  google/gemini-2.0-flash
-   meta-llama/llama-3.3-70b:free  ·  deepseek/deepseek-r1:free  ·  + 50 more
+   qwen/qwen3.5-plus-20260420 (chat)  ·  qwen/qwen3.6-flash (fast + vision)
+   meta-llama/llama-3.3-70b:free  ·  deepseek/deepseek-r1:free  ·  + 300 more
 
 ★ = added since v0.0 — the patient → clinic loop, image-ml sidecar, and persistent referrals.
 ```
@@ -335,9 +335,9 @@ Our frontend UI architecture implements the **Atomic Design methodology** to org
 | **Routing** | react-router v6 | De facto |
 | **PWA** | `vite-plugin-pwa` (Workbox) | Auto-update service worker, generated manifest |
 | **LLM gateway** | **OpenRouter** | One key → 300+ models from Anthropic, OpenAI, Google, Meta, Qwen, DeepSeek, MiMo, Step |
-| **LLM (default chat/vision)** | `qwen/qwen-3.6-plus` (free preview) | $0 demo cost; specialist sidecar covers medical-image accuracy gap |
-| **LLM (fast path)** | `qwen/qwen-3.5-flash` (~$0.07/$0.26 per 1M tok) | Sub-cent demo cost |
-| **LLM (premium upgrade path)** | `anthropic/claude-sonnet-4.5` | Available via env-var swap if budget allows |
+| **LLM (default chat)** | `qwen/qwen3.5-plus-20260420` ($0.30/$1.80 per 1M tok) | Vision-capable; specialist sidecar covers medical-image accuracy gap |
+| **LLM (fast + vision)** | `qwen/qwen3.6-flash` ($0.19/$1.13 per 1M tok) | Cheapest multimodal; used for triage, symptoms, and image analysis |
+| **LLM (premium upgrade path)** | `anthropic/claude-sonnet-4.5` | Available via `OPENROUTER_CHAT_MODEL` env-var swap if budget allows |
 | **Voice STT** | Web Speech API (primary) + OpenAI Whisper (optional) | Zero-key fallback for demos; Whisper for production accuracy |
 | **Voice mode** | LiveKit + Web Speech TTS | Full-screen immersive voice UI; standalone fallback if LiveKit unconfigured |
 | **Avatar** | Lottie (`lottie-react`) | Animated doctor avatar, 3 states: idle / listening / thinking |
@@ -457,8 +457,8 @@ Research is complete. Top 5 diseases locked: **Malaria** (YOLOv8n-Malaria, MIT �
 
 ### Multimodal vision
 
-Any OpenRouter model with vision support works (`anthropic/claude-sonnet-4.5`,
-`openai/gpt-4o`, `google/gemini-2.0-flash-exp:free`). The image is base64-encoded
+Any OpenRouter model with vision support works (`qwen/qwen3.6-flash`,
+`anthropic/claude-sonnet-4.5`, `openai/gpt-4o`, `google/gemini-2.0-flash-exp:free`). The image is base64-encoded
 client-side and passed through the OpenRouter chat completions endpoint with
 `response_format: { type: 'json_object' }` so the read is always structured.
 
@@ -516,7 +516,7 @@ Returns a LiveKit room token for the immersive voice mode.
 {
   "message": "I've had fever and chills for 3 days, with night sweats.",
   "language": "English",
-  "model": "anthropic/claude-sonnet-4.5",
+  "model": "qwen/qwen3.5-plus-20260420",
   "useRag": true
 }
 ```
@@ -597,9 +597,9 @@ All env vars live in a **single `.env` at the repo root**. Copy from `.env.examp
 |---|---|---|---|
 | `OPENROUTER_API_KEY` | **yes** | — | Get one at https://openrouter.ai/keys |
 | `OPENROUTER_BASE_URL` | no | `https://openrouter.ai/api/v1` | |
-| `OPENROUTER_CHAT_MODEL` | no | `anthropic/claude-sonnet-4.5` | Default for chat |
-| `OPENROUTER_FAST_MODEL` | no | `openai/gpt-4o-mini` | Optional fast path |
-| `OPENROUTER_VISION_MODEL` | no | `anthropic/claude-sonnet-4.5` | Must support image input |
+| `OPENROUTER_CHAT_MODEL` | no | `qwen/qwen3.5-plus-20260420` | Default for chat |
+| `OPENROUTER_FAST_MODEL` | no | `qwen/qwen3.6-flash` | Fast path for triage / symptoms |
+| `OPENROUTER_VISION_MODEL` | no | `qwen/qwen3.6-flash` | Must support image input |
 | `OPENROUTER_APP_NAME` | no | `MedAccess AI` | Sent to OpenRouter for analytics |
 | `OPENROUTER_APP_URL` | no | `http://localhost:5173` | Sent to OpenRouter |
 | `OPENAI_API_KEY` | no | — | Only if you want server-side Whisper STT |
