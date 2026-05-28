@@ -1,8 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import {
   Users, Clock, CheckCircle, AlertTriangle, Zap, Activity, Heart,
-  ArrowRight, Pill, TrendingUp, Calendar,
+  ArrowRight, Pill, TrendingUp, Calendar, Loader2, RefreshCw,
 } from 'lucide-react';
 import { useAuthStore } from '@/store/auth';
 import { getReferrals, type ReferralRecord } from '@/lib/api';
@@ -48,6 +48,19 @@ function StatCard({
         <p className="text-2xl font-bold text-white">{value}</p>
         <p className="text-xs text-ink-300 mt-0.5">{label}</p>
         {sub && <p className="text-[10px] text-ink-500 mt-1">{sub}</p>}
+      </div>
+    </div>
+  );
+}
+
+function SkeletonStatCard() {
+  return (
+    <div className="card p-5 flex items-start gap-4 border-l-2 border-ink-700 animate-pulse">
+      <div className="mt-0.5 h-5 w-5 rounded-md bg-ink-700" />
+      <div className="space-y-2 flex-1">
+        <div className="h-7 w-12 rounded bg-ink-700" />
+        <div className="h-3 w-20 rounded bg-ink-800" />
+        <div className="h-2 w-16 rounded bg-ink-800" />
       </div>
     </div>
   );
@@ -187,10 +200,23 @@ function AdminDashboard({ referrals }: { referrals: ReferralRecord[] }) {
 export default function Dashboard() {
   const user = useAuthStore((s) => s.user);
   const [referrals, setReferrals] = useState<ReferralRecord[]>([]);
+  const [loading, setLoading]     = useState(true);
+  const [error, setError]         = useState<string | null>(null);
 
-  useEffect(() => {
-    getReferrals().then(setReferrals).catch(() => {});
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await getReferrals();
+      setReferrals(data);
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'Failed to load dashboard data.');
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  useEffect(() => { load(); }, [load]);
 
   const greeting = (() => {
     const h = new Date().getHours();
@@ -210,9 +236,46 @@ export default function Dashboard() {
         </p>
       </div>
 
-      {user?.role === 'doctor'     && <DoctorDashboard     referrals={referrals} />}
-      {user?.role === 'pharmacist' && <PharmacistDashboard referrals={referrals} />}
-      {user?.role === 'admin'      && <AdminDashboard      referrals={referrals} />}
+      {/* Error banner */}
+      {error && (
+        <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 flex items-center justify-between gap-3 text-sm text-red-400">
+          <span className="flex items-center gap-2">
+            <AlertTriangle size={15} /> {error}
+          </span>
+          <button
+            type="button"
+            onClick={load}
+            className="flex items-center gap-1.5 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-1 text-xs hover:bg-red-500/20 transition"
+          >
+            <RefreshCw size={12} /> Retry
+          </button>
+        </div>
+      )}
+
+      {/* Loading skeleton */}
+      {loading && (
+        <div className="space-y-6">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            {Array.from({ length: 4 }).map((_, i) => <SkeletonStatCard key={i} />)}
+          </div>
+          <div className="space-y-2">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <div key={i} className="card px-4 py-3 flex items-center gap-3 animate-pulse">
+                <div className="h-8 w-1 rounded-full bg-ink-700" />
+                <div className="flex-1 space-y-2">
+                  <div className="h-3.5 w-40 rounded bg-ink-700" />
+                  <div className="h-2.5 w-56 rounded bg-ink-800" />
+                </div>
+                <div className="h-5 w-16 rounded-full bg-ink-700" />
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {!loading && !error && user?.role === 'doctor'     && <DoctorDashboard     referrals={referrals} />}
+      {!loading && !error && user?.role === 'pharmacist' && <PharmacistDashboard referrals={referrals} />}
+      {!loading && !error && user?.role === 'admin'      && <AdminDashboard      referrals={referrals} />}
     </div>
   );
 }
