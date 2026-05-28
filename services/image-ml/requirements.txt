@@ -1,0 +1,21 @@
+# MedAccess AI — image-ml sidecar dependencies
+# Owner: Temirlan. Pin versions only when something breaks.
+
+# Web framework
+fastapi>=0.115
+uvicorn[standard]>=0.32
+python-multipart>=0.0.12   # required by FastAPI for multipart/form-data
+
+# Validation
+pydantic>=2.9
+
+# Image I/O + preprocessing
+pillow>=10.4
+opencv-python-headless>=4.10  # `headless` avoids GUI libs on servers
+numpy>=1.26
+
+# Specialist model dependencies — uncomment when you wire them in:
+# torch>=2.4
+# torchvision>=0.19
+# ultralytics>=8.3      # YOLOv8
+# torchxrayvision>=1.2  # chest X-ray pathology models
