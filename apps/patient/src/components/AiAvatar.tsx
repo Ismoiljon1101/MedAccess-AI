@@ -19,10 +19,6 @@ interface Props {
  *   thinking  → 1.6× speed, spinning arc ring       (processing)
  */
 export function AiAvatar({ state = 'idle', size = 72, className = '' }: Props) {
-  const speed =
-    state === 'listening' ? 1.0 :
-    state === 'thinking'  ? 1.6 : 0.4;
-
   return (
     <div
       className={`avatar-root ${className}`}
@@ -34,7 +30,6 @@ export function AiAvatar({ state = 'idle', size = 72, className = '' }: Props) {
         animationData={doctorAvatarData}
         loop
         autoplay
-        speed={speed}
         style={{ width: '100%', height: '100%' }}
         rendererSettings={{ preserveAspectRatio: 'xMidYMid meet' }}
       />
