@@ -45,7 +45,7 @@ function Waveform({ active, color = 'brand' }: { active: boolean; color?: string
 
 // ── Core voice UI ─────────────────────────────────────────────────────
 function VoiceUI({
-  model,
+  model: _model,
   sessionId,
   language,
   onEnd,
@@ -141,7 +141,7 @@ function VoiceUI({
         else setVoiceState('idle');
       };
       sr.onerror = () => setVoiceState('idle');
-      sr.onend   = () => { if (voiceState === 'listening') setVoiceState('idle'); };
+      sr.onend   = () => { if (voiceState !== 'thinking') setVoiceState('idle'); };
       sr.start();
       return;
     }

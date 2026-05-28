@@ -1,8 +1,8 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { Mic, MicOff, Send, Phone, Plus, Headphones, BookText, Image as ImageIcon } from 'lucide-react';
+import { Send, Phone, Plus, Headphones, BookText, Image as ImageIcon } from 'lucide-react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { AiAvatar, type AvatarState } from '@/components/AiAvatar';
-import { streamChatRequest, transcribeAudio, loadSession, analyzeReport } from '@/lib/api';
+import { streamChatRequest, loadSession, analyzeReport } from '@/lib/api';
 import { useAppStore } from '@/store/app';
 
 interface RagCitation {
@@ -37,16 +37,12 @@ export default function Chat() {
   const [input, setInput]             = useState('');
   const [sessionId, setSessionId]     = useState<string | undefined>(resumeId);
   const [avatarState, setAvatarState] = useState<AvatarState>('idle');
-  const [recording, setRecording]     = useState(false);
   const [loadError, setLoadError]     = useState<string | null>(null);
 
   const bottomRef   = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
-  const mediaRef    = useRef<MediaRecorder | null>(null);
-  const chunksRef   = useRef<Blob[]>([]);
   const abortRef    = useRef<AbortController | null>(null);
-  const speechRef   = useRef<SpeechRecognition | null>(null);
   // Track first user message for history preview
   const previewRef  = useRef<string>('');
   const msgCountRef = useRef<number>(0);
@@ -172,59 +168,6 @@ export default function Chat() {
     [sessionId, language],
   );
 
-  // ── Voice recording (Web Speech API primary, MediaRecorder fallback) ─────
-  async function toggleVoice() {
-    if (recording) {
-      speechRef.current?.stop();
-      mediaRef.current?.stop();
-      return;
-    }
-
-    // Try Web Speech API first (no server key needed)
-    const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (SR) {
-      const sr: SpeechRecognition = new SR();
-      sr.lang = language || 'en-US';
-      sr.interimResults = false;
-      sr.maxAlternatives = 1;
-      speechRef.current = sr;
-      setRecording(true);
-      setAvatarState('listening');
-      sr.onresult = (e: SpeechRecognitionEvent) => {
-        const text = e.results[0]?.[0]?.transcript?.trim();
-        if (text) sendMessage(text);
-        else setAvatarState('idle');
-        setRecording(false);
-      };
-      sr.onerror = () => { setRecording(false); setAvatarState('idle'); };
-      sr.onend   = () => { setRecording(false); };
-      sr.start();
-      return;
-    }
-
-    // Fallback: MediaRecorder → backend Whisper
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mr = new MediaRecorder(stream);
-      chunksRef.current = [];
-      mr.ondataavailable = (e) => chunksRef.current.push(e.data);
-      mr.onstop = async () => {
-        stream.getTracks().forEach((t) => t.stop());
-        setRecording(false);
-        const blob = new Blob(chunksRef.current, { type: 'audio/webm' });
-        try {
-          const text = await transcribeAudio(blob, language);
-          if (text) await sendMessage(text);
-          else setAvatarState('idle');
-        } catch { setAvatarState('idle'); }
-      };
-      mr.start();
-      mediaRef.current = mr;
-      setRecording(true);
-      setAvatarState('listening');
-    } catch { /* mic denied */ }
-  }
-
   function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(input); }
   }
@@ -235,7 +178,6 @@ export default function Chat() {
 
     const userId = crypto.randomUUID();
     const imageName = file.name || 'image.jpg';
-    const imageUrl = URL.createObjectURL(file);
     setMessages((prev) => [...prev, {
       id: userId,
       role: 'user',
