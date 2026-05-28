@@ -225,7 +225,121 @@ export async function analyzeReport(
   return data.analysis;
 }
 
-// ---------- clinics + referrals -------------------------------------------
+// ---------- facilities (v0.2) ─────────────────────────────────────────────
+
+export interface DoctorResult {
+  id: string;
+  facilityId: string;
+  name: string;
+  specialty: string;
+  consultationMinutes: number;
+  languages: string[];
+  bio?: string;
+}
+
+export interface FacilityResult {
+  id: string;
+  name: string;
+  type: 'hospital' | 'clinic' | 'pharmacy';
+  address: string;
+  city: string;
+  country: string;
+  lat: number;
+  lng: number;
+  phone?: string;
+  openingHours: string;
+  specialties: string[];
+  verified: boolean;
+  source: string;
+  distanceKm: number | null;
+  doctors: DoctorResult[];
+}
+
+export interface SlotResult {
+  startTime: string; // HH:MM
+  endTime: string;
+}
+
+export interface FacilitySlotsResponse {
+  doctorId: string;
+  facilityId: string;
+  date: string;
+  consultationMinutes: number;
+  slots: SlotResult[];
+  totalSlots: number;
+  availableSlots: number;
+}
+
+export interface BookAppointmentPayload {
+  patientName: string;
+  patientPhone?: string;
+  patientEmail?: string;
+  patientAge?: number;
+  patientSex?: string;
+  doctorId: string;
+  facilityId: string;
+  date: string;
+  startTime: string;
+  specialty?: string;
+  urgency?: string;
+  maAgentSummary?: string;
+  sessionId?: string;
+}
+
+export interface BookAppointmentResult {
+  appointmentId: string;
+  slotId: string;
+  doctorName: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+  status: string;
+  message: string;
+}
+
+export async function searchFacilities(opts: {
+  lat?: number;
+  lng?: number;
+  specialty?: string;
+  type?: string;
+  city?: string;
+  radius?: number;
+}): Promise<FacilityResult[]> {
+  const params = new URLSearchParams();
+  if (opts.lat != null)     params.set('lat',       String(opts.lat));
+  if (opts.lng != null)     params.set('lng',       String(opts.lng));
+  if (opts.specialty)       params.set('specialty', opts.specialty);
+  if (opts.type)            params.set('type',      opts.type);
+  if (opts.city)            params.set('city',      opts.city);
+  if (opts.radius != null)  params.set('radius',    String(opts.radius));
+  const res = await fetch(`${BASE}/api/facilities?${params}`);
+  if (!res.ok) throw await safeError(res);
+  const data = await res.json();
+  return data.facilities as FacilityResult[];
+}
+
+export async function getFacilitySlots(
+  facilityId: string,
+  doctorId: string,
+  date: string,
+): Promise<FacilitySlotsResponse> {
+  const params = new URLSearchParams({ doctorId, date });
+  const res = await fetch(`${BASE}/api/facilities/${facilityId}/slots?${params}`);
+  if (!res.ok) throw await safeError(res);
+  return res.json();
+}
+
+export async function bookAppointment(payload: BookAppointmentPayload): Promise<BookAppointmentResult> {
+  const res = await fetch(`${BASE}/api/appointments`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) throw await safeError(res);
+  return res.json();
+}
+
+// ---------- legacy clinics + referrals (kept for backward compat) ──────────
 
 export interface ClinicResult {
   id: string;
@@ -248,7 +362,7 @@ export async function searchClinics(opts: {
   const params = new URLSearchParams();
   if (opts.lat != null) params.set('lat', String(opts.lat));
   if (opts.lng != null) params.set('lng', String(opts.lng));
-  if (opts.specialty) params.set('specialty', opts.specialty);
+  if (opts.specialty)   params.set('specialty', opts.specialty);
   const res = await fetch(`${BASE}/api/clinics?${params}`);
   if (!res.ok) throw await safeError(res);
   const data = await res.json();

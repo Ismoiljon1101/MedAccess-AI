@@ -1,203 +1,306 @@
-import { useState, useEffect } from 'react';
+/**
+ * FindCare — find hospitals/clinics/pharmacies near you and book a time slot.
+ *
+ * Flow:
+ *  1. Browse facilities (filter by type / specialty / city)
+ *  2. Tap facility → expand to see doctor list
+ *  3. Tap "Book" on a doctor → date + slot picker sheet
+ *  4. Fill patient info → confirm → appointment stored locally
+ */
+import { useState, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { MapPin, Phone, Clock, Star, ChevronRight, Navigation, Stethoscope, Loader2, CheckCircle, X, Map } from 'lucide-react';
-import { searchClinics, createReferral, type ClinicResult } from '@/lib/api';
+import {
+  MapPin, Phone, Clock, ChevronRight, ChevronDown, Navigation,
+  Loader2, CheckCircle, X, Stethoscope, Pill, Building2,
+  Calendar, User, Map, ShieldCheck,
+} from 'lucide-react';
+import {
+  searchFacilities, getFacilitySlots,
+  bookAppointment,
+  type FacilityResult, type DoctorResult, type SlotResult,
+} from '@/lib/api';
 import { useAppStore } from '@/store/app';
 
-type MapProvider = 'google' | 'naver';
+// ── Helpers ───────────────────────────────────────────────────────────────────
+type FacilityType = 'all' | 'hospital' | 'clinic' | 'pharmacy';
+type MapProvider  = 'google' | 'naver';
 
-function getNavUrl(provider: MapProvider, clinicName: string): string {
-  const q = encodeURIComponent(clinicName);
-  if (provider === 'naver') return `https://map.naver.com/v5/search/${q}`;
-  return `https://www.google.com/maps/search/?api=1&query=${q}`;
+const TYPE_TABS: { id: FacilityType; label: string; icon: React.ReactNode }[] = [
+  { id: 'all',      label: 'All',       icon: <Building2 size={12} /> },
+  { id: 'hospital', label: 'Hospital',  icon: <Building2 size={12} /> },
+  { id: 'clinic',   label: 'Clinic',    icon: <Stethoscope size={12} /> },
+  { id: 'pharmacy', label: 'Pharmacy',  icon: <Pill size={12} /> },
+];
+
+const SPECIALTY_CHIPS = [
+  'All', 'General Practice', 'Family Medicine', 'Emergency Medicine',
+  'Cardiology', 'Pediatrics', 'Obstetrics & Gynecology', 'Orthopedics',
+  'Neurology', 'Psychiatry', 'Dermatology', 'ENT', 'Oncology', 'Pharmacy',
+] as const;
+
+function getMapUrl(provider: MapProvider, name: string, city: string): string {
+  const q = encodeURIComponent(`${name} ${city}`);
+  return provider === 'naver'
+    ? `https://map.naver.com/v5/search/${q}`
+    : `https://www.google.com/maps/search/?api=1&query=${q}`;
 }
 
-const SPECIALTIES = ['All', 'General Practice', 'Urgent Care', 'Emergency', 'Cardiology', 'Neurology', 'Pediatrics', 'Mental Health', 'Respiratory'];
-
-interface BookingState {
-  clinicId: string;
-  clinicName: string;
-  specialty: string;
+function typeBadgeClass(type: FacilityResult['type']): string {
+  if (type === 'hospital') return 'bg-brand-500/15 text-brand-400 border border-brand-500/30';
+  if (type === 'pharmacy') return 'bg-violet-500/15 text-violet-400 border border-violet-500/30';
+  return 'bg-ok-500/15 text-ok-400 border border-ok-500/30';
 }
 
+// Generate next 7 non-Sunday days
+function getNextDays(count = 7): Array<{ date: string; day: string; label: string }> {
+  const result: Array<{ date: string; day: string; label: string }> = [];
+  const now = new Date();
+  now.setHours(0, 0, 0, 0);
+  let cursor = new Date(now);
+
+  while (result.length < count) {
+    cursor = new Date(cursor.getTime() + 86_400_000);
+    if (cursor.getDay() === 0) continue; // skip Sunday
+    result.push({
+      date:  cursor.toISOString().slice(0, 10),
+      day:   cursor.toLocaleDateString('en-US', { weekday: 'short' }),
+      label: cursor.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+    });
+  }
+  return result;
+}
+
+const DAYS = getNextDays();
+
+// ── Component ─────────────────────────────────────────────────────────────────
 export default function FindCare() {
-  const { chatHistory } = useAppStore();
   const [searchParams] = useSearchParams();
+  const { patientProfile, addAppointment } = useAppStore();
 
-  // Pre-fill specialty from query param (set by MA Agent CTA)
-  const preSpecialty = searchParams.get('specialty') || 'All';
-  const preSessionId = searchParams.get('s') || undefined;
-  const preSummary   = searchParams.get('summary') || '';
-  const preUrgency   = searchParams.get('urgency') || 'see-clinician-soon';
+  // Query param pre-fill from MA Agent CTA
+  const preSpecialty  = searchParams.get('specialty') || 'All';
+  const preSummary    = searchParams.get('summary')   || '';
+  const preUrgency    = searchParams.get('urgency')   || 'see-clinician-soon';
+  const preSessionId  = searchParams.get('s')         || undefined;
 
-  const [mapProvider, setMapProvider]  = useState<MapProvider>('google');
-  const [filter, setFilter]           = useState(preSpecialty);
-  const [clinics, setClinics]         = useState<ClinicResult[]>([]);
-  const [loading, setLoading]         = useState(false);
-  const [locationDone, setLocationDone] = useState(false);
-  const [coords, setCoords]           = useState<{ lat: number; lng: number } | null>(null);
-  const [booking, setBooking]         = useState<BookingState | null>(null);
-  const [booked, setBooked]           = useState(false);
-  const [bookError, setBookError]     = useState('');
+  // Search state
+  const [typeFilter,    setTypeFilter]    = useState<FacilityType>('all');
+  const [specialty,     setSpecialty]     = useState(preSpecialty);
+  const [citySearch,    setCitySearch]    = useState('');
+  const [mapProvider,   setMapProvider]   = useState<MapProvider>('google');
+  const [coords,        setCoords]        = useState<{ lat: number; lng: number } | null>(null);
+  const [locDone,       setLocDone]       = useState(false);
 
-  // Booking form state
-  const [name, setName]         = useState('');
-  const [phone, setPhone]       = useState('');
-  const [preferred, setPreferred] = useState('');
+  // Data state
+  const [facilities,  setFacilities]  = useState<FacilityResult[]>([]);
+  const [loading,     setLoading]     = useState(false);
+  const [expanded,    setExpanded]    = useState<string | null>(null);
+
+  // Booking sheet state
+  const [bookDoctor,    setBookDoctor]    = useState<{ doctor: DoctorResult; facility: FacilityResult } | null>(null);
+  const [selectedDate,  setSelectedDate]  = useState(DAYS[0].date);
+  const [slots,         setSlots]         = useState<SlotResult[]>([]);
+  const [slotsLoading,  setSlotsLoading]  = useState(false);
+  const [selectedSlot,  setSelectedSlot]  = useState<SlotResult | null>(null);
+
+  // Patient form
+  const [pName,     setPName]     = useState(patientProfile?.fullName   || '');
+  const [pPhone,    setPPhone]    = useState(patientProfile?.phone      || '');
+  const [pEmail,    setPEmail]    = useState(patientProfile?.email      || '');
+  const [pAge,      setPAge]      = useState('');
+  const [pSex,      setPSex]      = useState<string>(patientProfile?.sex || '');
   const [submitting, setSubmitting] = useState(false);
+  const [formError,  setFormError]  = useState('');
 
-  async function loadClinics(lat?: number, lng?: number, specialty?: string) {
+  // Success state
+  const [bookedAppt, setBookedAppt] = useState<{ doctorName: string; date: string; startTime: string; endTime: string } | null>(null);
+
+  // ── Load facilities ───────────────────────────────────────────────────────
+  const load = useCallback(async (overrides?: Partial<{
+    lat: number; lng: number; spec: string; type: FacilityType; city: string;
+  }>) => {
     setLoading(true);
     try {
-      const results = await searchClinics({
+      const spec = overrides?.spec ?? specialty;
+      const typ  = overrides?.type ?? typeFilter;
+      const city = overrides?.city ?? citySearch;
+      const lat  = overrides?.lat  ?? coords?.lat;
+      const lng  = overrides?.lng  ?? coords?.lng;
+
+      const results = await searchFacilities({
         lat,
         lng,
-        specialty: specialty && specialty !== 'All' ? specialty : undefined,
+        specialty: spec && spec !== 'All' ? spec : undefined,
+        type:      typ  !== 'all'         ? typ  : undefined,
+        city:      city.trim()            || undefined,
+        radius:    500, // wide default — Uzbekistan is ~447k km²
       });
-      setClinics(results);
+      setFacilities(results);
     } catch {
-      setClinics([]);
+      setFacilities([]);
     } finally {
       setLoading(false);
     }
-  }
+  }, [specialty, typeFilter, citySearch, coords]);
 
+  useEffect(() => { load(); }, []); // initial load
+
+  // ── Geolocation ───────────────────────────────────────────────────────────
   function requestLocation() {
     navigator.geolocation?.getCurrentPosition(
       (pos) => {
-        const { latitude, longitude } = pos.coords;
-        setCoords({ lat: latitude, lng: longitude });
-        setLocationDone(true);
-        loadClinics(latitude, longitude, filter);
+        const { latitude: lat, longitude: lng } = pos.coords;
+        setCoords({ lat, lng });
+        setLocDone(true);
+        load({ lat, lng });
       },
-      () => {
-        setLocationDone(true);
-        loadClinics(undefined, undefined, filter);
-      },
-      { timeout: 6000 }
+      () => { setLocDone(true); load(); },
+      { timeout: 8000 },
     );
   }
 
+  // ── Load slots for selected doctor + date ─────────────────────────────────
   useEffect(() => {
-    loadClinics(undefined, undefined, filter);
-  }, []);
+    if (!bookDoctor) return;
+    setSlotsLoading(true);
+    setSelectedSlot(null);
+    getFacilitySlots(bookDoctor.facility.id, bookDoctor.doctor.id, selectedDate)
+      .then((r) => setSlots(r.slots))
+      .catch(() => setSlots([]))
+      .finally(() => setSlotsLoading(false));
+  }, [bookDoctor, selectedDate]);
 
-  function handleFilterChange(s: string) {
-    setFilter(s);
-    loadClinics(coords?.lat, coords?.lng, s);
-  }
-
+  // ── Booking submit ────────────────────────────────────────────────────────
   async function handleBook() {
-    if (!booking || !name.trim()) { setBookError('Please enter your name.'); return; }
+    if (!bookDoctor || !selectedSlot) return;
+    if (!pName.trim()) { setFormError('Your name is required.'); return; }
+
     setSubmitting(true);
-    setBookError('');
-
-    // Get latest chat summary from history
-    const session = chatHistory.find((h) => h.sessionId === preSessionId);
-    const summary = preSummary || session?.preview || 'Patient referred via MA Agent';
-
+    setFormError('');
     try {
-      await createReferral({
-        sessionId:    preSessionId,
-        patientName:  name.trim(),
-        patientPhone: phone.trim() || undefined,
-        clinicId:     booking.clinicId,
-        clinicName:   booking.clinicName,
-        specialty:    booking.specialty,
-        urgency:      preUrgency as any,
-        summary,
-        preferredTime: preferred.trim() || undefined,
+      const result = await bookAppointment({
+        patientName:    pName.trim(),
+        patientPhone:   pPhone.trim()  || undefined,
+        patientEmail:   pEmail.trim()  || undefined,
+        patientAge:     pAge ? Number(pAge) : undefined,
+        patientSex:     pSex             || undefined,
+        doctorId:       bookDoctor.doctor.id,
+        facilityId:     bookDoctor.facility.id,
+        date:           selectedDate,
+        startTime:      selectedSlot.startTime,
+        specialty:      bookDoctor.doctor.specialty,
+        urgency:        preUrgency,
+        maAgentSummary: preSummary     || undefined,
+        sessionId:      preSessionId,
       });
-      setBooked(true);
-      setBooking(null);
-    } catch (e: any) {
-      setBookError(e.message || 'Failed to send request. Try again.');
+
+      addAppointment({
+        appointmentId: result.appointmentId,
+        facilityId:    bookDoctor.facility.id,
+        facilityName:  bookDoctor.facility.name,
+        facilityCity:  bookDoctor.facility.city,
+        facilityType:  bookDoctor.facility.type,
+        doctorId:      bookDoctor.doctor.id,
+        doctorName:    result.doctorName,
+        specialty:     bookDoctor.doctor.specialty,
+        date:          selectedDate,
+        startTime:     result.startTime,
+        endTime:       result.endTime,
+        status:        'pending',
+        bookedAt:      Date.now(),
+      });
+
+      setBookedAppt({ doctorName: result.doctorName, date: selectedDate, startTime: result.startTime, endTime: result.endTime });
+      setBookDoctor(null);
+    } catch (err: unknown) {
+      setFormError(err instanceof Error ? err.message : 'Booking failed. Please try again.');
     } finally {
       setSubmitting(false);
     }
   }
 
+  function openBooking(doctor: DoctorResult, facility: FacilityResult) {
+    setBookDoctor({ doctor, facility });
+    setSelectedDate(DAYS[0].date);
+    setSelectedSlot(null);
+    setFormError('');
+    setPName(patientProfile?.fullName || '');
+    setPPhone(patientProfile?.phone   || '');
+    setPEmail(patientProfile?.email   || '');
+    setPAge('');
+    setPSex(patientProfile?.sex || '');
+    setBookedAppt(null);
+  }
+
+  // ── Render ────────────────────────────────────────────────────────────────
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      {/* Header */}
+
+      {/* ── Header ─────────────────────────────────────────────────────── */}
       <div className="shrink-0 px-4 pt-4 pb-3 border-b border-surface-700">
-        <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center justify-between gap-2 mb-3">
           <div>
-            <h2 className="text-base font-semibold text-white">Find Care Near You</h2>
-            <p className="text-xs text-slate-500 mt-0.5">Clinics and urgent care facilities</p>
+            <h2 className="text-base font-semibold text-white">Find Care</h2>
+            <p className="text-xs text-slate-500 mt-0.5">Hospitals · Clinics · Pharmacies</p>
           </div>
-          {/* Map provider picker */}
-          <div className="flex items-center gap-1 rounded-lg border border-surface-600 bg-surface-800 p-0.5">
-            <button
-              type="button"
-              onClick={() => setMapProvider('google')}
-              className={`flex items-center gap-1 rounded-md px-2 py-1 text-[10px] font-medium transition ${
-                mapProvider === 'google'
-                  ? 'bg-brand-600/20 text-brand-400 border border-brand-500/40'
-                  : 'text-slate-500 hover:text-slate-300'
-              }`}
-            >
-              <Map size={10} /> Google
-            </button>
-            <button
-              type="button"
-              onClick={() => setMapProvider('naver')}
-              className={`flex items-center gap-1 rounded-md px-2 py-1 text-[10px] font-medium transition ${
-                mapProvider === 'naver'
-                  ? 'bg-ok-500/20 text-ok-400 border border-ok-500/40'
-                  : 'text-slate-500 hover:text-slate-300'
-              }`}
-            >
-              <Map size={10} /> Naver
-            </button>
+          {/* Map provider toggle */}
+          <div className="flex items-center gap-0.5 rounded-lg border border-surface-600 bg-surface-800 p-0.5">
+            {(['google', 'naver'] as MapProvider[]).map((p) => (
+              <button
+                key={p}
+                type="button"
+                onClick={() => setMapProvider(p)}
+                className={`flex items-center gap-1 rounded-md px-2 py-1 text-[10px] font-medium transition ${
+                  mapProvider === p
+                    ? 'bg-brand-600/20 text-brand-400 border border-brand-500/40'
+                    : 'text-slate-500 hover:text-slate-300'
+                }`}
+              >
+                <Map size={10} /> {p === 'google' ? 'Google' : 'Naver'}
+              </button>
+            ))}
           </div>
         </div>
+
+        {/* City search */}
+        <input
+          className="input text-sm"
+          placeholder="Search by city (e.g. Tashkent, Samarkand…)"
+          value={citySearch}
+          onChange={(e) => setCitySearch(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && load({ city: citySearch })}
+        />
       </div>
 
-      {/* Location banner */}
-      {!locationDone && (
-        <div className="shrink-0 mx-3 mt-3 rounded-xl border border-brand-500/25 bg-brand-500/10 px-3 py-2.5 flex items-center gap-2.5">
-          <Navigation size={14} className="text-brand-400 shrink-0" />
-          <p className="text-xs text-slate-300 flex-1">Enable location for accurate distance sorting</p>
-          <button type="button" onClick={requestLocation} className="text-[11px] font-semibold text-brand-400 whitespace-nowrap">
-            Allow
+      {/* ── Type tabs ──────────────────────────────────────────────────── */}
+      <div className="shrink-0 flex gap-1.5 px-3 pt-2.5 pb-1">
+        {TYPE_TABS.map((t) => (
+          <button
+            key={t.id}
+            type="button"
+            onClick={() => { setTypeFilter(t.id); load({ type: t.id }); }}
+            className={`flex items-center gap-1 rounded-full px-3 py-1 text-[11px] font-medium border transition ${
+              typeFilter === t.id
+                ? 'border-brand-500 bg-brand-600/20 text-brand-400'
+                : 'border-surface-600 bg-surface-800 text-slate-500'
+            }`}
+          >
+            {t.icon} {t.label}
           </button>
-        </div>
-      )}
+        ))}
+      </div>
 
-      {/* MA Agent referral context */}
-      {(preSpecialty !== 'All' || preSummary) && (
-        <div className="shrink-0 mx-3 mt-2 rounded-xl border border-ok-500/20 bg-ok-500/8 px-3 py-2">
-          <p className="text-[11px] text-ok-400 font-medium">MA Agent recommendation</p>
-          {preSpecialty !== 'All' && (
-            <p className="text-[11px] text-slate-400 mt-0.5">Suggested specialty: <span className="text-white font-medium">{preSpecialty}</span></p>
-          )}
-          {preSummary && <p className="text-[11px] text-slate-500 mt-0.5 truncate">{preSummary}</p>}
-        </div>
-      )}
-
-      {/* Booking success */}
-      {booked && (
-        <div className="shrink-0 mx-3 mt-2 rounded-xl border border-ok-500/30 bg-ok-500/10 px-3 py-3 flex items-center gap-2.5">
-          <CheckCircle size={16} className="text-ok-400 shrink-0" />
-          <div>
-            <p className="text-sm font-semibold text-ok-400">Appointment requested!</p>
-            <p className="text-[11px] text-slate-400 mt-0.5">The clinic will contact you to confirm. Your report has been sent.</p>
-          </div>
-        </div>
-      )}
-
-      {/* Specialty filter */}
-      <div className="shrink-0 flex gap-2 px-3 pt-3 pb-2 overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
-        {SPECIALTIES.map((s) => (
+      {/* ── Specialty chips ────────────────────────────────────────────── */}
+      <div className="shrink-0 flex gap-1.5 px-3 pb-2 overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
+        {SPECIALTY_CHIPS.map((s) => (
           <button
             key={s}
             type="button"
-            onClick={() => handleFilterChange(s)}
-            className={`shrink-0 rounded-full px-3 py-1 text-[11px] font-medium transition-colors border ${
-              filter === s
-                ? 'border-brand-500 bg-brand-600/20 text-brand-400'
-                : 'border-surface-600 bg-surface-800 text-slate-500'
+            onClick={() => { setSpecialty(s); load({ spec: s }); }}
+            className={`shrink-0 rounded-full px-2.5 py-0.5 text-[10px] font-medium border transition ${
+              specialty === s
+                ? 'border-brand-500/80 bg-brand-600/20 text-brand-400'
+                : 'border-surface-600/60 bg-surface-800/60 text-slate-500'
             }`}
           >
             {s}
@@ -205,154 +308,302 @@ export default function FindCare() {
         ))}
       </div>
 
-      {/* Clinic list */}
-      <div className="flex-1 overflow-y-auto px-3 pb-4 space-y-2.5">
+      {/* ── Location banner ────────────────────────────────────────────── */}
+      {!locDone && (
+        <div className="shrink-0 mx-3 mb-2 rounded-xl border border-brand-500/25 bg-brand-500/8 px-3 py-2 flex items-center gap-2">
+          <Navigation size={13} className="text-brand-400 shrink-0" />
+          <p className="text-[11px] text-slate-400 flex-1">Enable location for distance sorting</p>
+          <button type="button" onClick={requestLocation} className="text-[11px] font-semibold text-brand-400">Allow</button>
+        </div>
+      )}
+
+      {/* ── MA Agent context ───────────────────────────────────────────── */}
+      {(preSpecialty !== 'All' || preSummary) && (
+        <div className="shrink-0 mx-3 mb-2 rounded-xl border border-ok-500/20 bg-ok-500/8 px-3 py-2">
+          <p className="text-[10px] text-ok-400 font-semibold mb-0.5">MA Agent recommendation</p>
+          {preSpecialty !== 'All' && (
+            <p className="text-[11px] text-slate-400">Specialty: <span className="text-white font-medium">{preSpecialty}</span></p>
+          )}
+          {preSummary && <p className="text-[11px] text-slate-500 truncate mt-0.5">{preSummary}</p>}
+        </div>
+      )}
+
+      {/* ── Booked success banner ───────────────────────────────────────── */}
+      {bookedAppt && (
+        <div className="shrink-0 mx-3 mb-2 rounded-xl border border-ok-500/30 bg-ok-500/10 px-3 py-3 flex items-start gap-2.5">
+          <CheckCircle size={16} className="text-ok-400 shrink-0 mt-0.5" />
+          <div>
+            <p className="text-sm font-semibold text-ok-400">Appointment booked!</p>
+            <p className="text-[11px] text-slate-400 mt-0.5">
+              {bookedAppt.doctorName} · {bookedAppt.date} · {bookedAppt.startTime}–{bookedAppt.endTime}
+            </p>
+            <p className="text-[10px] text-slate-500 mt-0.5">Status: pending · The clinic will confirm.</p>
+          </div>
+          <button type="button" onClick={() => setBookedAppt(null)} className="ml-auto text-slate-600 hover:text-slate-400"><X size={14} /></button>
+        </div>
+      )}
+
+      {/* ── Facility list ──────────────────────────────────────────────── */}
+      <div className="flex-1 overflow-y-auto px-3 pb-4 space-y-2">
         {loading && (
-          <div className="flex items-center justify-center py-12 gap-2 text-slate-500">
-            <Loader2 size={16} className="animate-spin" /> Loading clinics…
+          <div className="flex items-center justify-center py-16 gap-2 text-slate-500 text-sm">
+            <Loader2 size={16} className="animate-spin" /> Loading facilities…
           </div>
         )}
 
-        {!loading && clinics.length === 0 && (
-          <div className="flex flex-col items-center justify-center py-12 text-center gap-2">
-            <p className="text-sm text-slate-500">No clinics found for this specialty.</p>
-            <button type="button" onClick={() => handleFilterChange('All')} className="text-xs text-brand-400">Show all</button>
+        {!loading && facilities.length === 0 && (
+          <div className="flex flex-col items-center justify-center py-16 gap-3 text-center">
+            <Building2 size={32} className="text-slate-700" />
+            <p className="text-sm text-slate-500">No facilities found.</p>
+            <button
+              type="button"
+              onClick={() => { setTypeFilter('all'); setSpecialty('All'); setCitySearch(''); load({ type: 'all', spec: 'All', city: '' }); }}
+              className="text-xs text-brand-400"
+            >
+              Clear filters
+            </button>
           </div>
         )}
 
-        {!loading && clinics.map((clinic) => (
-          <div key={clinic.id} className="card p-4 flex flex-col gap-3">
-            {/* Top row */}
-            <div className="flex items-start justify-between gap-2">
+        {!loading && facilities.map((f) => (
+          <div key={f.id} className="card overflow-hidden">
+            {/* Facility header */}
+            <button
+              type="button"
+              className="w-full p-4 flex items-start gap-3 text-left hover:bg-surface-700/30 transition-colors"
+              onClick={() => setExpanded(expanded === f.id ? null : f.id)}
+            >
+              {/* Type icon */}
+              <div className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl ${
+                f.type === 'hospital' ? 'bg-brand-500/15 text-brand-400'
+                : f.type === 'pharmacy' ? 'bg-violet-500/15 text-violet-400'
+                : 'bg-ok-500/15 text-ok-400'
+              }`}>
+                {f.type === 'pharmacy' ? <Pill size={15} /> : f.type === 'hospital' ? <Building2 size={15} /> : <Stethoscope size={15} />}
+              </div>
+
               <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <span className={`h-2 w-2 rounded-full shrink-0 ${clinic.available ? 'bg-ok-500' : 'bg-slate-600'}`} />
-                  <h3 className="text-sm font-semibold text-white truncate">{clinic.name}</h3>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-sm font-semibold text-white leading-snug">{f.name}</span>
+                  {f.verified && <span title="Verified"><ShieldCheck size={12} className="text-ok-400 shrink-0" /></span>}
+                </div>
+                <div className="flex items-center gap-2 mt-1 flex-wrap">
+                  <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${typeBadgeClass(f.type)}`}>
+                    {f.type}
+                  </span>
+                  <span className="flex items-center gap-0.5 text-[11px] text-slate-500">
+                    <MapPin size={10} /> {f.city}
+                    {f.distanceKm != null && ` · ${f.distanceKm} km`}
+                  </span>
+                  <span className="flex items-center gap-0.5 text-[11px] text-slate-500">
+                    <Clock size={10} /> {f.openingHours}
+                  </span>
                 </div>
                 <div className="flex flex-wrap gap-1 mt-1.5">
-                  {clinic.specialty.slice(0, 3).map((s) => (
-                    <span key={s} className="inline-flex items-center rounded-full bg-surface-700 px-2 py-0.5 text-[10px] text-slate-400">{s}</span>
+                  {f.specialties.slice(0, 4).map((s) => (
+                    <span key={s} className="rounded-full bg-surface-700 px-2 py-0.5 text-[10px] text-slate-400">{s}</span>
                   ))}
+                  {f.specialties.length > 4 && (
+                    <span className="rounded-full bg-surface-700 px-2 py-0.5 text-[10px] text-slate-500">+{f.specialties.length - 4}</span>
+                  )}
                 </div>
               </div>
-              <div className="flex flex-col items-end shrink-0 gap-1">
-                <span className="flex items-center gap-0.5 text-[11px] text-slate-400">
-                  <MapPin size={11} /> {clinic.distanceLabel}
-                </span>
-                <span className="flex items-center gap-0.5 text-[11px] text-ok-400">
-                  <Star size={10} fill="currentColor" /> {clinic.rating}
-                </span>
+
+              <div className="flex flex-col items-end gap-1.5 shrink-0">
+                {f.phone && (
+                  <a
+                    href={`tel:${f.phone}`}
+                    onClick={(e) => e.stopPropagation()}
+                    className="flex h-7 w-7 items-center justify-center rounded-lg bg-surface-700 text-slate-400 hover:text-white transition"
+                  >
+                    <Phone size={13} />
+                  </a>
+                )}
+                <a
+                  href={getMapUrl(mapProvider, f.name, f.city)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={(e) => e.stopPropagation()}
+                  className="flex h-7 w-7 items-center justify-center rounded-lg bg-surface-700 text-slate-400 hover:text-white transition"
+                  title={`Open in ${mapProvider === 'naver' ? 'Naver' : 'Google'} Maps`}
+                >
+                  <Navigation size={13} />
+                </a>
+                <ChevronDown
+                  size={15}
+                  className={`text-slate-500 transition-transform duration-200 mt-0.5 ${expanded === f.id ? 'rotate-180' : ''}`}
+                />
               </div>
-            </div>
+            </button>
 
-            {/* Info row */}
-            <div className="grid grid-cols-2 gap-2 text-[11px] text-slate-500">
-              <span className="flex items-center gap-1"><Clock size={11} /> {clinic.hours}</span>
-              {clinic.waitMinutes != null && (
-                <span className="flex items-center gap-1 text-ok-400">
-                  <Stethoscope size={11} /> Wait ~{clinic.waitMinutes} min
-                </span>
-              )}
-            </div>
-
-            {/* Actions */}
-            <div className="flex gap-2">
-              <a
-                href={`tel:${clinic.phone}`}
-                className="flex items-center justify-center gap-1 rounded-xl border border-surface-600 bg-surface-700 px-3 py-2 text-xs font-medium text-slate-300 transition hover:border-brand-500/50"
-              >
-                <Phone size={13} />
-              </a>
-              <a
-                href={getNavUrl(mapProvider, clinic.name)}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center justify-center gap-1 rounded-xl border border-surface-600 bg-surface-700 px-3 py-2 text-xs font-medium text-slate-300 transition hover:border-brand-500/50"
-                title={`Open in ${mapProvider === 'naver' ? 'Naver Maps' : 'Google Maps'}`}
-              >
-                <Navigation size={13} />
-              </a>
-              <button
-                type="button"
-                disabled={!clinic.available}
-                onClick={() => { setBooking({ clinicId: clinic.id, clinicName: clinic.name, specialty: clinic.specialty[0] }); setBooked(false); }}
-                className={`flex-1 flex items-center justify-center gap-1.5 rounded-xl border py-2 text-xs font-medium transition ${
-                  clinic.available
-                    ? 'border-brand-500/40 bg-brand-600/15 text-brand-400 hover:bg-brand-600/25'
-                    : 'border-surface-600 bg-surface-800 text-slate-600 cursor-not-allowed'
-                }`}
-              >
-                {clinic.available ? 'Book' : 'Unavailable'} <ChevronRight size={13} />
-              </button>
-            </div>
+            {/* Doctor list (expanded) */}
+            {expanded === f.id && (
+              <div className="border-t border-surface-700 divide-y divide-surface-700/60">
+                {f.doctors.length === 0 && (
+                  <p className="px-4 py-3 text-xs text-slate-500">No staff listed.</p>
+                )}
+                {f.doctors.map((doc) => (
+                  <div key={doc.id} className="flex items-center gap-3 px-4 py-3">
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-surface-700 text-slate-400 text-xs font-bold">
+                      {doc.name.split(' ').slice(-1)[0]?.[0] ?? '?'}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-white truncate">{doc.name}</p>
+                      <p className="text-[11px] text-slate-500 mt-0.5">
+                        {doc.specialty} · {doc.consultationMinutes} min · {doc.languages.join(', ')}
+                      </p>
+                      {doc.bio && <p className="text-[10px] text-slate-600 mt-0.5 truncate">{doc.bio}</p>}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => openBooking(doc, f)}
+                      className="shrink-0 flex items-center gap-1 rounded-xl border border-brand-500/40 bg-brand-600/15 px-3 py-1.5 text-xs font-medium text-brand-400 hover:bg-brand-600/25 transition"
+                    >
+                      Book <ChevronRight size={12} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         ))}
       </div>
 
-      {/* Booking sheet */}
-      {booking && (
-        <div className="fixed inset-0 z-50 flex items-end bg-black/60 backdrop-blur-sm" onClick={() => setBooking(null)}>
+      {/* ── Booking sheet ──────────────────────────────────────────────────── */}
+      {bookDoctor && (
+        <div
+          className="fixed inset-0 z-50 flex items-end bg-black/60 backdrop-blur-sm"
+          onClick={() => setBookDoctor(null)}
+        >
           <div
-            className="w-full rounded-t-2xl bg-surface-900 border-t border-surface-700 p-5 flex flex-col gap-4"
+            className="w-full max-h-[90vh] rounded-t-2xl bg-surface-900 border-t border-surface-700 flex flex-col overflow-hidden"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between">
+            {/* Sheet header */}
+            <div className="shrink-0 flex items-center justify-between px-5 pt-5 pb-3 border-b border-surface-700">
               <div>
-                <p className="text-sm font-semibold text-white">Request Appointment</p>
-                <p className="text-xs text-slate-500 mt-0.5">{booking.clinicName} · {booking.specialty}</p>
+                <p className="text-sm font-semibold text-white">{bookDoctor.doctor.name}</p>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  {bookDoctor.doctor.specialty} · {bookDoctor.facility.name}
+                </p>
               </div>
-              <button type="button" onClick={() => setBooking(null)} className="text-slate-500 hover:text-white">
+              <button type="button" onClick={() => setBookDoctor(null)} className="text-slate-500 hover:text-white">
                 <X size={18} />
               </button>
             </div>
 
-            <div className="space-y-3">
+            <div className="flex-1 overflow-y-auto px-5 py-4 space-y-5">
+
+              {/* Date selector */}
               <div>
-                <label className="label">Your name *</label>
-                <input
-                  className="input"
-                  placeholder="Full name"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                />
+                <p className="text-xs font-semibold text-slate-400 mb-2 flex items-center gap-1.5">
+                  <Calendar size={12} /> Select date
+                </p>
+                <div className="flex gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
+                  {DAYS.map((d) => (
+                    <button
+                      key={d.date}
+                      type="button"
+                      onClick={() => setSelectedDate(d.date)}
+                      className={`shrink-0 flex flex-col items-center rounded-xl border px-3 py-2 text-center transition ${
+                        selectedDate === d.date
+                          ? 'border-brand-500 bg-brand-600/20 text-brand-400'
+                          : 'border-surface-600 bg-surface-800 text-slate-400 hover:border-surface-500'
+                      }`}
+                    >
+                      <span className="text-[10px] font-medium uppercase">{d.day}</span>
+                      <span className="text-xs font-semibold mt-0.5">{d.label.split(' ')[1]}</span>
+                      <span className="text-[9px] mt-0.5 opacity-70">{d.label.split(' ')[0]}</span>
+                    </button>
+                  ))}
+                </div>
               </div>
+
+              {/* Slot selector */}
               <div>
-                <label className="label">Phone number</label>
-                <input
-                  className="input"
-                  placeholder="+1 555 000 0000"
-                  type="tel"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                />
+                <p className="text-xs font-semibold text-slate-400 mb-2 flex items-center gap-1.5">
+                  <Clock size={12} /> Available slots
+                  <span className="ml-1 text-[10px] text-slate-600">({bookDoctor.doctor.consultationMinutes} min)</span>
+                </p>
+                {slotsLoading && (
+                  <div className="flex items-center gap-2 text-xs text-slate-500 py-2">
+                    <Loader2 size={13} className="animate-spin" /> Loading slots…
+                  </div>
+                )}
+                {!slotsLoading && slots.length === 0 && (
+                  <p className="text-xs text-slate-500 py-2">No available slots on this day.</p>
+                )}
+                {!slotsLoading && slots.length > 0 && (
+                  <div className="grid grid-cols-4 gap-1.5">
+                    {slots.map((s) => (
+                      <button
+                        key={s.startTime}
+                        type="button"
+                        onClick={() => setSelectedSlot(s)}
+                        className={`rounded-xl border px-2 py-2 text-[11px] font-medium text-center transition ${
+                          selectedSlot?.startTime === s.startTime
+                            ? 'border-brand-500 bg-brand-600/20 text-brand-400'
+                            : 'border-surface-600 bg-surface-800 text-slate-400 hover:border-surface-500'
+                        }`}
+                      >
+                        {s.startTime}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
-              <div>
-                <label className="label">Preferred time</label>
-                <input
-                  className="input"
-                  placeholder="e.g. Tomorrow morning, ASAP"
-                  value={preferred}
-                  onChange={(e) => setPreferred(e.target.value)}
-                />
-              </div>
+
+              {/* Patient form — only shown after slot selected */}
+              {selectedSlot && (
+                <div className="space-y-3 pt-1 border-t border-surface-700">
+                  <p className="text-xs font-semibold text-slate-400 flex items-center gap-1.5">
+                    <User size={12} /> Your details
+                  </p>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="col-span-2">
+                      <label className="label">Full name *</label>
+                      <input className="input" placeholder="Your full name" value={pName} onChange={(e) => setPName(e.target.value)} />
+                    </div>
+                    <div>
+                      <label className="label">Phone</label>
+                      <input className="input" type="tel" placeholder="+998…" value={pPhone} onChange={(e) => setPPhone(e.target.value)} />
+                    </div>
+                    <div>
+                      <label className="label">Age</label>
+                      <input className="input" type="number" placeholder="25" min={0} max={130} value={pAge} onChange={(e) => setPAge(e.target.value)} />
+                    </div>
+                    <div>
+                      <label className="label">Email</label>
+                      <input className="input" type="email" placeholder="you@example.com" value={pEmail} onChange={(e) => setPEmail(e.target.value)} />
+                    </div>
+                    <div>
+                      <label className="label">Sex</label>
+                      <select className="input" value={pSex} onChange={(e) => setPSex(e.target.value)}>
+                        <option value="">—</option>
+                        <option value="male">Male</option>
+                        <option value="female">Female</option>
+                        <option value="other">Other</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  {formError && <p className="text-xs text-danger-400">{formError}</p>}
+
+                  <button
+                    type="button"
+                    onClick={handleBook}
+                    disabled={submitting}
+                    className="btn-primary w-full justify-center"
+                  >
+                    {submitting
+                      ? <><Loader2 size={14} className="animate-spin" /> Booking…</>
+                      : `Confirm · ${selectedSlot.startTime}–${selectedSlot.endTime}`
+                    }
+                  </button>
+                </div>
+              )}
             </div>
-
-            {bookError && (
-              <p className="text-xs text-danger-400">{bookError}</p>
-            )}
-
-            <button
-              type="button"
-              onClick={handleBook}
-              disabled={submitting}
-              className="btn-primary w-full justify-center"
-            >
-              {submitting ? <><Loader2 size={14} className="animate-spin" /> Sending…</> : 'Send Appointment Request'}
-            </button>
-
-            <p className="text-[10px] text-slate-600 text-center">
-              Your MA Agent report will be sent to the clinic with this request.
-            </p>
           </div>
         </div>
       )}

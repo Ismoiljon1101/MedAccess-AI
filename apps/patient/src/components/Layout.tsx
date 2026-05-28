@@ -1,6 +1,6 @@
 import { type ReactNode, useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { MessageCircle, Activity, Heart, History, Settings, MapPin, FolderOpen } from 'lucide-react';
+import { MessageCircle, Activity, Heart, History, Settings, MapPin, FolderOpen, User } from 'lucide-react';
 import { useAppStore } from '@/store/app';
 import { getHealth } from '@/lib/api';
 
@@ -39,7 +39,7 @@ export default function Layout({ children }: { children: ReactNode }) {
           </span>
         </Link>
 
-        <div className="flex items-center gap-3 shrink-0">
+        <div className="flex items-center gap-2 shrink-0">
           <div
             title={online === null ? 'Connecting…' : online ? 'Connected' : 'Offline'}
             className={`h-1.5 w-1.5 rounded-full ${
@@ -55,7 +55,18 @@ export default function Layout({ children }: { children: ReactNode }) {
                 : 'text-slate-400 hover:text-slate-200'
             }`}
           >
-            <History size={20} />
+            <History size={18} />
+          </Link>
+          <Link
+            to="/profile"
+            title="My Profile"
+            className={`flex items-center justify-center rounded-lg p-1 transition-colors ${
+              location.pathname === '/profile'
+                ? 'text-brand-400'
+                : 'text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <User size={18} />
           </Link>
         </div>
       </header>
