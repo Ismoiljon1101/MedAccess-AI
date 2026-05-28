@@ -2,6 +2,8 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { Send, Phone, Plus, Headphones, BookText, Image as ImageIcon, MapPin, X } from 'lucide-react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { AiAvatar, type AvatarState } from '@/components/AiAvatar';
+import ImageCaptureFlow from '@/components/ImageCaptureFlow';
+import type { ImageModality } from '@/components/ImageCaptureFlow';
 import { streamChatRequest, loadSession, analyzeReport } from '@/lib/api';
 import { useAppStore } from '@/store/app';
 
@@ -42,10 +44,10 @@ export default function Chat() {
   const [loadError, setLoadError]     = useState<string | null>(null);
 
   const [ctaSpec, setCtaSpec] = useState<{ specialty: string; urgency: string } | null>(null);
+  const [showCapture, setShowCapture] = useState(false);
 
   const bottomRef   = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const imageInputRef = useRef<HTMLInputElement>(null);
   const abortRef    = useRef<AbortController | null>(null);
   // Track first user message for history preview
   const previewRef  = useRef<string>('');
@@ -222,59 +224,47 @@ export default function Chat() {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(input); }
   }
 
-  async function handleImageSelect(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  async function handleCaptureConfirm(file: File, _modality: ImageModality) {
+    setShowCapture(false);
 
-    const userId = crypto.randomUUID();
+    const userId   = crypto.randomUUID();
     const imageName = file.name || 'image.jpg';
-    const imageUrl = URL.createObjectURL(file);
-    setMessages((prev) => [...prev, {
-      id: userId,
-      role: 'user',
-      content: '',
-      imageUrl,
-      imageName,
-    }]);
+    const imageUrl  = URL.createObjectURL(file);
+    setMessages((prev) => [...prev, { id: userId, role: 'user', content: '', imageUrl, imageName }]);
 
     const aiId = crypto.randomUUID();
-    setMessages((prev) => [...prev, {
-      id: aiId,
-      role: 'assistant',
-      content: '',
-      streaming: true,
-    }]);
+    setMessages((prev) => [...prev, { id: aiId, role: 'assistant', content: '', streaming: true }]);
 
     try {
       const result = await analyzeReport(file, language, sessionId);
-      const analysisText = `
-**Medical Image Analysis:**
-- Type: ${result.imageType}
-- Quality: ${result.qualityNotes}
-
-**Key Observations:**
-${result.keyObservations.map((o) => `- ${o}`).join('\n')}
-
-**Findings:**
-${result.findings.map((f) => `- ${f.finding} (${f.confidence}): ${f.notes}`).join('\n')}
-
-**Suggested Follow-Up:**
-${result.suggestedFollowUp.map((s) => `- ${s}`).join('\n')}
-
-_${result.disclaimer}_
-      `.trim();
+      const analysisText = [
+        '**Medical Image Analysis:**',
+        `- Type: ${result.imageType}`,
+        `- Quality: ${result.qualityNotes}`,
+        '',
+        '**Key Observations:**',
+        ...result.keyObservations.map((o) => `- ${o}`),
+        '',
+        '**Findings:**',
+        ...result.findings.map((f) => `- ${f.finding} (${f.confidence})${f.notes ? ': ' + f.notes : ''}`),
+        '',
+        '**Suggested Follow-Up:**',
+        ...result.suggestedFollowUp.map((s) => `- ${s}`),
+        '',
+        `_${result.disclaimer}_`,
+      ].join('\n');
 
       setMessages((prev) =>
         prev.map((m) => (m.id === aiId ? { ...m, content: analysisText, streaming: false } : m)),
       );
-
       if (sessionId) persistSession(sessionId, 1);
     } catch (err: any) {
       setMessages((prev) =>
-        prev.map((m) => (m.id === aiId ? { ...m, content: `Error analyzing image: ${err.message}`, streaming: false } : m)),
+        prev.map((m) =>
+          m.id === aiId ? { ...m, content: `Error analyzing image: ${err.message}`, streaming: false } : m,
+        ),
       );
     } finally {
-      if (imageInputRef.current) imageInputRef.current.value = '';
       bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
     }
   }
@@ -302,6 +292,13 @@ _${result.disclaimer}_
 
   return (
     <div className="chat-layout">
+      {/* ── Image capture flow (modal) ─────────────────────────────── */}
+      {showCapture && (
+        <ImageCaptureFlow
+          onConfirm={handleCaptureConfirm}
+          onCancel={() => setShowCapture(false)}
+        />
+      )}
       {/* ── Top bar: New chat button (only when session active) ───── */}
       {(sessionId || resumeId) && (
         <div className="flex items-center justify-between px-3 py-2 border-b border-surface-700 shrink-0">
@@ -429,20 +426,13 @@ _${result.disclaimer}_
 
       {/* ── Input bar ────────────────────────────────────────────── */}
       <div className="chat-input-bar">
-        {/* Image upload */}
-        <input
-          ref={imageInputRef}
-          type="file"
-          accept="image/*"
-          onChange={handleImageSelect}
-          className="hidden"
-          aria-label="Upload medical image"
-        />
+        {/* Image capture — opens quality-gated flow */}
         <button
           type="button"
-          onClick={() => imageInputRef.current?.click()}
-          aria-label="Upload image"
-          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-surface-600 bg-surface-700 text-slate-400 transition hover:border-brand-500/50 hover:text-slate-200"
+          onClick={() => setShowCapture(true)}
+          aria-label="Upload medical image"
+          title="Upload image"
+          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-ink-700 bg-ink-800 text-ink-400 transition hover:border-brand-500/50 hover:text-ink-200"
         >
           <ImageIcon size={20} />
         </button>

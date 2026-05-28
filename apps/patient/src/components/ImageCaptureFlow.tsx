@@ -16,10 +16,12 @@
  */
 import { useRef, useState } from 'react';
 import {
+  type LucideProps,
   X, Camera, RefreshCw, Check, AlertTriangle,
   Sun, Scan, Eye, Stethoscope, ChevronRight,
   CheckCircle2,
 } from 'lucide-react';
+import type { ForwardRefExoticComponent, RefAttributes } from 'react';
 import { checkImageQuality } from '@/lib/imageQuality';
 import type { QualityFail } from '@/lib/imageQuality';
 
@@ -34,10 +36,12 @@ interface Props {
 
 // ── Modality config ───────────────────────────────────────────────────────────
 
+type LucideIcon = ForwardRefExoticComponent<Omit<LucideProps, 'ref'> & RefAttributes<SVGSVGElement>>;
+
 const MODALITIES: {
   key: ImageModality;
   label: string;
-  Icon: React.FC<{ size?: number; className?: string }>;
+  Icon: LucideIcon;
   hint: string;
   overlayClass: string;
 }[] = [
