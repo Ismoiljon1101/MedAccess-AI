@@ -22,13 +22,60 @@
 | Patient → clinic referral loop (Connect-to-Care CTA → booking → clinic queue) | ✅ Done |
 | Per-engineer agent files (`CLAUDE.md` + `docs/team/`) | ✅ Done |
 | Python image-ml sidecar (scaffold + contract) | ✅ Scaffold done · specialist models pending |
-| Vision model upgrade (Sonnet 4.5) | 🚧 In progress (Ismail) |
+| **Research folder** (`research/`) — Pareto disease + model + dataset survey | ✅ **Complete** ([`research/00-overview.md`](./research/00-overview.md)) |
+| Cheapest LLM switch — Qwen 3.6 Plus (free) | 📋 Todo (Ismail) |
+| Patient image-quality guidance modal + checklist | 📋 Todo (Otabek, **research-confirmed REQUIRED, not optional**) |
+| Vision model upgrade (Sonnet 4.5) | ❌ **Cancelled** — going free-Chinese instead |
 | QA pass across both portals | 🚧 In progress (Mirsaid) |
 | Image thumbnails in chat | 📋 Todo (Otabek) |
-| Skin lesion classifier (HAM10000 / YOLOv8) | 📋 Todo (Temirlan) |
+| Specialist disease models: **YOLOv8n-Malaria** (Phase 1, MIT) | 📋 Todo (Temirlan, **unblocked**) |
+| Specialist disease models: **TorchXRayVision** pneumonia (Phase 2) | 📋 Todo (Temirlan + Otabek for alignment UI) |
+| Specialist disease models: **YOLOv8n-cls** skin lesions (Phase 3, non-commercial pilot only) | 📋 Todo (Temirlan) |
 | PWA Lighthouse audit ≥ 90 | 📋 Todo (Otabek) |
 | Screenshots + DEMO.md | 📋 Todo (Sobirov) |
 | Tag `v0.1.0` + submit | 📋 Todo (Ismail) |
+
+---
+
+## 0.5 · Strategy (as of 2026-05-28)
+
+Two strategic shifts since the original plan:
+
+### A) Pareto-focused accuracy, not breadth — **research done, decisions locked**
+
+See [`research/00-overview.md`](./research/00-overview.md) for the executive summary and [`research/Medical ML for Rural Settings.md`](./research/Medical%20ML%20for%20Rural%20Settings.md) for the full annotated report with citations.
+
+**Top 5 diseases (locked):** Malaria · Pneumonia · Skin lesions · Diabetic retinopathy · Scabies.
+
+**Models chosen per disease:**
+| Phase | Disease | Model | License | Status |
+|---|---|---|---|---|
+| 1 | Malaria | YOLOv8n-Malaria (NIH smear) | MIT ✅ | Ship first |
+| 2 | Pneumonia | TorchXRayVision DenseNet121 | Apache 2.0 ✅ | Needs alignment UI |
+| 3 | Skin lesions | YOLOv8n-cls (HAM10000) | CC BY-NC ⚠️ | Pilot/demo only |
+| 4 | Retinopathy | ResNet50-DR | Non-commercial ⚠️ | Non-profit only |
+| 5 | Scabies | MobileNetV2-ScabAI | Non-commercial ⚠️ | ❌ Deferred (dataset too small) |
+
+**Architecture locked:** Local Python sidecar (`services/image-ml/`) — already scaffolded. Browser WASM explicitly rejected (single-thread, 1.5–3s latency, crashes). Native mobile wrapper (ONNX Runtime Mobile + NNAPI/CoreML) is the post-MVP path.
+
+### B) Cheap stack, not premium stack
+
+Budget is tight. Switching from Claude Sonnet 4.5 (~$3/1M tok) to Chinese / free models:
+
+- **Qwen 3.6 Plus** — free during preview, 1M context (primary chat + vision)
+- **Qwen 3.5 Flash** — $0.065/$0.26 (fast path)
+- **MiMo / Step / DeepSeek free tiers** — backup
+
+We accept slightly worse general intelligence in exchange for $0 demo cost. Specialist image models close the medical accuracy gap that cheaper LLMs open.
+
+### C) Patient-side image quality is REQUIRED (research-confirmed)
+
+Research is explicit: every chosen specialist model loses **15–25% accuracy** on non-curated phone photos vs benchmark. An interactive capture interface is not optional — it's a prerequisite for the specialist models to perform as advertised.
+
+Required components (Otabek):
+- Pre-upload alignment overlay (positioning template per modality)
+- Client-side blur / glare / brightness gate (block submit if image fails)
+- Post-capture checklist + retake flow
 
 ---
 
@@ -72,13 +119,17 @@
 ## 3 · Per-Engineer Current Sprint (May 28 → Jun 9)
 
 ### Ismail
-1. Define Node ↔ Python image-ml HTTP contract (response shape stable, do not break).
-2. Flip `OPENROUTER_VISION_MODEL=anthropic/claude-sonnet-4-5` in `.env`. Verify with Otabek's smoke test.
-3. Wire `vision.ts` to call `services/image-ml` (feature-flagged by `IMAGE_ML_URL`).
-4. Pair with Temirlan for first session on the Python sidecar — both must understand it.
-5. Review every PR touching `apps/api/`, `packages/shared/`, `packages/db/`.
-6. `pnpm typecheck` clean on all workspaces.
-7. Tag `v0.1.0` when DoD (§6) green.
+1. **Switch all LLM defaults to cheapest Chinese / free models** — Qwen 3.6 Plus (free during preview) for chat + vision. Update `.env`:
+   - `OPENROUTER_CHAT_MODEL=qwen/qwen-3.6-plus` (verify exact OpenRouter slug)
+   - `OPENROUTER_FAST_MODEL=qwen/qwen-3.5-flash` ($0.065/$0.26)
+   - `OPENROUTER_VISION_MODEL=qwen/qwen-3.6-plus` if vision-capable, else next-cheapest Chinese vision model
+2. **Lead Pareto research** — fill in [`docs/research/01-pareto-diseases.md`](./docs/research/01-pareto-diseases.md) and downstream files. This unblocks Temirlan.
+3. Define Node ↔ Python image-ml HTTP contract (response shape stable, do not break).
+4. Wire `vision.ts` to call `services/image-ml` (feature-flagged by `IMAGE_ML_URL`) — after Temirlan ships first specialist model.
+5. Pair with Temirlan for first session on the Python sidecar — both must understand it.
+6. Review every PR touching `apps/api/`, `packages/shared/`, `packages/db/`.
+7. `pnpm typecheck` clean on all workspaces.
+8. Tag `v0.1.0` when DoD (§6) green.
 
 ### Mirsaid
 1. OpenRouter credit ≥ $20 in account.
@@ -88,19 +139,40 @@
 5. Record 90s backup demo video. Link in this file when done.
 
 ### Temirlan
+**Research complete — unblocked.** Read [`research/00-overview.md`](./research/00-overview.md) first (executive summary) then [`research/Medical ML for Rural Settings.md`](./research/Medical%20ML%20for%20Rural%20Settings.md) (full report with citations).
+
+**Phase 1 — Malaria (ship first, MIT license, fastest path)**
 1. `pip install -r services/image-ml/requirements.txt && uvicorn main:app --reload --port 5001`. Verify `/healthz`.
-2. **Skin lesion path first.** YOLOv8 fine-tuned on HAM10000 (CC BY-NC 4.0, eval-only). Wire into `/analyze` when `hint=skin` or triage detects skin.
-3. Eval harness in `services/image-ml/eval/`. Report accuracy/sensitivity/specificity per class. Commit `results.md`.
-4. Pair session with Ismail on the Node↔Python integration.
-5. Week 2: chest X-ray via TorchXRayVision DenseNet121 (CheXpert pretrained).
+2. Download YOLOv8n-Malaria weights from the NIH Thin Blood Smear repo (paper DOI in research overview). Add `services/image-ml/download_weights.sh` — never commit weights.
+3. Wire `/analyze` with `hint=microscopy` (or auto-detect) → return `{ image_type: "malaria_smear", findings: [{label, confidence}], model_used: "yolov8n-malaria" }`.
+4. Eval harness: `services/image-ml/eval/malaria.py` — accuracy / sensitivity / specificity on held-out NIH test split. Commit `eval/results.md`.
+5. Pair with Ismail on Node↔Python integration (`apps/api/src/services/vision.ts` merge logic).
+
+**Phase 2 — Pneumonia (TorchXRayVision)**
+6. Integrate TorchXRayVision DenseNet121-all model. Apache 2.0 ✅. Wire `hint=xray` path.
+7. **Coordinate with Otabek** on the X-ray alignment UI — research says photographed X-rays need parallax-correction overlay, otherwise accuracy drops 15–25%.
+
+**Phase 3 — Skin lesions (HAM10000, non-commercial demo only)**
+8. YOLOv8n-cls + HAM10000. CC BY-NC ⚠️ — document clearly that this is humanitarian-program / pilot only.
+9. Add CLAHE preprocessing step (boosts accuracy from 86.2% → 91.9% per research).
+
+**Skip for v0.1**
+- ResNet50-DR (retinopathy) — non-commercial, defer
+- MobileNetV2-ScabAI (scabies) — dataset too small, defer
 
 ### Otabek
-1. Image thumbnail in `apps/patient/src/pages/Chat.tsx` (replace `[Uploaded: filename]` with `<img>` preview).
-2. Dismiss-X on the Connect-to-Care CTA card.
-3. 30-second polling on `apps/clinic/src/pages/Patients.tsx` so referrals appear without refresh.
-4. Vision upgrade smoke test — compare report analysis output before/after Sonnet 4.5 flip.
-5. Loading / empty / error states pass across both portals.
-6. Lighthouse PWA ≥ 90 on both.
+1. **Image-quality capture interface** in `apps/patient/src/pages/Chat.tsx` (**research-confirmed REQUIRED** — specialist models lose 15–25% accuracy without it):
+   - **Alignment overlay per modality** — different on-screen template for skin lesion vs X-ray vs fundus (research file `06-image-quality-ux-template.md`)
+   - **Client-side ambient quality gate** — variance-of-Laplacian blur check + brightness histogram check + glare detection. Block submit if image fails; show specific reason ("too blurry — hold still", "too dark — find better light").
+   - **Pre-upload guidance modal** — 4 do's / 3 don'ts (lighting / framing / focus / no other body parts)
+   - **Post-capture checklist** — preview + 3 confirmations + Retake button
+   - Coordinate with Temirlan on Phase 2 — X-ray photographs specifically need parallax-correction overlay (camera parallel to lightbox).
+2. Image thumbnail in chat — replace `[Uploaded: filename]` with `<img>` preview after upload.
+3. Dismiss-X on the Connect-to-Care CTA card.
+4. 30-second polling on `apps/clinic/src/pages/Patients.tsx` so referrals appear without refresh.
+5. LLM-switch smoke test — after Ismail switches to Qwen 3.6 Plus, walk through Chat / Symptoms / Reports / Triage in both portals. Verify no regression in output quality. Note language quality on Uzbek + Hindi (Chinese models may handle Asian languages differently than Western ones).
+6. Loading / empty / error states pass across both portals.
+7. Lighthouse PWA ≥ 90 on both.
 
 ### Sobirov
 1. Take all screenshots listed in [§5 Demo Assets](#5--demo-assets).

@@ -97,6 +97,12 @@ Patient: describes symptoms to MA Agent  →  Clinical Snapshot after ~3 turns
 
 Most clinical-AI products stop at the read. We close the loop.
 
+### Strategy in three lines
+
+1. **Pareto-focused.** Specialist models for the 5 diseases that cause ~80% of clinic visits in our target markets — **Malaria · Pneumonia · Skin lesions · Diabetic retinopathy · Scabies**. Models locked per research (YOLOv8n-Malaria MIT, TorchXRayVision Apache 2.0, YOLOv8n-cls HAM10000 demo-only, ResNet50-DR non-profit). LLM fallback for the long tail. See [`research/00-overview.md`](./research/00-overview.md).
+2. **Cheap stack.** Free / cheap Chinese models (Qwen 3.6 Plus free, Qwen 3.5 Flash ~$0.07/$0.26 per 1M tok) instead of premium Western models. Budget-friendly demo and deploy.
+3. **Better photos = better diagnosis.** Patient-side image-quality guidance (modal + checklist + retake) ships before any model upgrade. The cheapest accuracy gain we have, benefits every downstream model.
+
 ### Seven Core Modules
 
 | # | Module | Portal | What it does |
@@ -283,6 +289,7 @@ Our frontend UI architecture implements the **Atomic Design methodology** to org
 |---|---|
 | [`CLAUDE.md`](./CLAUDE.md) · [`AGENTS.md`](./AGENTS.md) · [`.cursorrules`](./.cursorrules) | Cross-IDE agent router — identity check + per-engineer scoping |
 | [`docs/team/`](./docs/team/) | Per-engineer files (Ismail, Mirsaid, Temirlan, Otabek, Sobirov) — role, lane, owned files, sprint tasks |
+| [`research/`](./research/) | **Strategic research** — Pareto disease survey, model survey, dataset/license review, image-quality UX. **Top 5 diseases + models locked** ([`research/00-overview.md`](./research/00-overview.md)). |
 | [`docs/qa/issues.md`](./docs/qa/issues.md) | QA bug inbox (Mirsaid files, engineers pull) |
 | [`docs/architecture/image-pipeline.md`](./docs/architecture/image-pipeline.md) | Hybrid LLM + specialist CV pipeline design |
 | [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md) | Layered system architecture |
@@ -305,9 +312,10 @@ Our frontend UI architecture implements the **Atomic Design methodology** to org
 | **State** | Zustand (persisted) | Smaller than Redux, no boilerplate, persists prefs (language + model) |
 | **Routing** | react-router v6 | De facto |
 | **PWA** | `vite-plugin-pwa` (Workbox) | Auto-update service worker, generated manifest |
-| **LLM gateway** | **OpenRouter** | One key → 50+ models from Anthropic, OpenAI, Google, Meta, DeepSeek |
-| **LLM (default chat/vision)** | `anthropic/claude-sonnet-4.5` | Top of HealthBench medical benchmark in 2026 |
-| **LLM (fast/cheap fallback)** | `openai/gpt-4o-mini`, `google/gemini-2.0-flash` | Sub-cent demo cost |
+| **LLM gateway** | **OpenRouter** | One key → 300+ models from Anthropic, OpenAI, Google, Meta, Qwen, DeepSeek, MiMo, Step |
+| **LLM (default chat/vision)** | `qwen/qwen-3.6-plus` (free preview) | $0 demo cost; specialist sidecar covers medical-image accuracy gap |
+| **LLM (fast path)** | `qwen/qwen-3.5-flash` (~$0.07/$0.26 per 1M tok) | Sub-cent demo cost |
+| **LLM (premium upgrade path)** | `anthropic/claude-sonnet-4.5` | Available via env-var swap if budget allows |
 | **Voice STT** | Web Speech API (primary) + OpenAI Whisper (optional) | Zero-key fallback for demos; Whisper for production accuracy |
 | **Voice mode** | LiveKit + Web Speech TTS | Full-screen immersive voice UI; standalone fallback if LiveKit unconfigured |
 | **Avatar** | Lottie (`lottie-react`) | Animated doctor avatar, 3 states: idle / listening / thinking |
@@ -404,6 +412,14 @@ Mic button on every free-text input. Two paths:
   OpenAI Whisper → text fills the input. Requires `OPENAI_API_KEY`.
 - **Browser fallback:** Web Speech API (`SpeechRecognition`). Works on Chrome /
   Edge without any backend key — perfect for zero-config demos.
+
+### Image-quality guidance (research-confirmed requirement)
+
+Specialist medical-image models lose 15–25% accuracy when fed non-curated patient phone photos. Image-quality guidance isn't a polish item — it's a prerequisite for the model accuracy claims to hold. The patient gets an alignment overlay per modality, a client-side blur/glare/brightness gate that blocks bad submissions before they reach the server, and a post-capture checklist. See [`research/06-image-quality-ux-template.md`](./research/06-image-quality-ux-template.md).
+
+### Pareto-focused specialist models
+
+Research is complete. Top 5 diseases locked: **Malaria** (YOLOv8n-Malaria, MIT ✅), **Pneumonia** (TorchXRayVision DenseNet121, Apache 2.0 ✅), **Skin lesions** (YOLOv8n-cls + HAM10000, CC BY-NC ⚠️ demo-only), **Diabetic retinopathy** (ResNet50-DR, non-commercial ⚠️ non-profit only), **Scabies** (deferred — dataset too small). Browser-WASM execution explicitly rejected for performance reasons; v0.1 uses the local Python sidecar (~200ms over WiFi), post-MVP path is native mobile wrapper via ONNX Runtime Mobile + NNAPI/CoreML. Full report: [`research/Medical ML for Rural Settings.md`](./research/Medical%20ML%20for%20Rural%20Settings.md).
 
 ### Multimodal vision
 
