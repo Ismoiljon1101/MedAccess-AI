@@ -1,4 +1,4 @@
-import { Globe2, Type, Volume2, Trash2, Info, ChevronRight } from 'lucide-react';
+import { Globe2, Type, Volume2, Trash2, Info, ChevronRight, LogOut, User } from 'lucide-react';
 import { useAppStore } from '@/store/app';
 import { useNavigate } from 'react-router-dom';
 
@@ -45,6 +45,8 @@ export default function Settings() {
     fontSize, setFontSize,
     voiceAutoPlay, setVoiceAutoPlay,
     chatHistory, clearHistory,
+    patientProfile, clearPatientProfile,
+    clearAppointments,
   } = useAppStore();
   const navigate = useNavigate();
 
@@ -142,6 +144,47 @@ export default function Settings() {
           </div>
           <ChevronRight size={16} className="text-slate-600" />
         </div>
+      </Section>
+
+      {/* ── Profile ───────────────────────────────────────────── */}
+      <Section title="Profile">
+        <div
+          className="flex items-center gap-3 px-4 py-3.5 cursor-pointer hover:bg-surface-700/50 transition"
+          onClick={() => navigate('/profile')}
+        >
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-surface-700 text-slate-400">
+            <User size={18} />
+          </div>
+          <div className="flex-1">
+            <p className="text-sm font-medium text-white">
+              {patientProfile?.fullName && patientProfile.fullName !== 'Guest'
+                ? patientProfile.fullName
+                : 'My Profile'}
+            </p>
+            <p className="text-xs text-slate-500 mt-0.5">Edit name, health info, emergency contact</p>
+          </div>
+          <ChevronRight size={16} className="text-slate-600" />
+        </div>
+
+        <Row
+          icon={<LogOut size={18} />}
+          label="Reset & start over"
+          sublabel="Clears profile and all local data"
+        >
+          <button
+            type="button"
+            onClick={() => {
+              if (confirm('This will clear your profile, chat history, and appointments. Continue?')) {
+                clearHistory();
+                clearAppointments();
+                clearPatientProfile();
+              }
+            }}
+            className="rounded-lg border border-danger-500/40 px-3 py-1.5 text-xs font-medium text-danger-400 hover:bg-danger-500/10 transition"
+          >
+            Reset
+          </button>
+        </Row>
       </Section>
 
       {/* ── About ─────────────────────────────────────────────── */}

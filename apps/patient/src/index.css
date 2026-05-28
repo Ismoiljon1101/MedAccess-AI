@@ -2,267 +2,252 @@
 @tailwind components;
 @tailwind utilities;
 
-/* ── Mobile PWA: full viewport height, no scroll bounce ───────────────── */
+/* ── Mobile PWA: full viewport height ──────────────────────────────────── */
 html, body, #root {
   height: 100%;
   overscroll-behavior: none;
 }
 
-/* ── Utility classes not in Tailwind config ─────────────────────────────── */
+/* ── Base ───────────────────────────────────────────────────────────────── */
+@layer base {
+  html { font-family: 'Inter', system-ui, sans-serif; }
+
+  body {
+    background:
+      radial-gradient(1000px 550px at 10% -5%,  rgba(34, 184, 163, 0.13), transparent 60%),
+      radial-gradient(800px  450px at 105% 8%,  rgba(94, 92, 230, 0.10),  transparent 60%),
+      radial-gradient(600px  300px at 60% 100%, rgba(34, 184, 163, 0.06), transparent 60%),
+      #070a13;
+    color: #e3e6f0;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  /* ── Custom scrollbar ─────────────────────────────────────────────── */
+  ::-webkit-scrollbar       { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: #0b0f1a; }
+  ::-webkit-scrollbar-thumb { background: #1a2236; border-radius: 6px; }
+  ::-webkit-scrollbar-thumb:hover { background: #243049; }
+}
+
+/* ── Utility ────────────────────────────────────────────────────────────── */
 .bg-white\/8  { background-color: rgb(255 255 255 / 0.08); }
 .bg-white\/5  { background-color: rgb(255 255 255 / 0.05); }
+.bg-ok-500\/8 { background-color: rgb(16 185 129 / 0.08); }
 
-/* ── iOS safe area helpers ─────────────────────────────────────────────── */
-.pt-safe-top  { padding-top:    env(safe-area-inset-top,    0px); }
-.pb-safe-bot  { padding-bottom: env(safe-area-inset-bottom, 0px); }
+/* ── iOS safe area ──────────────────────────────────────────────────────── */
+.pt-safe-top { padding-top:    env(safe-area-inset-top,    0px); }
+.pb-safe-bot { padding-bottom: env(safe-area-inset-bottom, 0px); }
 
-/* ── Font size scaling from Settings ──────────────────────────────────── */
+/* ── Font size scaling ──────────────────────────────────────────────────── */
 html.text-size-sm .chat-bubble { font-size: 0.75rem; }
 html.text-size-md .chat-bubble { font-size: 0.875rem; }
 html.text-size-lg .chat-bubble { font-size: 1rem; }
 
-@layer base {
-  html { font-family: 'Inter', system-ui, sans-serif; }
-  body { @apply bg-surface-900 text-slate-100 antialiased; }
-}
-
+/* ── Component layer ────────────────────────────────────────────────────── */
 @layer components {
-  /* ── Design tokens ─────────────────────────────────────────────────── */
-  .card        { @apply rounded-2xl border border-surface-700 bg-surface-800; }
-  .card-pad    { @apply p-5; }
-  .btn         { @apply inline-flex items-center gap-2 rounded-xl border border-surface-600 bg-surface-700 px-4 py-2.5 text-sm font-medium text-slate-100 transition hover:border-brand-500/50 hover:bg-surface-600 disabled:cursor-not-allowed disabled:opacity-50; }
-  .btn-primary { @apply btn border-brand-600 bg-brand-600 text-white hover:bg-brand-700 hover:border-brand-700; }
-  .btn-danger  { @apply btn border-danger-500/60 bg-danger-500/20 text-danger-400 hover:bg-danger-500/30; }
-  .input       { @apply w-full rounded-xl border border-surface-600 bg-surface-700 px-3 py-2.5 text-sm text-slate-100 placeholder-slate-500 outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500/40; }
-  .label       { @apply mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-400; }
-  .chip        { @apply inline-flex items-center rounded-full border px-3 py-1 text-xs font-medium; }
-  .chip-ok     { @apply border-ok-500/40 bg-ok-500/10 text-ok-400; }
-  .chip-warn   { @apply border-warn-500/40 bg-warn-500/10 text-warn-400; }
+
+  /* ── Cards ─────────────────────────────────────────────────────────── */
+  .card {
+    @apply rounded-2xl border border-ink-700/70 bg-ink-900/70 backdrop-blur-sm shadow-lg shadow-black/30;
+  }
+  .card-pad  { @apply p-5; }
+  .card-glass {
+    @apply rounded-2xl border border-white/8 bg-white/5 backdrop-blur-md shadow-lg shadow-black/40;
+  }
+
+  /* ── Buttons ────────────────────────────────────────────────────────── */
+  .btn {
+    @apply inline-flex items-center gap-2 rounded-xl border border-ink-700 bg-ink-800/80 px-4 py-2.5 text-sm font-medium text-ink-100 transition hover:border-brand-500 hover:text-white hover:shadow-glow-sm disabled:cursor-not-allowed disabled:opacity-50;
+  }
+  .btn-primary {
+    @apply btn border-brand-500/60 bg-brand-500/15 text-brand-400 hover:bg-brand-500/25;
+  }
+  .btn-danger {
+    @apply btn border-danger-500/60 text-danger-500 hover:border-danger-500 hover:bg-danger-500/10;
+  }
+
+  /* ── Inputs ─────────────────────────────────────────────────────────── */
+  .input {
+    @apply w-full rounded-xl border border-ink-700 bg-ink-900/60 px-4 py-2.5 text-ink-100 placeholder-ink-400 outline-none transition focus:border-brand-500/60 focus:ring-2 focus:ring-brand-500/20;
+  }
+  .label {
+    @apply block text-xs font-medium uppercase tracking-wider text-ink-300 mb-1.5;
+  }
+
+  /* ── Chips ──────────────────────────────────────────────────────────── */
+  .chip        { @apply inline-flex items-center gap-1 rounded-full border border-ink-700 bg-ink-800/70 px-2.5 py-1 text-xs text-ink-200; }
+  .chip-ok     { @apply border-ok-500/40     bg-ok-500/10     text-ok-400; }
+  .chip-warn   { @apply border-warn-500/40   bg-warn-500/10   text-warn-400; }
   .chip-danger { @apply border-danger-500/40 bg-danger-500/10 text-danger-400; }
 
-  /* ── App shell ─────────────────────────────────────────────────────── */
+  /* ── App shell ──────────────────────────────────────────────────────── */
   .app-shell {
-    @apply flex flex-col bg-surface-900;
-    height: 100dvh; /* dynamic viewport — shrinks when mobile keyboard opens */
+    @apply flex flex-col;
+    background: transparent; /* uses body gradient */
+    height: 100dvh;
     overflow: hidden;
   }
 
   .app-header {
-    @apply flex shrink-0 items-center justify-between border-b border-surface-700 bg-surface-900/95 px-4 py-3 backdrop-blur;
+    @apply flex shrink-0 items-center justify-between border-b border-ink-700/60 bg-ink-950/80 px-4 py-3 backdrop-blur;
   }
 
   .app-disclaimer {
     @apply shrink-0 border-b border-warn-500/20 bg-warn-500/10 px-4 py-1.5 text-center text-[10px] text-warn-400;
   }
 
-  /* Bottom tab bar — respects iOS safe-area-inset-bottom */
+  /* ── Bottom nav ─────────────────────────────────────────────────────── */
   .app-bottom-nav {
-    @apply shrink-0 flex border-t border-surface-700 bg-surface-900;
+    @apply shrink-0 flex border-t border-ink-700/60 bg-ink-950/90 backdrop-blur;
     padding-bottom: env(safe-area-inset-bottom, 0px);
   }
-
   .app-tab {
     @apply flex flex-1 flex-col items-center gap-1 pt-2.5 pb-2 text-[11px] font-medium transition-colors;
   }
   .app-tab-active   { @apply text-brand-400; }
-  .app-tab-inactive { @apply text-slate-500 hover:text-slate-300; }
+  .app-tab-inactive { @apply text-ink-400 hover:text-ink-200; }
 
-  /* ── Chat layout ───────────────────────────────────────────────────── */
-  .chat-layout {
-    @apply flex flex-1 flex-col overflow-hidden min-h-0;
-  }
-
+  /* ── Chat ───────────────────────────────────────────────────────────── */
+  .chat-layout   { @apply flex flex-1 flex-col overflow-hidden min-h-0; }
   .chat-messages {
     @apply flex-1 overflow-y-auto overscroll-contain space-y-3 px-3 py-4;
     -webkit-overflow-scrolling: touch;
   }
+  .chat-row       { @apply flex items-end gap-2; }
+  .chat-row-ai    { @apply flex-row; }
+  .chat-row-user  { @apply flex-row-reverse; }
+  .chat-avatar-wrap { @apply shrink-0 mb-0.5; }
 
-  /* Each message row */
-  .chat-row {
-    @apply flex items-end gap-2;
-  }
-  .chat-row-ai   { @apply flex-row; }
-  .chat-row-user { @apply flex-row-reverse; }
-
-  .chat-avatar-wrap {
-    @apply shrink-0 mb-0.5;
-  }
-
-  /* Bubbles */
   .chat-bubble {
     @apply rounded-2xl px-4 py-3 text-sm leading-relaxed;
     max-width: 78%;
     word-break: break-word;
   }
-  /* AI bubble: off-white / very soft dark */
-  .chat-bubble-ai {
-    @apply bg-surface-700 text-slate-100 rounded-bl-sm;
-  }
-  /* User bubble: primary accent */
-  .chat-bubble-user {
-    @apply bg-brand-600 text-white rounded-br-sm;
-  }
+  .chat-bubble-ai   { @apply bg-ink-800/90 text-ink-100 border border-ink-700/50 rounded-bl-sm; }
+  .chat-bubble-user { @apply bg-brand-600 text-white rounded-br-sm; }
 
-  /* ── Typing indicator (three bouncing dots) ────────────────────────── */
-  .chat-typing {
-    @apply inline-flex items-center gap-1 py-1;
-  }
+  /* Typing dots */
+  .chat-typing { @apply inline-flex items-center gap-1 py-1; }
   .chat-typing span {
-    @apply block h-1.5 w-1.5 rounded-full bg-slate-400;
+    @apply block h-1.5 w-1.5 rounded-full bg-ink-300;
     animation: chat-dot 1.2s ease-in-out infinite;
   }
   .chat-typing span:nth-child(2) { animation-delay: 0.18s; }
   .chat-typing span:nth-child(3) { animation-delay: 0.36s; }
 
-  /* ── Chat input bar ────────────────────────────────────────────────── */
+  /* Input bar */
   .chat-input-bar {
-    @apply shrink-0 flex items-end gap-2 border-t border-surface-700 bg-surface-900 px-3 py-3;
+    @apply shrink-0 flex items-end gap-2 border-t border-ink-700/60 bg-ink-950/80 backdrop-blur px-3 py-3;
     padding-bottom: max(12px, env(safe-area-inset-bottom, 0px));
   }
-
   .chat-input-field {
-    @apply flex-1 rounded-2xl border border-surface-600 bg-surface-800 px-4 py-3 text-sm text-slate-100 placeholder-slate-500 outline-none resize-none;
+    @apply flex-1 rounded-2xl border border-ink-700 bg-ink-800/80 px-4 py-3 text-sm text-ink-100 placeholder-ink-400 outline-none resize-none;
     max-height: 128px;
     line-height: 1.5;
     transition: border-color 0.15s;
   }
   .chat-input-field:focus {
-    @apply border-brand-500;
-    box-shadow: 0 0 0 3px rgb(59 130 246 / 0.12);
+    @apply border-brand-500/50;
+    box-shadow: 0 0 0 3px rgb(34 184 163 / 0.12);
   }
   .chat-input-field:disabled { @apply opacity-50; }
 
   .chat-mic-btn {
-    @apply relative flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-surface-600 bg-surface-700 transition;
+    @apply relative flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-ink-700 bg-ink-800 transition;
   }
-  .chat-mic-btn:not([disabled]):hover { @apply border-brand-500/50 text-slate-200; }
+  .chat-mic-btn:not([disabled]):hover { @apply border-brand-500/50 text-ink-200; }
 
   .chat-send-btn {
-    @apply flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-brand-600 bg-brand-600 text-white transition;
+    @apply flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-brand-600 bg-brand-600/80 text-white transition;
   }
-  .chat-send-btn:not([disabled]):hover { @apply bg-brand-700 border-brand-700; }
+  .chat-send-btn:not([disabled]):hover { @apply bg-brand-500 border-brand-500 shadow-glow-sm; }
   .chat-send-btn:disabled { @apply opacity-40 cursor-not-allowed; }
-}
 
-/* ── Lottie avatar wrapper + state rings ──────────────────────────────── */
-
-@layer components {
-  /* Outer container — clips Lottie, anchors rings */
-  .avatar-root {
-    @apply relative shrink-0 rounded-full overflow-visible;
-  }
-
-  /* Base ring — absolutely covers the avatar bounds */
-  .avatar-ring {
-    @apply absolute inset-0 rounded-full pointer-events-none;
-    border: 2px solid #3b82f6;
-  }
-
-  /* Idle: single ring that slowly breathes (opacity + scale) */
-  .avatar-ring-breathe {
-    animation: avatar-breathe 3s ease-in-out infinite;
-  }
-
-  /* Listening: ring expands outward and fades */
-  .avatar-ring-ripple {
-    animation: avatar-ripple 1.8s ease-out infinite;
-  }
-
-  /* Thinking: spinning dashed arc */
-  .avatar-ring-spin {
-    border-style: dashed;
-    border-color: #3b82f6;
-    border-width: 2px;
-    animation: avatar-spin 1.1s linear infinite;
-  }
-}
-
-/* Idle breathe */
-@keyframes avatar-breathe {
-  0%, 100% { opacity: 0.3;  transform: scale(1); }
-  50%       { opacity: 0.75; transform: scale(1.08); }
-}
-
-/* Listening ripple — ring expands and fades */
-@keyframes avatar-ripple {
-  0%   { transform: scale(1);    opacity: 0.6; }
-  100% { transform: scale(1.55); opacity: 0; }
-}
-
-/* Thinking spin */
-@keyframes avatar-spin {
-  from { transform: rotate(0deg); }
-  to   { transform: rotate(360deg); }
-}
-
-/* ── Voice Mode ────────────────────────────────────────────────────────── */
-
-@layer components {
-  .voice-layout {
-    @apply flex flex-1 flex-col overflow-hidden min-h-0 relative;
-  }
-
-  .voice-header {
-    @apply flex shrink-0 items-center justify-between px-4 py-3 border-b border-surface-700;
-  }
-
-  .voice-close-btn {
-    @apply flex h-9 w-9 items-center justify-center rounded-full border border-surface-600 bg-surface-700 text-slate-400 hover:text-slate-200 transition;
-  }
-
-  .voice-mute-btn {
-    @apply flex h-9 w-9 items-center justify-center rounded-full border border-surface-600 bg-surface-700 transition hover:border-brand-500/50;
-  }
-
-  /* Centre area — avatar + status */
-  .voice-avatar-area {
-    @apply flex flex-1 flex-col items-center justify-center px-6 min-h-0;
-  }
-
-  .voice-subtitles {
-    @apply shrink-0 max-h-36 overflow-y-auto;
-  }
-
-  .voice-controls {
+  /* ── Voice mode ─────────────────────────────────────────────────────── */
+  .voice-layout     { @apply flex flex-1 flex-col overflow-hidden min-h-0 relative; }
+  .voice-header     { @apply flex shrink-0 items-center justify-between px-4 py-3 border-b border-ink-700/60; }
+  .voice-close-btn  { @apply flex h-9 w-9 items-center justify-center rounded-full border border-ink-700 bg-ink-800 text-ink-400 hover:text-ink-100 transition; }
+  .voice-mute-btn   { @apply flex h-9 w-9 items-center justify-center rounded-full border border-ink-700 bg-ink-800 transition hover:border-brand-500/50; }
+  .voice-avatar-area { @apply flex flex-1 flex-col items-center justify-center px-6 min-h-0; }
+  .voice-subtitles  { @apply shrink-0 max-h-36 overflow-y-auto; }
+  .voice-controls   {
     @apply shrink-0 flex flex-col items-center py-8;
     padding-bottom: max(32px, env(safe-area-inset-bottom, 0px));
   }
-
-  /* Big mic button */
   .voice-mic-btn {
     @apply flex h-20 w-20 items-center justify-center rounded-full border-2 border-brand-500 bg-brand-600/20 text-brand-400 transition;
-    box-shadow: 0 0 0 0 rgb(59 130 246 / 0.4);
+    box-shadow: 0 0 0 0 rgb(34 184 163 / 0.4);
   }
-  .voice-mic-btn:not(:disabled):hover {
-    @apply bg-brand-600/30 border-brand-400;
-  }
-  .voice-mic-btn:disabled {
-    @apply opacity-40 cursor-not-allowed;
-  }
+  .voice-mic-btn:not(:disabled):hover { @apply bg-brand-600/30 border-brand-400; }
+  .voice-mic-btn:disabled             { @apply opacity-40 cursor-not-allowed; }
   .voice-mic-active {
     @apply border-danger-400 bg-danger-500/20 text-danger-400;
     animation: mic-pulse 1.5s ease-in-out infinite;
   }
 }
 
-/* Waveform bar animation */
+/* ── Avatar rings ───────────────────────────────────────────────────────── */
+@layer components {
+  .avatar-root  { @apply relative shrink-0 rounded-full overflow-visible; }
+  .avatar-ring  {
+    @apply absolute inset-0 rounded-full pointer-events-none;
+    border: 2px solid #22b8a3;
+  }
+  .avatar-ring-breathe { animation: avatar-breathe 3s ease-in-out infinite; }
+  .avatar-ring-ripple  { animation: avatar-ripple 1.8s ease-out infinite; }
+  .avatar-ring-spin    {
+    border-style: dashed;
+    border-color: #22b8a3;
+    border-width: 2px;
+    animation: avatar-spin 1.1s linear infinite;
+  }
+}
+
+/* ── Prose ──────────────────────────────────────────────────────────────── */
+.prose-medic        { color: #d8dcec; }
+.prose-medic p      { margin: 0.6rem 0; line-height: 1.6; }
+.prose-medic ul     { margin: 0.6rem 0; padding-left: 1.2rem; list-style: disc; }
+.prose-medic ol     { margin: 0.6rem 0; padding-left: 1.2rem; list-style: decimal; }
+.prose-medic h1,
+.prose-medic h2,
+.prose-medic h3     { color: #fff; font-weight: 600; margin: 0.8rem 0 0.4rem; }
+.prose-medic code   { background: #111727; padding: 0.1rem 0.35rem; border-radius: 0.35rem; font-size: 0.85em; }
+.prose-medic strong { color: #fff; }
+
+/* ── Animations ─────────────────────────────────────────────────────────── */
+@keyframes avatar-breathe {
+  0%, 100% { opacity: 0.3;  transform: scale(1); }
+  50%       { opacity: 0.75; transform: scale(1.08); }
+}
+@keyframes avatar-ripple {
+  0%   { transform: scale(1);    opacity: 0.6; }
+  100% { transform: scale(1.55); opacity: 0;   }
+}
+@keyframes avatar-spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
 @keyframes waveform {
   0%, 100% { height: 4px;  opacity: 0.5; }
   50%       { height: 20px; opacity: 1;   }
 }
-.waveform-bar {
-  animation: waveform 0.8s ease-in-out infinite;
-}
+.waveform-bar { animation: waveform 0.8s ease-in-out infinite; }
 
-/* Mic active pulse ring */
 @keyframes mic-pulse {
   0%   { box-shadow: 0 0 0 0   rgb(239 68 68 / 0.4); }
   70%  { box-shadow: 0 0 0 16px rgb(239 68 68 / 0);   }
   100% { box-shadow: 0 0 0 0   rgb(239 68 68 / 0);   }
 }
-
-/* Chat typing dots bounce */
 @keyframes chat-dot {
   0%, 60%, 100% { transform: translateY(0);    opacity: 0.35; }
   30%           { transform: translateY(-5px); opacity: 1;    }
 }
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.animate-fade-up { animation: fade-up 0.5s ease-out both; }
+.animate-fade-up-delay-1 { animation: fade-up 0.5s ease-out 0.1s both; }
+.animate-fade-up-delay-2 { animation: fade-up 0.5s ease-out 0.2s both; }
+.animate-fade-up-delay-3 { animation: fade-up 0.5s ease-out 0.35s both; }
