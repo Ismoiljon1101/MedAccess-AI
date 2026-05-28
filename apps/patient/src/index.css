@@ -30,11 +30,6 @@ html, body, #root {
   ::-webkit-scrollbar-thumb:hover { background: #243049; }
 }
 
-/* ── Utility ────────────────────────────────────────────────────────────── */
-.bg-white\/8  { background-color: rgb(255 255 255 / 0.08); }
-.bg-white\/5  { background-color: rgb(255 255 255 / 0.05); }
-.bg-ok-500\/8 { background-color: rgb(16 185 129 / 0.08); }
-
 /* ── iOS safe area ──────────────────────────────────────────────────────── */
 .pt-safe-top { padding-top:    env(safe-area-inset-top,    0px); }
 .pb-safe-bot { padding-bottom: env(safe-area-inset-bottom, 0px); }
@@ -49,57 +44,57 @@ html.text-size-lg .chat-bubble { font-size: 1rem; }
 
   /* ── Cards ─────────────────────────────────────────────────────────── */
   .card {
-    @apply rounded-2xl border border-ink-700/70 bg-ink-900/70 backdrop-blur-sm shadow-lg shadow-black/30;
+    @apply rounded-2xl border border-ink-700 bg-ink-900 backdrop-blur-sm shadow-lg shadow-black/30;
   }
-  .card-pad  { @apply p-5; }
+  .card-pad { @apply p-5; }
   .card-glass {
-    @apply rounded-2xl border border-white/8 bg-white/5 backdrop-blur-md shadow-lg shadow-black/40;
+    @apply rounded-2xl border border-ink-700 bg-ink-800 backdrop-blur-md shadow-lg shadow-black/40;
   }
 
   /* ── Buttons ────────────────────────────────────────────────────────── */
   .btn {
-    @apply inline-flex items-center gap-2 rounded-xl border border-ink-700 bg-ink-800/80 px-4 py-2.5 text-sm font-medium text-ink-100 transition hover:border-brand-500 hover:text-white hover:shadow-glow-sm disabled:cursor-not-allowed disabled:opacity-50;
+    @apply inline-flex items-center gap-2 rounded-xl border border-ink-700 bg-ink-800 px-4 py-2.5 text-sm font-medium text-ink-100 transition hover:border-brand-500 hover:text-white disabled:cursor-not-allowed disabled:opacity-50;
   }
   .btn-primary {
-    @apply btn border-brand-500/60 bg-brand-500/15 text-brand-400 hover:bg-brand-500/25;
+    @apply btn border-brand-600 bg-brand-600 text-white hover:bg-brand-500 hover:border-brand-500;
   }
   .btn-danger {
-    @apply btn border-danger-500/60 text-danger-500 hover:border-danger-500 hover:bg-danger-500/10;
+    @apply btn border-danger-500 text-danger-400 hover:bg-ink-700;
   }
 
   /* ── Inputs ─────────────────────────────────────────────────────────── */
   .input {
-    @apply w-full rounded-xl border border-ink-700 bg-ink-900/60 px-4 py-2.5 text-ink-100 placeholder-ink-400 outline-none transition focus:border-brand-500/60 focus:ring-2 focus:ring-brand-500/20;
+    @apply w-full rounded-xl border border-ink-700 bg-ink-900 px-4 py-2.5 text-ink-100 placeholder-ink-400 outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-600;
   }
   .label {
     @apply block text-xs font-medium uppercase tracking-wider text-ink-300 mb-1.5;
   }
 
   /* ── Chips ──────────────────────────────────────────────────────────── */
-  .chip        { @apply inline-flex items-center gap-1 rounded-full border border-ink-700 bg-ink-800/70 px-2.5 py-1 text-xs text-ink-200; }
-  .chip-ok     { @apply border-ok-500/40     bg-ok-500/10     text-ok-400; }
-  .chip-warn   { @apply border-warn-500/40   bg-warn-500/10   text-warn-400; }
-  .chip-danger { @apply border-danger-500/40 bg-danger-500/10 text-danger-400; }
+  .chip        { @apply inline-flex items-center gap-1 rounded-full border border-ink-700 bg-ink-800 px-2.5 py-1 text-xs text-ink-200; }
+  .chip-ok     { @apply border-ok-500   bg-ink-900 text-ok-400; }
+  .chip-warn   { @apply border-warn-500 bg-ink-900 text-warn-400; }
+  .chip-danger { @apply border-danger-500 bg-ink-900 text-danger-400; }
 
   /* ── App shell ──────────────────────────────────────────────────────── */
   .app-shell {
     @apply flex flex-col;
-    background: transparent; /* uses body gradient */
+    background: transparent;
     height: 100dvh;
     overflow: hidden;
   }
 
   .app-header {
-    @apply flex shrink-0 items-center justify-between border-b border-ink-700/60 bg-ink-950/80 px-4 py-3 backdrop-blur;
-  }
-
-  .app-disclaimer {
-    @apply shrink-0 border-b border-warn-500/20 bg-warn-500/10 px-4 py-1.5 text-center text-[10px] text-warn-400;
+    @apply flex shrink-0 items-center justify-between border-b border-ink-700 px-4 py-3;
+    background: rgba(7, 10, 19, 0.85);
+    backdrop-filter: blur(12px);
   }
 
   /* ── Bottom nav ─────────────────────────────────────────────────────── */
   .app-bottom-nav {
-    @apply shrink-0 flex border-t border-ink-700/60 bg-ink-950/90 backdrop-blur;
+    @apply shrink-0 flex border-t border-ink-700;
+    background: rgba(7, 10, 19, 0.92);
+    backdrop-filter: blur(12px);
     padding-bottom: env(safe-area-inset-bottom, 0px);
   }
   .app-tab {
@@ -124,7 +119,7 @@ html.text-size-lg .chat-bubble { font-size: 1rem; }
     max-width: 78%;
     word-break: break-word;
   }
-  .chat-bubble-ai   { @apply bg-ink-800/90 text-ink-100 border border-ink-700/50 rounded-bl-sm; }
+  .chat-bubble-ai   { @apply bg-ink-800 text-ink-100 border border-ink-700 rounded-bl-sm; }
   .chat-bubble-user { @apply bg-brand-600 text-white rounded-br-sm; }
 
   /* Typing dots */
@@ -138,37 +133,39 @@ html.text-size-lg .chat-bubble { font-size: 1rem; }
 
   /* Input bar */
   .chat-input-bar {
-    @apply shrink-0 flex items-end gap-2 border-t border-ink-700/60 bg-ink-950/80 backdrop-blur px-3 py-3;
+    @apply shrink-0 flex items-end gap-2 border-t border-ink-700 px-3 py-3;
+    background: rgba(7, 10, 19, 0.85);
+    backdrop-filter: blur(8px);
     padding-bottom: max(12px, env(safe-area-inset-bottom, 0px));
   }
   .chat-input-field {
-    @apply flex-1 rounded-2xl border border-ink-700 bg-ink-800/80 px-4 py-3 text-sm text-ink-100 placeholder-ink-400 outline-none resize-none;
+    @apply flex-1 rounded-2xl border border-ink-700 bg-ink-800 px-4 py-3 text-sm text-ink-100 placeholder-ink-400 outline-none resize-none;
     max-height: 128px;
     line-height: 1.5;
     transition: border-color 0.15s;
   }
   .chat-input-field:focus {
-    @apply border-brand-500/50;
-    box-shadow: 0 0 0 3px rgb(34 184 163 / 0.12);
+    border-color: rgba(34, 184, 163, 0.5);
+    box-shadow: 0 0 0 3px rgba(34, 184, 163, 0.12);
   }
   .chat-input-field:disabled { @apply opacity-50; }
 
   .chat-mic-btn {
     @apply relative flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-ink-700 bg-ink-800 transition;
   }
-  .chat-mic-btn:not([disabled]):hover { @apply border-brand-500/50 text-ink-200; }
+  .chat-mic-btn:not([disabled]):hover { @apply border-brand-500 text-ink-200; }
 
   .chat-send-btn {
-    @apply flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-brand-600 bg-brand-600/80 text-white transition;
+    @apply flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-brand-600 bg-brand-600 text-white transition;
   }
-  .chat-send-btn:not([disabled]):hover { @apply bg-brand-500 border-brand-500 shadow-glow-sm; }
+  .chat-send-btn:not([disabled]):hover { @apply bg-brand-500 border-brand-500; }
   .chat-send-btn:disabled { @apply opacity-40 cursor-not-allowed; }
 
   /* ── Voice mode ─────────────────────────────────────────────────────── */
   .voice-layout     { @apply flex flex-1 flex-col overflow-hidden min-h-0 relative; }
-  .voice-header     { @apply flex shrink-0 items-center justify-between px-4 py-3 border-b border-ink-700/60; }
+  .voice-header     { @apply flex shrink-0 items-center justify-between px-4 py-3 border-b border-ink-700; }
   .voice-close-btn  { @apply flex h-9 w-9 items-center justify-center rounded-full border border-ink-700 bg-ink-800 text-ink-400 hover:text-ink-100 transition; }
-  .voice-mute-btn   { @apply flex h-9 w-9 items-center justify-center rounded-full border border-ink-700 bg-ink-800 transition hover:border-brand-500/50; }
+  .voice-mute-btn   { @apply flex h-9 w-9 items-center justify-center rounded-full border border-ink-700 bg-ink-800 transition hover:border-brand-500; }
   .voice-avatar-area { @apply flex flex-1 flex-col items-center justify-center px-6 min-h-0; }
   .voice-subtitles  { @apply shrink-0 max-h-36 overflow-y-auto; }
   .voice-controls   {
@@ -176,13 +173,15 @@ html.text-size-lg .chat-bubble { font-size: 1rem; }
     padding-bottom: max(32px, env(safe-area-inset-bottom, 0px));
   }
   .voice-mic-btn {
-    @apply flex h-20 w-20 items-center justify-center rounded-full border-2 border-brand-500 bg-brand-600/20 text-brand-400 transition;
-    box-shadow: 0 0 0 0 rgb(34 184 163 / 0.4);
+    @apply flex h-20 w-20 items-center justify-center rounded-full border-2 border-brand-500 text-brand-400 transition;
+    background: rgba(18, 144, 121, 0.15);
+    box-shadow: 0 0 0 0 rgba(34, 184, 163, 0.4);
   }
-  .voice-mic-btn:not(:disabled):hover { @apply bg-brand-600/30 border-brand-400; }
+  .voice-mic-btn:not(:disabled):hover { @apply border-brand-400; background: rgba(18, 144, 121, 0.25); }
   .voice-mic-btn:disabled             { @apply opacity-40 cursor-not-allowed; }
   .voice-mic-active {
-    @apply border-danger-400 bg-danger-500/20 text-danger-400;
+    @apply border-danger-400 text-danger-400;
+    background: rgba(239, 68, 68, 0.15);
     animation: mic-pulse 1.5s ease-in-out infinite;
   }
 }
@@ -235,9 +234,9 @@ html.text-size-lg .chat-bubble { font-size: 1rem; }
 .waveform-bar { animation: waveform 0.8s ease-in-out infinite; }
 
 @keyframes mic-pulse {
-  0%   { box-shadow: 0 0 0 0   rgb(239 68 68 / 0.4); }
-  70%  { box-shadow: 0 0 0 16px rgb(239 68 68 / 0);   }
-  100% { box-shadow: 0 0 0 0   rgb(239 68 68 / 0);   }
+  0%   { box-shadow: 0 0 0 0    rgba(239, 68, 68, 0.4); }
+  70%  { box-shadow: 0 0 0 16px rgba(239, 68, 68, 0);   }
+  100% { box-shadow: 0 0 0 0    rgba(239, 68, 68, 0);   }
 }
 @keyframes chat-dot {
   0%, 60%, 100% { transform: translateY(0);    opacity: 0.35; }
@@ -247,7 +246,7 @@ html.text-size-lg .chat-bubble { font-size: 1rem; }
   from { opacity: 0; transform: translateY(16px); }
   to   { opacity: 1; transform: translateY(0); }
 }
-.animate-fade-up { animation: fade-up 0.5s ease-out both; }
-.animate-fade-up-delay-1 { animation: fade-up 0.5s ease-out 0.1s both; }
-.animate-fade-up-delay-2 { animation: fade-up 0.5s ease-out 0.2s both; }
-.animate-fade-up-delay-3 { animation: fade-up 0.5s ease-out 0.35s both; }
+.animate-fade-up          { animation: fade-up 0.5s ease-out both; }
+.animate-fade-up-delay-1  { animation: fade-up 0.5s ease-out 0.10s both; }
+.animate-fade-up-delay-2  { animation: fade-up 0.5s ease-out 0.20s both; }
+.animate-fade-up-delay-3  { animation: fade-up 0.5s ease-out 0.35s both; }
