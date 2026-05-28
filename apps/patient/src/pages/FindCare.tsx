@@ -1,8 +1,16 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { MapPin, Phone, Clock, Star, ChevronRight, Navigation, Stethoscope, Loader2, CheckCircle, X } from 'lucide-react';
+import { MapPin, Phone, Clock, Star, ChevronRight, Navigation, Stethoscope, Loader2, CheckCircle, X, Map } from 'lucide-react';
 import { searchClinics, createReferral, type ClinicResult } from '@/lib/api';
 import { useAppStore } from '@/store/app';
+
+type MapProvider = 'google' | 'naver';
+
+function getNavUrl(provider: MapProvider, clinicName: string): string {
+  const q = encodeURIComponent(clinicName);
+  if (provider === 'naver') return `https://map.naver.com/v5/search/${q}`;
+  return `https://www.google.com/maps/search/?api=1&query=${q}`;
+}
 
 const SPECIALTIES = ['All', 'General Practice', 'Urgent Care', 'Emergency', 'Cardiology', 'Neurology', 'Pediatrics', 'Mental Health', 'Respiratory'];
 
@@ -22,6 +30,7 @@ export default function FindCare() {
   const preSummary   = searchParams.get('summary') || '';
   const preUrgency   = searchParams.get('urgency') || 'see-clinician-soon';
 
+  const [mapProvider, setMapProvider]  = useState<MapProvider>('google');
   const [filter, setFilter]           = useState(preSpecialty);
   const [clinics, setClinics]         = useState<ClinicResult[]>([]);
   const [loading, setLoading]         = useState(false);
@@ -112,8 +121,37 @@ export default function FindCare() {
     <div className="flex flex-col h-full overflow-hidden">
       {/* Header */}
       <div className="shrink-0 px-4 pt-4 pb-3 border-b border-surface-700">
-        <h2 className="text-base font-semibold text-white">Find Care Near You</h2>
-        <p className="text-xs text-slate-500 mt-0.5">Clinics and urgent care facilities</p>
+        <div className="flex items-center justify-between gap-2">
+          <div>
+            <h2 className="text-base font-semibold text-white">Find Care Near You</h2>
+            <p className="text-xs text-slate-500 mt-0.5">Clinics and urgent care facilities</p>
+          </div>
+          {/* Map provider picker */}
+          <div className="flex items-center gap-1 rounded-lg border border-surface-600 bg-surface-800 p-0.5">
+            <button
+              type="button"
+              onClick={() => setMapProvider('google')}
+              className={`flex items-center gap-1 rounded-md px-2 py-1 text-[10px] font-medium transition ${
+                mapProvider === 'google'
+                  ? 'bg-brand-600/20 text-brand-400 border border-brand-500/40'
+                  : 'text-slate-500 hover:text-slate-300'
+              }`}
+            >
+              <Map size={10} /> Google
+            </button>
+            <button
+              type="button"
+              onClick={() => setMapProvider('naver')}
+              className={`flex items-center gap-1 rounded-md px-2 py-1 text-[10px] font-medium transition ${
+                mapProvider === 'naver'
+                  ? 'bg-ok-500/20 text-ok-400 border border-ok-500/40'
+                  : 'text-slate-500 hover:text-slate-300'
+              }`}
+            >
+              <Map size={10} /> Naver
+            </button>
+          </div>
+        </div>
       </div>
 
       {/* Location banner */}
@@ -221,9 +259,18 @@ export default function FindCare() {
             <div className="flex gap-2">
               <a
                 href={`tel:${clinic.phone}`}
-                className="flex-1 flex items-center justify-center gap-1.5 rounded-xl border border-surface-600 bg-surface-700 py-2 text-xs font-medium text-slate-300 transition hover:border-brand-500/50"
+                className="flex items-center justify-center gap-1 rounded-xl border border-surface-600 bg-surface-700 px-3 py-2 text-xs font-medium text-slate-300 transition hover:border-brand-500/50"
               >
-                <Phone size={13} /> Call
+                <Phone size={13} />
+              </a>
+              <a
+                href={getNavUrl(mapProvider, clinic.name)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center justify-center gap-1 rounded-xl border border-surface-600 bg-surface-700 px-3 py-2 text-xs font-medium text-slate-300 transition hover:border-brand-500/50"
+                title={`Open in ${mapProvider === 'naver' ? 'Naver Maps' : 'Google Maps'}`}
+              >
+                <Navigation size={13} />
               </a>
               <button
                 type="button"
@@ -235,7 +282,7 @@ export default function FindCare() {
                     : 'border-surface-600 bg-surface-800 text-slate-600 cursor-not-allowed'
                 }`}
               >
-                {clinic.available ? 'Request Appointment' : 'Unavailable'} <ChevronRight size={13} />
+                {clinic.available ? 'Book' : 'Unavailable'} <ChevronRight size={13} />
               </button>
             </div>
           </div>
