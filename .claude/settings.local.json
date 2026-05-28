@@ -2,7 +2,9 @@
   "permissions": {
     "allow": [
       "WebSearch",
-      "Bash(git add *)"
+      "Bash(git add *)",
+      "Bash(rtk git *)",
+      "Bash(curl -s http://localhost:4000/api/health)"
     ]
   }
 }

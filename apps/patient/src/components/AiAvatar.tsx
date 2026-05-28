@@ -5,23 +5,14 @@ export type AvatarState = 'idle' | 'listening' | 'thinking';
 
 interface Props {
   state?: AvatarState;
-  /** px size — applied as width & height */
   size?: number;
   className?: string;
 }
 
-/**
- * AI Doctor avatar backed by Lottie animation.
- *
- * State mapping (no markers in this file — we use speed + CSS rings):
- *   idle      → 0.4× speed, subtle breathing ring  (slow, calming)
- *   listening → 1.0× speed, ripple rings            (active, attentive)
- *   thinking  → 1.6× speed, spinning arc ring       (processing)
- */
-export function AiAvatar({ state = 'idle', size = 72, className = '' }: Props) {
+export function AiAvatar({ state = 'idle', size = 40, className = '' }: Props) {
   const speed =
     state === 'listening' ? 1.0 :
-    state === 'thinking'  ? 1.6 : 0.4;
+    state === 'thinking'  ? 1.6 : 0.5;
 
   return (
     <div
@@ -29,24 +20,22 @@ export function AiAvatar({ state = 'idle', size = 72, className = '' }: Props) {
       style={{ width: size, height: size }}
       aria-hidden="true"
     >
-      {/* ── Lottie doctor animation ───────────────────────────── */}
-      <Lottie
-        animationData={doctorAvatarData}
-        loop
-        autoplay
-        speed={speed}
-        style={{ width: '100%', height: '100%' }}
-        rendererSettings={{ preserveAspectRatio: 'xMidYMid meet' }}
-      />
+      {/* Lottie clipped to circle */}
+      <div className="absolute inset-0 rounded-full overflow-hidden ring-2 ring-white/10">
+        <Lottie
+          animationData={doctorAvatarData}
+          loop
+          autoplay
+          speed={speed}
+          style={{ width: '100%', height: '100%' }}
+          rendererSettings={{ preserveAspectRatio: 'xMidYMid slice' }}
+        />
+      </div>
 
-      {/* ── State rings (CSS-driven) ──────────────────────────── */}
-
-      {/* Idle: single very slow breathing ring */}
+      {/* State rings — outside the clip */}
       {state === 'idle' && (
         <span className="avatar-ring avatar-ring-breathe" />
       )}
-
-      {/* Listening: three staggered ripple rings */}
       {state === 'listening' && (
         <>
           <span className="avatar-ring avatar-ring-ripple" style={{ animationDelay: '0s' }} />
@@ -54,8 +43,6 @@ export function AiAvatar({ state = 'idle', size = 72, className = '' }: Props) {
           <span className="avatar-ring avatar-ring-ripple" style={{ animationDelay: '1s' }} />
         </>
       )}
-
-      {/* Thinking: spinning arc overlay */}
       {state === 'thinking' && (
         <span className="avatar-ring avatar-ring-spin" />
       )}
