@@ -9,6 +9,10 @@ import Patients from '@/pages/Patients';
 import Prescriptions from '@/pages/Prescriptions';
 import Profile from '@/pages/Profile';
 import Settings from '@/pages/Settings';
+import Interview from '@/pages/Interview';
+import Symptoms from '@/pages/Symptoms';
+import Reports from '@/pages/Reports';
+import Triage from '@/pages/Triage';
 
 // Role-based guard — unauthenticated users see Login
 function AuthGuard({ children }: { children: React.ReactNode }) {
@@ -70,6 +74,40 @@ export default function App() {
           element={
             <RoleGuard allow={['pharmacist', 'admin']}>
               <Prescriptions />
+            </RoleGuard>
+          }
+        />
+
+        {/* Clinical modules — doctor + admin */}
+        <Route
+          path="/interview"
+          element={
+            <RoleGuard allow={['doctor', 'admin']}>
+              <Interview />
+            </RoleGuard>
+          }
+        />
+        <Route
+          path="/symptoms"
+          element={
+            <RoleGuard allow={['doctor', 'admin']}>
+              <Symptoms />
+            </RoleGuard>
+          }
+        />
+        <Route
+          path="/reports"
+          element={
+            <RoleGuard allow={['doctor', 'admin']}>
+              <Reports />
+            </RoleGuard>
+          }
+        />
+        <Route
+          path="/triage"
+          element={
+            <RoleGuard allow={['doctor', 'admin']}>
+              <Triage />
             </RoleGuard>
           }
         />

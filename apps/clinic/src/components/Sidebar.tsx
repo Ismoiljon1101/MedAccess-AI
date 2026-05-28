@@ -8,14 +8,22 @@ import {
   LogOut,
   Stethoscope,
   ShieldCheck,
+  MessagesSquare,
+  ClipboardList,
+  FileImage,
+  Activity,
 } from 'lucide-react';
 import { useAuthStore, type Role } from '@/store/auth';
 
 type NavItem = { to: string; label: string; icon: React.ElementType };
 
 const DOCTOR_NAV: NavItem[] = [
-  { to: '/dashboard', label: 'Dashboard',      icon: LayoutDashboard },
-  { to: '/patients',  label: 'Patient Queue',  icon: Users           },
+  { to: '/dashboard',  label: 'Dashboard',      icon: LayoutDashboard },
+  { to: '/patients',   label: 'Patient Queue',  icon: Users           },
+  { to: '/interview',  label: 'Interview',       icon: MessagesSquare  },
+  { to: '/symptoms',   label: 'Symptoms',        icon: ClipboardList   },
+  { to: '/reports',    label: 'Reports',         icon: FileImage       },
+  { to: '/triage',     label: 'Triage',          icon: Activity        },
 ];
 
 const PHARMACIST_NAV: NavItem[] = [
@@ -24,8 +32,12 @@ const PHARMACIST_NAV: NavItem[] = [
 ];
 
 const ADMIN_NAV: NavItem[] = [
-  { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { to: '/patients',  label: 'Patients',  icon: Users           },
+  { to: '/dashboard', label: 'Dashboard',     icon: LayoutDashboard },
+  { to: '/patients',  label: 'Patients',      icon: Users           },
+  { to: '/interview', label: 'Interview',      icon: MessagesSquare  },
+  { to: '/symptoms',  label: 'Symptoms',       icon: ClipboardList   },
+  { to: '/reports',   label: 'Reports',        icon: FileImage       },
+  { to: '/triage',    label: 'Triage',         icon: Activity        },
   // Staff module coming in v0.2
 ];
 
