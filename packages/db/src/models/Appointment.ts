@@ -11,9 +11,10 @@ export interface IAppointment extends Document {
   patientSex?: 'male' | 'female' | 'other';
 
   // Booking references
+  // Stored as string (seed data uses 'd1'/'f1' IDs; real ObjectIds welcome too).
   slotId: Schema.Types.ObjectId;
-  doctorId: Schema.Types.ObjectId;
-  facilityId: Schema.Types.ObjectId;
+  doctorId: string;
+  facilityId: string;
 
   // Context from MA Agent
   specialty: string;
@@ -35,9 +36,9 @@ const AppointmentSchema = new Schema<IAppointment>({
   patientAge:      { type: Number },
   patientSex:      { type: String, enum: ['male', 'female', 'other'] },
 
-  slotId:          { type: Schema.Types.ObjectId, ref: 'TimeSlot',  required: true },
-  doctorId:        { type: Schema.Types.ObjectId, ref: 'Doctor',    required: true },
-  facilityId:      { type: Schema.Types.ObjectId, ref: 'Facility',  required: true },
+  slotId:          { type: Schema.Types.ObjectId, ref: 'TimeSlot', required: true },
+  doctorId:        { type: String, required: true },   // seed IDs ('d1'…) or real ObjectId strings
+  facilityId:      { type: String, required: true },   // seed IDs ('f1'…) or real ObjectId strings
 
   specialty:       { type: String, required: true },
   urgency:         { type: String, default: 'see-clinician-soon' },
