@@ -17,8 +17,8 @@
 | `packages/shared` (schemas, prompts, 31 RAG docs) | ✅ Done |
 | `packages/db` (MongoDB models incl. Referral) | ✅ Done |
 | `apps/api` (Express, all routes + voice + clinics + referrals) | ✅ Done |
-| `apps/clinic` (provider UI + **Patients queue**) | ✅ Done |
-| `apps/patient` (patient PWA, 9 pages, **MA Agent + Find Care booking loop**) | ✅ Done |
+| `apps/clinic` (provider UI + **Patients queue** + all 4 modules routed + **light mode**) | ✅ Done |
+| `apps/patient` (patient PWA, 9 pages, **MA Agent + Find Care booking loop** + **light mode**) | ✅ Done |
 | Patient → clinic referral loop (Connect-to-Care CTA → booking → clinic queue) | ✅ Done |
 | Per-engineer agent files (`CLAUDE.md` + `docs/team/`) | ✅ Done |
 | Python image-ml sidecar (scaffold + contract) | ✅ Scaffold done · specialist models pending |
@@ -281,7 +281,7 @@ For each endpoint: 2xx on happy path, structured error on bad input, < 8s with t
 | `docs/screenshots/06-clinic-patients-queue.png` (incoming referrals w/ urgency badges) | Sobirov | 📋 |
 | `docs/screenshots/07-clinic-interview.png` (provider chat + RAG chips) | Sobirov | 📋 |
 | `docs/screenshots/08-clinic-symptoms.png` (ranked differentials) | Sobirov | 📋 |
-| `docs/DEMO.md` (5-min walkthrough script — both portals, full loop) | Ismail + Sobirov | 📋 |
+| `docs/DEMO.md` (5-min walkthrough script — both portals, full loop) | Ismail + Sobirov | ✅ |
 | `docs/demo-backup.mp4` (90s screen capture fallback) | Mirsaid | 📋 |
 
 ---
