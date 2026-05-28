@@ -4,7 +4,7 @@ import type { MedicalSpecialty } from '@medaccess/shared';
 export interface IDoctor extends Document {
   name: string;
   specialty: MedicalSpecialty;
-  facilityId: Schema.Types.ObjectId;
+  facilityId: string;  // seed IDs ('f1'…) or real ObjectId strings
   licenseNo?: string;
   phone?: string;
   email?: string;
@@ -17,7 +17,7 @@ export interface IDoctor extends Document {
 const DoctorSchema = new Schema<IDoctor>({
   name:                { type: String, required: true, trim: true },
   specialty:           { type: String, required: true },
-  facilityId:          { type: Schema.Types.ObjectId, ref: 'Facility', required: true },
+  facilityId:          { type: String, required: true },   // seed IDs or real ObjectId strings
   licenseNo:           { type: String },
   phone:               { type: String },
   email:               { type: String },
