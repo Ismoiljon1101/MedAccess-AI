@@ -151,7 +151,9 @@ router.post('/referrals', async (req, res, next) => {
 });
 
 // ── In-memory fallback when MongoDB not connected ─────────────────────
-const inMemoryReferrals: any[] = [];
+// Exported so appointments.ts can cross-post new bookings here, keeping
+// the clinic Patients queue in sync with the new booking flow.
+export const inMemoryReferrals: any[] = [];
 
 // ── GET /api/referrals  ───────────────────────────────────────────────
 // Clinic portal fetches patient queue

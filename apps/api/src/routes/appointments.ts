@@ -6,9 +6,10 @@
  * PATCH /api/appointments/:id   — update status (confirm / cancel / complete)
  */
 import { Router } from 'express';
-import { dbReady, Appointment, TimeSlot } from '@medaccess/db';
+import { dbReady, Appointment, TimeSlot, Referral } from '@medaccess/db';
 import { HttpError } from '../middleware/error.js';
-import { inMemoryBookedSlots, SEED_DOCTORS } from './facilities.js';
+import { inMemoryBookedSlots, SEED_DOCTORS, SEED_FACILITIES } from './facilities.js';
+import { inMemoryReferrals } from './clinics.js';
 
 const router = Router();
 
@@ -57,6 +58,10 @@ router.post('/', async (req, res, next) => {
     const doctor = SEED_DOCTORS.find((d) => d.id === doctorId && d.facilityId === facilityId);
     if (!doctor) return next(new HttpError(404, 'Doctor not found at this facility'));
 
+    // Resolve facility name for referral cross-post
+    const facility = SEED_FACILITIES.find((f) => f.id === facilityId);
+    const facilityName = facility?.name ?? facilityId;
+
     // Check slot availability (in-memory)
     const slotKey = `${doctorId}_${date}`;
     const booked = inMemoryBookedSlots.get(slotKey) ?? new Set<string>();
@@ -99,6 +104,22 @@ router.post('/', async (req, res, next) => {
       // Back-link slot → appointment
       await TimeSlot.findByIdAndUpdate(slot._id, { appointmentId: appt._id });
 
+      // Cross-post to clinic Patients queue as a Referral so the clinic portal
+      // sees this booking immediately — referral.summary includes doctor + slot.
+      await Referral.create({
+        sessionId:    sessionId || 'anonymous',
+        patientName:  patientName.trim().slice(0, 100),
+        patientPhone: patientPhone?.slice(0, 30),
+        clinicId:     facilityId,
+        clinicName:   facilityName,
+        specialty:    specialty || doctor.specialty,
+        urgency:      urgency || 'see-clinician-soon',
+        summary:      `Booked: ${doctor.name} · ${date} ${startTime}–${endTime}. ${(maAgentSummary || '').slice(0, 1800)}`,
+        preferredTime: `${date} ${startTime}`,
+        status:       'pending',
+        appointmentId: String(appt._id),
+      }).catch(() => { /* non-fatal — appointment still created */ });
+
       return res.status(201).json({
         appointmentId: appt._id,
         slotId:        slot._id,
@@ -134,6 +155,23 @@ router.post('/', async (req, res, next) => {
       createdAt:     new Date(),
     };
     inMemoryAppointments.push(newAppt);
+
+    // Cross-post to in-memory referrals so clinic Patients queue shows this booking
+    inMemoryReferrals.push({
+      _id:          `ref_${apptId}`,
+      sessionId:    sessionId || 'anonymous',
+      patientName:  newAppt.patientName,
+      patientPhone: newAppt.patientPhone,
+      clinicId:     facilityId,
+      clinicName:   facilityName,
+      specialty:    newAppt.specialty,
+      urgency:      newAppt.urgency,
+      summary:      `Booked: ${doctor.name} · ${date} ${startTime}–${endTime}. ${(maAgentSummary || '').slice(0, 1800)}`,
+      preferredTime: `${date} ${startTime}`,
+      status:       'pending',
+      appointmentId: apptId,
+      createdAt:    new Date(),
+    });
 
     return res.status(201).json({
       appointmentId: apptId,

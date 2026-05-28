@@ -8,7 +8,7 @@
 
 ## Pre-flight checklist (do before starting the demo)
 
-- [ ] `pnpm dev` running — patient app on `localhost:5173`, clinic on `localhost:5174`, API on `localhost:4000`
+- [ ] `pnpm dev` running — patient app on `localhost:5174`, clinic on `localhost:5173`, API on `localhost:4000`
 - [ ] `OPENROUTER_API_KEY` set in `.env`
 - [ ] Browser open, patient tab active, **Welcome screen visible** (clear localStorage first: DevTools → Application → Clear Site Data)
 - [ ] Clinic tab open on `/patients` (login: doctor, specialty = General Practice)
