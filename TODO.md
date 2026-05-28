@@ -237,7 +237,7 @@ Patient needs care (from MA Agent CTA or Find Care tab)
 - [ ] Document key setup in `.env.example` (Ismail merges the contract change).
 
 **Sobirov (guided):**
-- [ ] Seed 5–10 realistic demo clinics with lat/lng + doctors for the demo script.
+- ✅ ~~Seed 5–10 realistic demo clinics with lat/lng + doctors for the demo script.~~ — done in `apps/api/src/routes/facilities.ts` (15 real Uzbekistan facilities + 30 doctors, OSM-verified coords)
 
 ### Open questions for Ismail
 - Is **Korea (Naver)** actually a target market, or is Google Maps enough for v0.1? (Naver only makes sense if KR users exist.)
