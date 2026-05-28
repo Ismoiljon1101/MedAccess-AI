@@ -6,7 +6,7 @@ import {
   type SymptomsAnalysis,
 } from '@medaccess/shared';
 import { SymptomAnalysis, dbReady } from '@medaccess/db';
-import { chat, safeParseJson } from '../services/llm.js';
+import { chat, defaultFastModel, safeParseJson } from '../services/llm.js';
 import { formatContext, ragStatus, retrieve, toCitations } from '../services/rag.js';
 import { HttpError } from '../middleware/error.js';
 
@@ -36,7 +36,7 @@ router.post('/', async (req, res, next) => {
     const { text, model } = await chat({
       system,
       messages: [{ role: 'user', content: summary }],
-      model: parsed.model,
+      model: parsed.model || defaultFastModel(),
       json: true,
       temperature: 0.2,
       maxTokens: 1400,

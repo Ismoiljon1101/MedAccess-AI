@@ -26,11 +26,16 @@ export function openrouter(): OpenAI {
 }
 
 export function defaultChatModel(): string {
-  return process.env.OPENROUTER_CHAT_MODEL || 'anthropic/claude-sonnet-4.5';
+  return process.env.OPENROUTER_CHAT_MODEL || 'qwen/qwen3.5-plus-20260420';
+}
+
+/** Cheap/fast model for triage, symptoms quick-parse, and high-volume calls. */
+export function defaultFastModel(): string {
+  return process.env.OPENROUTER_FAST_MODEL || 'qwen/qwen3.6-flash';
 }
 
 export function defaultVisionModel(): string {
-  return process.env.OPENROUTER_VISION_MODEL || defaultChatModel();
+  return process.env.OPENROUTER_VISION_MODEL || 'qwen/qwen3.6-flash';
 }
 
 export interface ChatOptions {

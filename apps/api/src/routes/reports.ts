@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { imageUpload } from '../middleware/upload.js';
-import { analyzeMedicalImage } from '../services/vision.js';
+import { analyzeImageFull } from '../services/vision.js';
 import { ReportAnalysis, dbReady } from '@medaccess/db';
 import { HttpError } from '../middleware/error.js';
 
@@ -13,7 +13,7 @@ router.post('/analyze', imageUpload.single('image'), async (req, res, next) => {
     const language = (req.body?.language || '').toString().slice(0, 32) || undefined;
     const model = (req.body?.model || '').toString().slice(0, 128) || undefined;
 
-    const result = await analyzeMedicalImage({
+    const result = await analyzeImageFull({
       buffer: req.file.buffer,
       mimetype: req.file.mimetype,
       userNote,
@@ -40,6 +40,9 @@ router.post('/analyze', imageUpload.single('image'), async (req, res, next) => {
       model: result.model,
       analysis: result.analysis,
       raw: result.analysis ? undefined : result.raw,
+      sidecar: result.sidecar
+        ? { model_used: result.sidecar.model_used, skipped: result.sidecar.skipped }
+        : null,
     });
   } catch (err: any) {
     if (err instanceof HttpError) return next(err);

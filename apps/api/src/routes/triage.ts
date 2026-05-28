@@ -6,7 +6,7 @@ import {
   type TriageResult,
 } from '@medaccess/shared';
 import { TriageResult as TriageResultModel, dbReady } from '@medaccess/db';
-import { chat, safeParseJson } from '../services/llm.js';
+import { chat, defaultFastModel, safeParseJson } from '../services/llm.js';
 import { HttpError } from '../middleware/error.js';
 
 const router: Router = Router();
@@ -34,7 +34,7 @@ router.post('/', async (req, res, next) => {
     const { text, model } = await chat({
       system,
       messages: [{ role: 'user', content: userMsg }],
-      model: parsed.model,
+      model: parsed.model || defaultFastModel(),
       json: true,
       temperature: 0.2,
       maxTokens: 700,
