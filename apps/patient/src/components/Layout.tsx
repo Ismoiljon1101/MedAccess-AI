@@ -87,12 +87,6 @@ export default function Layout({ children }: { children: ReactNode }) {
         </div>
       </header>
 
-      {/* ── Disclaimer ──────────────────────────────────────────── */}
-      <div className="app-disclaimer">
-        Educational only — not a substitute for a doctor.&nbsp;
-        Emergencies: call&nbsp;<strong className="text-warn-300">112 / 911 / 999</strong>
-      </div>
-
       {/* ── Main ────────────────────────────────────────────────── */}
       <main className="flex-1 overflow-hidden flex flex-col min-h-0">
         {children}
