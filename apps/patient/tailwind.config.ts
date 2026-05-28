@@ -50,5 +50,10 @@ export default {
       },
     },
   },
+  safelist: [
+    { pattern: /^(border|bg|text|ring|shadow|placeholder)-(ink|brand|surface|ok|warn|danger)-(\d+)$/ },
+    { pattern: /^(border|bg|text|ring|shadow|placeholder)-(ink|brand|surface|ok|warn|danger)-(\d+)\/([\d.]+)$/ },
+    { pattern: /^(opacity|backdrop-blur|rounded|shadow)-.+$/ },
+  ],
   plugins: [],
 } satisfies Config;
