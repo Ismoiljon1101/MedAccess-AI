@@ -80,7 +80,7 @@
 
 **Say:** "On the other side — the clinic's doctor portal gets the referral instantly."
 
-1. Switch to the **clinic browser tab** (`localhost:5174`).
+1. Switch to the **clinic browser tab** (`localhost:5173`).
 2. Show the **Patients queue** — Dilnoza's referral appears with:
    - Urgency badge (color-coded)
    - MA Agent summary (symptoms, duration, triage level)
