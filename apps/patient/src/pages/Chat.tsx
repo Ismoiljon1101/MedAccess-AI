@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { Send, Phone, Plus, Headphones, BookText, Image as ImageIcon, MapPin, X } from 'lucide-react';
+import { Send, Phone, Plus, Headphones, BookText, Image as ImageIcon, MapPin, X, Mic, MicOff } from 'lucide-react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { AiAvatar, type AvatarState } from '@/components/AiAvatar';
 import ImageCaptureFlow from '@/components/ImageCaptureFlow';
@@ -45,10 +45,12 @@ export default function Chat() {
 
   const [ctaSpec, setCtaSpec] = useState<{ specialty: string; urgency: string } | null>(null);
   const [showCapture, setShowCapture] = useState(false);
+  const [micActive, setMicActive]     = useState(false);  // inline voice input
 
-  const bottomRef   = useRef<HTMLDivElement>(null);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const abortRef    = useRef<AbortController | null>(null);
+  const bottomRef    = useRef<HTMLDivElement>(null);
+  const textareaRef  = useRef<HTMLTextAreaElement>(null);
+  const abortRef     = useRef<AbortController | null>(null);
+  const inlineSrRef  = useRef<SpeechRecognition | null>(null);
   // Track first user message for history preview
   const previewRef  = useRef<string>('');
   const msgCountRef = useRef<number>(0);
@@ -222,6 +224,64 @@ export default function Chat() {
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(input); }
+  }
+
+  // ── Inline voice: tap mic → speak → pause → auto-send ────────────────
+  function toggleInlineMic() {
+    if (micActive) {
+      inlineSrRef.current?.abort();
+      setMicActive(false);
+      return;
+    }
+
+    const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SR) {
+      // No Web Speech API — open full VoiceMode instead
+      navigate(`/voice${sessionId ? `?s=${sessionId}` : ''}`);
+      return;
+    }
+
+    const sr: SpeechRecognition = new SR();
+    sr.lang           = language === 'auto' || !language ? 'en-US' : language;
+    sr.continuous     = false;    // stop after user pauses (browser VAD)
+    sr.interimResults = true;     // show transcript live
+    sr.maxAlternatives = 1;
+    inlineSrRef.current = sr;
+    setMicActive(true);
+
+    let interim = '';
+
+    sr.onresult = (e: SpeechRecognitionEvent) => {
+      let final = '';
+      interim = '';
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        if (e.results[i].isFinal) final += e.results[i][0].transcript;
+        else interim += e.results[i][0].transcript;
+      }
+      // Show interim in textarea as user speaks
+      setInput(final || interim);
+      if (textareaRef.current) {
+        textareaRef.current.style.height = 'auto';
+        textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 128)}px`;
+      }
+    };
+
+    sr.onend = () => {
+      setMicActive(false);
+      inlineSrRef.current = null;
+      // Auto-send whatever was captured
+      setInput((current) => {
+        const text = current.trim();
+        if (text) sendMessage(text);
+        return '';
+      });
+    };
+
+    (sr as any).onerror = (e: any) => {
+      if (e.error !== 'aborted') setMicActive(false);
+    };
+
+    sr.start();
   }
 
   async function handleCaptureConfirm(file: File, _modality: ImageModality) {
@@ -448,12 +508,27 @@ export default function Chat() {
           disabled={isThinking}
         />
 
-        {/* Voice mode button */}
+        {/* Inline mic: tap → speak → pause = auto-send */}
+        <button
+          type="button"
+          onClick={toggleInlineMic}
+          aria-label={micActive ? 'Stop recording' : 'Speak your message'}
+          title={micActive ? 'Listening — pause to send' : 'Tap to speak'}
+          className={`chat-mic-btn transition ${
+            micActive
+              ? 'border-brand-400 text-brand-400 animate-pulse'
+              : ''
+          }`}
+        >
+          {micActive ? <MicOff size={20} /> : <Mic size={20} />}
+        </button>
+
+        {/* Full immersive voice mode */}
         <button
           type="button"
           onClick={() => navigate(`/voice${sessionId ? `?s=${sessionId}` : ''}`)}
-          aria-label="Voice mode"
-          title="Voice Mode"
+          aria-label="Full voice mode"
+          title="Hands-free voice conversation"
           className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-brand-500/40 bg-brand-600/15 text-brand-400 transition hover:bg-brand-600/25 hover:border-brand-400"
         >
           <Headphones size={18} />

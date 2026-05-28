@@ -116,6 +116,75 @@ Required components (Otabek):
 
 ---
 
+## 2.5 · 🧪 Feature Test Protocol (READ THIS BEFORE TOUCHING CODE)
+
+> **Ismail's standing order:** Before writing any new feature or fix, every team member must first test the features below, record pass/fail in [`docs/qa/issues.md`](./docs/qa/issues.md) using the bug template, then fix what's broken, then push to `develop`.
+
+### How to start the app
+```bash
+git pull origin develop
+pnpm install
+cp .env.example .env   # fill OPENROUTER_API_KEY — ask Ismail for the key
+pnpm dev               # starts API :4000, clinic :5173, patient :5174
+```
+
+### Feature checklist — test EVERY item, record pass ✅ or fail ❌ + notes
+
+#### Patient app (http://localhost:5174)
+| # | Feature | How to test | Expected |
+|---|---|---|---|
+| P1 | **Chat works** | Type "I have a headache" → press Enter | AI streams a response within 5s |
+| P2 | **Inline mic (tap once)** | Tap 🎤 mic icon in chat bar → speak → pause | Transcript appears in text box, auto-sends to AI |
+| P3 | **Voice mode (hands-free)** | Tap 🎧 headphones icon | Full-screen voice opens, starts listening automatically, no tap needed |
+| P4 | **Voice auto-submit** | In voice mode, speak a sentence then stop | AI responds within ~5s without you pressing anything |
+| P5 | **Voice loop** | After AI speaks in voice mode | Listening restarts automatically |
+| P6 | **Image upload** | Tap 📷 image icon → upload a photo | AI returns a structured medical analysis |
+| P7 | **Find Care loads** | Tap Find Care tab | List of hospitals/clinics appears (15 Uzbekistan facilities) |
+| P8 | **Book appointment** | In Find Care → tap a doctor → pick date+slot → confirm | Success toast + appointment appears in Records |
+| P9 | **Connect to Care CTA** | Chat for 3+ turns about symptoms | "Find Care →" card appears below AI message |
+| P10 | **Records / History** | Tap Records tab | Past conversations listed; tap to resume |
+| P11 | **Light mode** | Settings → Theme toggle | Page switches to light background |
+| P12 | **Language change** | Settings → Language → pick Uzbek → go to Chat | AI responds in Uzbek when you write in Uzbek |
+
+#### Clinic app (http://localhost:5173)
+| # | Feature | How to test | Expected |
+|---|---|---|---|
+| C1 | **Login** | Open → login as `doctor` (any name) | Lands on dashboard |
+| C2 | **Patients queue** | Navigate to Patients | List of referrals with urgency badges |
+| C3 | **Confirm appointment** | Click Confirm on a referral | Status changes to Confirmed (green) |
+| C4 | **Interview module** | Navigate to Interview → type symptoms | AI asks structured follow-up questions |
+| C5 | **Symptoms module** | Navigate to Symptoms → enter symptoms | Returns ranked differential with % bars |
+| C6 | **Reports module** | Navigate to Reports → upload image | Returns structured image analysis |
+| C7 | **Triage module** | Navigate to Triage → fill vitals | Returns Manchester triage level (RED/ORANGE/etc.) |
+| C8 | **Pharmacist login** | Login as `pharmacist` | Sees Dashboard + Prescriptions nav only |
+| C9 | **Light mode** | Settings → Theme toggle | Switches to light mode |
+
+#### Full loop test (most important)
+| # | Test | Steps |
+|---|---|---|
+| FL1 | **Patient books → clinic sees** | 1. Patient app: chat 3+ turns → Find Care → book appointment. 2. Clinic app: Patients tab → verify referral appears with summary |
+
+### Reporting bugs
+Copy the template from [`docs/qa/issues.md`](./docs/qa/issues.md) and add your finding there. Set severity:
+- **SEV-1** — app crashes / feature completely broken (Ismail fixes)
+- **SEV-2** — feature partially broken, workaround exists (Ismail or Otabek)
+- **SEV-3** — minor glitch, cosmetic (Otabek or Sobirov)
+- **SEV-4** — typo, pixel misalignment (Sobirov)
+
+### Git workflow after fixes
+```bash
+git checkout -b fix/your-fix-name
+# make your fix
+pnpm typecheck          # must pass
+pnpm build              # must pass
+git add <files>
+git -c user.name="ismoiljon1101" -c user.email="ismoiljonedu@gmail.com" commit -m "fix: description"
+git push origin fix/your-fix-name
+# open PR → develop
+```
+
+---
+
 ## 3 · Per-Engineer Current Sprint (May 28 → Jun 9)
 
 ### Ismail
