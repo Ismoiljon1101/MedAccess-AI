@@ -161,24 +161,96 @@ Required components (Otabek):
 - MobileNetV2-ScabAI (scabies) — dataset too small, defer
 
 ### Otabek
-1. **Image-quality capture interface** in `apps/patient/src/pages/Chat.tsx` (**research-confirmed REQUIRED** — specialist models lose 15–25% accuracy without it):
+**Done:**
+1. ✅ ~~Image thumbnail in `apps/patient/src/pages/Chat.tsx`~~ — `11c818c`
+2. ✅ ~~Dismiss-X on the Connect-to-Care CTA card.~~ — `6d207fb`
+3. ✅ ~~30s polling on `apps/clinic/src/pages/Patients.tsx`~~ — `5fd2044` (+ visibility-change refresh + sync indicator)
+
+**Next:**
+4. **Image-quality capture interface** in `apps/patient/src/pages/Chat.tsx` (**research-confirmed REQUIRED** — specialist models lose 15–25% accuracy without it):
    - **Alignment overlay per modality** — different on-screen template for skin lesion vs X-ray vs fundus (research file `06-image-quality-ux-template.md`)
    - **Client-side ambient quality gate** — variance-of-Laplacian blur check + brightness histogram check + glare detection. Block submit if image fails; show specific reason ("too blurry — hold still", "too dark — find better light").
    - **Pre-upload guidance modal** — 4 do's / 3 don'ts (lighting / framing / focus / no other body parts)
    - **Post-capture checklist** — preview + 3 confirmations + Retake button
-   - Coordinate with Temirlan on Phase 2 — X-ray photographs specifically need parallax-correction overlay (camera parallel to lightbox).
-2. Image thumbnail in chat — replace `[Uploaded: filename]` with `<img>` preview after upload.
-3. Dismiss-X on the Connect-to-Care CTA card.
-4. 30-second polling on `apps/clinic/src/pages/Patients.tsx` so referrals appear without refresh.
-5. LLM-switch smoke test — after Ismail switches to Qwen 3.6 Plus, walk through Chat / Symptoms / Reports / Triage in both portals. Verify no regression in output quality. Note language quality on Uzbek + Hindi (Chinese models may handle Asian languages differently than Western ones).
-6. Loading / empty / error states pass across both portals.
-7. Lighthouse PWA ≥ 90 on both.
+   - Coordinate with Temirlan on Phase 2 — X-ray photographs need parallax-correction overlay (camera parallel to lightbox).
+5. **Care discovery — map integration** (see §3.5 Care Discovery epic): in-network clinics first, then Google Maps / Naver Places fallback list + one-tap navigation deep links.
+6. LLM-switch smoke test — after Ismail switches to Qwen 3.6 Plus, walk Chat / Symptoms / Reports / Triage in both portals. Note language quality on Uzbek + Hindi.
+7. Loading / empty / error states pass across both portals.
+8. Lighthouse PWA ≥ 90 on both.
 
 ### Sobirov
 1. Take all screenshots listed in [§5 Demo Assets](#5--demo-assets).
 2. Spellcheck pass on `README.md` (open PR, tag Ismail).
 3. Add `aria-label` to every icon-only button (one PR per page).
 4. Pull SEV-3 / SEV-4 bugs from [`docs/qa/issues.md`](./docs/qa/issues.md) once Mirsaid starts filing. Use the guided workflow in [`docs/team/sobirov.md`](./docs/team/sobirov.md).
+
+---
+
+## 3.5 · Epic: Care Discovery & Map Integration
+
+> **Goal:** Patient always finds *somewhere* to go. Tiered: our network first, public maps as fallback, deep navigation links always.
+> **Why:** Closes the loop even when no enrolled clinic is nearby. Network effect — every map listing is a clinic we can recruit.
+
+### Tiered discovery model
+
+```
+Patient needs care (from MA Agent CTA or Find Care tab)
+   │
+   ├─ TIER 1 · Enrolled clinics (our DB)        ← EASY, mostly done
+   │    GET /api/clinics → registered clinics + their doctors + specialties + availability
+   │    → in-app booking with the right doctor → referral lands in clinic Patients queue
+   │
+   ├─ TIER 2 · Public map fallback (if no/few enrolled nearby)   ← MEDIUM
+   │    Google Maps Places "nearby search" (type=hospital|doctor|pharmacy)
+   │    Naver Maps Places (Korea region)
+   │    → list name, distance, rating, hours, phone
+   │    → one-tap deep link to Google/Naver navigation
+   │
+   └─ TIER 3 · Reverse matching (clinic side)    ← MEDIUM
+        Clinic sees nearby patients whose MA Agent specialty/urgency matches what the clinic offers
+        → geo + specialty filter on the referral queue
+```
+
+### Difficulty & achievability
+
+| Tier | Difficulty | Achievable v0.1? | Notes |
+|---|---|---|---|
+| 1 · Enrolled clinics + booking | 🟢 Easy | ✅ Yes — foundation already shipped (`searchClinics`, `Referral`, Patients queue) | Need: Doctor model + per-doctor specialty/availability; real clinic registration |
+| 1b · Book with the *correct doctor* | 🟡 Medium | ◑ Partial | Add `Doctor` sub-model + availability slots; booking picks doctor by specialty |
+| 2 · Google Maps Places fallback | 🟡 Medium | ✅ Yes (with API key) | Places Nearby Search API; ~$17/1k req — Mirsaid procures key + sets quota cap |
+| 2 · Naver Maps (Korea) | 🟡 Medium | ◑ Region-gated | Separate Naver Cloud API; only load when region=KR. Pluggable provider interface. |
+| 2 · One-tap navigation deep links | 🟢 Easy | ✅ Yes | `https://www.google.com/maps/dir/?api=1&destination=…` and `nmap://route/...` — no key needed |
+| 3 · Clinic-side reverse matching | 🟡 Medium | ◑ Partial | Geo + specialty filter on existing referral queue; needs clinic geo + offered-specialty fields |
+
+**Verdict:** Tier 1 + Tier 2 navigation deep links are demo-ready now. Places API fallback needs a key (Mirsaid). Per-doctor booking + reverse matching are reach goals for v0.1, solid for v0.2.
+
+### Tasks by owner
+
+**Ismail (architecture — soft gate, his own files):**
+- [ ] `Doctor` model in `packages/db/src/models/` (name, specialty[], clinicId, availability slots)
+- [ ] Extend `Clinic` model: `lat`, `lng`, `offeredSpecialties[]`, `enrolled: boolean`
+- [ ] `GET /api/clinics/:id/doctors` endpoint
+- [ ] **Map provider proxy** `apps/api/src/routes/maps.ts` — server-side Places call so the API key never reaches the client. Pluggable: `google` | `naver` by region.
+- [ ] Schema additions in `packages/shared/src/schemas.ts` (ClinicResult + lat/lng/doctors, MapPlace)
+
+**Otabek (frontend):**
+- [ ] `FindCare.tsx`: render Tier 1 enrolled clinics first (badge "In-network · book here"), Tier 2 map results below ("Navigate")
+- [ ] Doctor picker in booking sheet (filter by MA Agent specialty)
+- [ ] One-tap navigation deep links (Google + Naver, pick by locale)
+- [ ] Map view toggle (list ↔ embedded map) — optional polish
+
+**Mirsaid (ops):**
+- [ ] Procure **Google Maps Platform API key** (Places + Directions), set a **hard quota cap** to protect budget. Hand to Ismail.
+- [ ] Procure **Naver Cloud Maps** key if Korea is in scope. Confirm with Ismail whether KR is a target market.
+- [ ] Document key setup in `.env.example` (Ismail merges the contract change).
+
+**Sobirov (guided):**
+- [ ] Seed 5–10 realistic demo clinics with lat/lng + doctors for the demo script.
+
+### Open questions for Ismail
+- Is **Korea (Naver)** actually a target market, or is Google Maps enough for v0.1? (Naver only makes sense if KR users exist.)
+- Per-doctor booking in v0.1 or defer to v0.2? (Adds Doctor model + availability complexity.)
+- Pharmacy discovery — same tiered model reuses this epic (Places `type=pharmacy`).
 
 ---
 

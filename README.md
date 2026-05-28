@@ -78,22 +78,43 @@ working alone never had.
 
 | Service | URL | Who it's for |
 |---|---|---|
-| **`apps/clinic`** | `:5173` | Doctors, nurses, frontline clinicians — full clinical toolset + **Patients queue** for incoming referrals |
-| **`apps/patient`** | `:5174` | Patients — MA Agent chat, voice mode, image upload, Find Care booking, Records |
+| **`apps/clinic`** | `:5173` | Doctors, nurses, frontline clinicians — full clinical dashboard with the **Patients Queue**, Interview, Symptoms, Reports, Triage, and model/RAG options. Now includes a dedicated **Pharmacist Queue** view for dispensing medication referrals. |
+| **`apps/patient`** | `:5174` | Patients — PWA with the **MA Agent Chat** (symptom analysis, smart clinical routing, voice, inline uploads), the **Find Care & Booking** directory (enrolled scheduling + external navigation deep links), and records. |
 | **`apps/api`** | `:4000` | Shared Node/Express backend serving both portals |
 | **`services/image-ml`** | `:5001` | **(optional)** Python FastAPI sidecar for specialist medical-image inference (skin lesions, chest X-ray). Node degrades gracefully if unset. |
 
 Both portals share the same API and `packages/shared` contract. The patient portal intentionally hides model selection and probability percentages — surfacing only plain-language results and urgency guidance.
 
-### The closed loop (what makes this not just a chatbot)
+### The Closed Loop (Clinician & Pharmacist Care Hand-off)
 
+Our copilot doesn't just stop at the diagnostic read. We close the loop in two distinct directions based on symptom severity:
+
+#### A) Specialized Care (Clinic Loop)
+For cases that require professional assessment or specialized doctors:
 ```
-Patient: describes symptoms to MA Agent  →  Clinical Snapshot after ~3 turns
-       → "Find Care →" CTA appears (specialty + urgency pre-detected)
-       → Patient picks GPS-sorted clinic, books via bottom sheet
-       → Clinic portal /patients queue: urgency-badged referral with MA Agent summary
-       → Clinician confirms → patient sees confirmation
+Patient describes symptoms to MA Agent  →  Clinical Snapshot after ~3 turns
+       → "Find Care →" CTA appears (pre-filled specialty + urgency badge)
+       → Patient picks GPS-sorted clinic registered in our app (listed first)
+       → books an in-app meeting directly with the correct doctor
+       → Clinic Portal (/patients): urgency-badged referral with MA Agent snapshot & transcript
+       → Doctor reviews snapshot, confirms booking, and meets patient
 ```
+
+#### B) Simple Illness (Pharmacy Referral Loop)
+For minor/common complaints (e.g., simple headache, mild stomach ache, cold, simple muscle strain) that do not require clinic escalation:
+```
+Patient describes symptoms to MA Agent  →  MA Agent triages case as minor (urgency: self-care)
+       → "Send to Pharmacy" CTA appears
+       → Patient picks nearest GPS-sorted pharmacy and confirms booking
+       → System compiles & sends a "Pharmacist Referral Report" containing symptoms, reasoning, and full transcript
+       → Pharmacist Dashboard (/patients?type=pharmacy): pharmacist reviews report, re-checks patient, dispenses medicine, or refers to a clinician if needed
+```
+
+#### C) Hybrid Maps Navigation Routing
+For clinics and hospitals that do **not** use our app yet:
+* We fetch and list them dynamically to ensure the patient has immediate access to local care.
+* We provide a **direct deep-link to Google Maps or Naver Maps navigation apps**, populated with the facility's address, so patients can navigate there instantly with one tap.
+* Registered clinics are prioritized at the top of the list to encourage provider-patient closed-loop engagement.
 
 Most clinical-AI products stop at the read. We close the loop.
 
@@ -108,24 +129,25 @@ Most clinical-AI products stop at the read. We close the loop.
 | # | Module | Portal | What it does |
 |---|---|---|---|
 | 1 | **MA Agent Chat** | Patient | Conversational health assistant — structured interview, image upload inline, RAG-grounded, citation chips, session history, Connect-to-Care CTA |
-| 2 | **Find Care + Booking** | Patient | GPS-sorted clinic list, specialty filter (pre-filled from MA Agent), in-app appointment request with MA summary attached |
+| 2 | **Find Care + Booking** | Patient | Tiered care discovery — **in-network clinics first** (GPS-sorted, specialty pre-filled from MA Agent, in-app booking with the right doctor), then **public map fallback** (Google / Naver Places) with one-tap navigation when no enrolled clinic is nearby |
 | 3 | **Patients Queue** | Clinic | Incoming referral queue with urgency badges (RED→GREEN), MA Agent summary, full session context, Confirm/Decline actions |
 | 4 | **Interview** | Clinic | Structured diagnostic intake for clinicians — one focused question at a time, RAG context, citation chips per turn |
 | 5 | **Symptom Analysis** | Clinic | Ranked differential (3–6 conditions) with calibrated probabilities, urgency level, red-flag callouts |
 | 6 | **Report Reading** | Both | Upload X-ray / ECG / lab / dermatology photo → structured plain-language reading. Hybrid: multimodal LLM + (optional) specialist CV models from `services/image-ml/` |
 | 7 | **Triage** | Both | Manchester-style colors (RED → BLUE) with target time-to-care and immediate action list |
 
-### Seven Cross-cutting Differentiators
+### Eight Cross-cutting Differentiators
 
 | # | Differentiator | Why it matters |
 |---|---|---|
 | 1 | **Closed patient → clinic loop** | Read isn't the product. Booking is. MA Agent's snapshot becomes a referral with one tap. |
-| 2 | **MA Agent identity** | Patients talk to "MA Agent" — a named, trusted assistant. System prompt refuses to reveal model/provider. |
-| 3 | **Multilingual** (auto-detect, 17 surfaced) | Model mirrors the user's language. Hindi → Hindi, Uzbek → Uzbek. |
-| 4 | **Voice-first** | Full-screen immersive voice mode (LiveKit + Web Speech API) + inline mic — zero API key needed for demos. |
-| 5 | **Hybrid multimodal vision** | Snap an X-ray or skin photo → generalist multimodal LLM **plus** (optional) specialist CV sidecar (`services/image-ml/`) for body-part accuracy. Both reads shown — disagreements flagged, never silently overridden. |
-| 6 | **Medical RAG** | Every chat turn grounded in 31 vetted clinical docs; sources surface as chips below each answer. |
-| 7 | **Installable PWA** | One tap on a phone → standalone app icon → works under spotty connectivity. |
+| 2 | **Universal care discovery** | Tiered: enrolled clinics first (in-app booking), then Google / Naver Maps fallback with one-tap navigation. Patient always finds *somewhere* to go — even where we have zero enrolled clinics. Every map listing is a clinic we can recruit. |
+| 3 | **MA Agent identity** | Patients talk to "MA Agent" — a named, trusted assistant. System prompt refuses to reveal model/provider. |
+| 4 | **Multilingual** (auto-detect, 17 surfaced) | Model mirrors the user's language. Hindi → Hindi, Uzbek → Uzbek. |
+| 5 | **Voice-first** | Full-screen immersive voice mode (LiveKit + Web Speech API) + inline mic — zero API key needed for demos. |
+| 6 | **Hybrid multimodal vision** | Snap an X-ray or skin photo → generalist multimodal LLM **plus** (optional) specialist CV sidecar (`services/image-ml/`) for body-part accuracy. Both reads shown — disagreements flagged, never silently overridden. |
+| 7 | **Medical RAG** | Every chat turn grounded in 31 vetted clinical docs; sources surface as chips below each answer. |
+| 8 | **Installable PWA** | One tap on a phone → standalone app icon → works under spotty connectivity. |
 
 ---
 
@@ -328,6 +350,18 @@ Our frontend UI architecture implements the **Atomic Design methodology** to org
 ---
 
 ## Modules
+
+### 0. Find Care — Care Discovery & Booking · `/find-care`
+
+The patient's bridge from "what's wrong" to "where do I go." Tiered so a patient always lands on a real option:
+
+**Tier 1 — Enrolled clinics (in-network).** Clinics registered in MedAccess appear first, GPS-sorted by distance, filtered by the specialty MA Agent pre-detected. The patient books an in-app appointment with the correct doctor; the booking becomes a referral that lands in that clinic's Patients Queue with the MA Agent snapshot attached.
+
+**Tier 2 — Public map fallback.** Where we have no (or few) enrolled clinics nearby, we list hospitals / clinics / pharmacies from **Google Maps Places** (or **Naver Maps** in Korea) — name, distance, rating, hours, phone — each with a **one-tap navigation deep link** so the patient can route there instantly.
+
+**Tier 3 — Reverse matching (clinic side, roadmap).** Clinics see nearby patients whose MA Agent specialty + urgency match what they offer, turning the queue into proactive outreach.
+
+> Map API keys are proxied server-side (`/api/maps`) so they never reach the browser. The provider is pluggable (`google` | `naver`) and selected by region. Navigation deep links require no key. See the [Care Discovery epic in TODO.md](./TODO.md) for the build plan and difficulty assessment.
 
 ### 1. Interview · `/interview`
 
@@ -575,6 +609,10 @@ All env vars live in a **single `.env` at the repo root**. Copy from `.env.examp
 | `LIVEKIT_API_KEY` | no | — | From LiveKit dashboard |
 | `LIVEKIT_API_SECRET` | no | — | From LiveKit dashboard |
 | `IMAGE_ML_URL` | no | — | e.g. `http://localhost:5001`. Enables Python image-ml sidecar. Unset = LLM-only image analysis. |
+| `MAPS_PROVIDER` | no | `google` | `google` \| `naver`. Selects the Tier-2 care-discovery map provider. |
+| `GOOGLE_MAPS_API_KEY` | no | — | Places + Directions. Proxied server-side (`/api/maps`), never sent to the client. Set a quota cap. |
+| `NAVER_MAPS_CLIENT_ID` | no | — | Naver Cloud Maps client ID (Korea region only). |
+| `NAVER_MAPS_CLIENT_SECRET` | no | — | Naver Cloud Maps secret (Korea region only). |
 | `PORT` | no | `4000` | API port |
 | `CORS_ORIGIN` | no | `http://localhost:5173` | Comma-separate for multiple ports |
 | `MAX_UPLOAD_MB` | no | `15` | Image / audio size cap |

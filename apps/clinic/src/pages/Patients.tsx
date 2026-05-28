@@ -25,6 +25,8 @@ function timeAgo(dateStr: string): string {
   return `${Math.floor(h / 24)}d ago`;
 }
 
+const POLL_INTERVAL_MS = 30_000;
+
 export default function Patients() {
   const [referrals, setReferrals]   = useState<ReferralRecord[]>([]);
   const [loading, setLoading]       = useState(false);
@@ -32,23 +34,45 @@ export default function Patients() {
   const [expanded, setExpanded]     = useState<string | null>(null);
   const [updating, setUpdating]     = useState<string | null>(null);
   const [filter, setFilter]         = useState<'all' | 'pending' | 'confirmed' | 'cancelled'>('all');
+  const [lastSync, setLastSync]     = useState<Date | null>(null);
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  // ── Load referrals. silent=true skips loading spinner (used by poller) ──
+  const load = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
     setError('');
     try {
       const data = await getReferrals();
       setReferrals(data);
+      setLastSync(new Date());
     } catch (e: any) {
       setError(e.message || 'Failed to load referrals');
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, []);
 
+  // ── Initial load ───────────────────────────────────────────────────────
   useEffect(() => { load(); }, [load]);
 
-  async function handleStatus(id: string, status: 'confirmed' | 'cancelled') {
+  // ── Background polling every 30s so new referrals appear automatically ──
+  useEffect(() => {
+    const id = setInterval(() => {
+      // Skip poll if a mutation is in-flight to avoid stomping local state
+      if (!updating) load(true);
+    }, POLL_INTERVAL_MS);
+    return () => clearInterval(id);
+  }, [load, updating]);
+
+  // ── Refresh when tab becomes visible (catches changes while away) ──────
+  useEffect(() => {
+    function onVisible() {
+      if (document.visibilityState === 'visible') load(true);
+    }
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
+  }, [load]);
+
+  async function handleStatus(id: string, status: 'confirmed' | 'cancelled' | 'pending') {
     setUpdating(id);
     try {
       const updated = await updateReferral(id, status);
@@ -80,14 +104,21 @@ export default function Patients() {
             <p className="text-xs text-ink-300 mt-0.5">Incoming referrals from MA Agent</p>
           </div>
         </div>
-        <button
-          type="button"
-          onClick={load}
-          disabled={loading}
-          className="flex items-center gap-1.5 rounded-lg border border-ink-600 bg-ink-800 px-3 py-1.5 text-xs text-ink-200 hover:border-accent-500/50 transition"
-        >
-          <RefreshCw size={13} className={loading ? 'animate-spin' : ''} /> Refresh
-        </button>
+        <div className="flex items-center gap-3">
+          {lastSync && (
+            <span className="text-[11px] text-ink-400 hidden sm:inline">
+              Auto-refresh · synced {timeAgo(lastSync.toISOString())}
+            </span>
+          )}
+          <button
+            type="button"
+            onClick={() => load(false)}
+            disabled={loading}
+            className="flex items-center gap-1.5 rounded-lg border border-ink-600 bg-ink-800 px-3 py-1.5 text-xs text-ink-200 hover:border-accent-500/50 transition"
+          >
+            <RefreshCw size={13} className={loading ? 'animate-spin' : ''} /> Refresh
+          </button>
+        </div>
       </div>
 
       {/* Filter tabs */}
