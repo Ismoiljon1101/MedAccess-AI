@@ -95,12 +95,12 @@
 5. Week 2: chest X-ray via TorchXRayVision DenseNet121 (CheXpert pretrained).
 
 ### Otabek
-1. Image thumbnail in `apps/patient/src/pages/Chat.tsx` (replace `[Uploaded: filename]` with `<img>` preview).
-2. Dismiss-X on the Connect-to-Care CTA card.
-3. 30-second polling on `apps/clinic/src/pages/Patients.tsx` so referrals appear without refresh.
-4. Vision upgrade smoke test — compare report analysis output before/after Sonnet 4.5 flip.
-5. Loading / empty / error states pass across both portals.
-6. Lighthouse PWA ≥ 90 on both.
+1. ✅ ~~Image thumbnail in `apps/patient/src/pages/Chat.tsx` (replace `[Uploaded: filename]` with `<img>` preview).~~ — done in `11c818c`
+2. ✅ ~~Dismiss-X on the Connect-to-Care CTA card.~~ — done in `6d207fb`
+3. ✅ ~~30-second polling on `apps/clinic/src/pages/Patients.tsx` so referrals appear without refresh.~~ — done in `5fd2044` (also adds visibility-change refresh + sync indicator)
+4. ⏸️ Vision upgrade smoke test — compare report analysis output before/after Sonnet 4.5 flip. *(Blocked: waiting on Ismail to flip `OPENROUTER_VISION_MODEL`)*
+5. 📋 Loading / empty / error states pass across both portals.
+6. 📋 Lighthouse PWA ≥ 90 on both.
 
 ### Sobirov
 1. Take all screenshots listed in [§5 Demo Assets](#5--demo-assets).
