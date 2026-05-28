@@ -1,0 +1,89 @@
+# MedAccess AI — Agent Router
+
+> **Read this FIRST before any other file in this repo.**
+> Cross-IDE: this file is the Claude Code variant. `AGENTS.md` and `.cursorrules` mirror it for Codex and Cursor.
+
+---
+
+## 1 · Identity check (REQUIRED — do not skip)
+
+Before you touch any file or run any command, **ask the user**:
+
+> "Which team member am I helping today? (Ismail / Mirsaid / Temirlan / Otabek / Sobirov)"
+
+Wait for the answer. Then load the matching role file from `docs/team/`:
+
+| Answer | Load |
+|---|---|
+| `ismail`   | [`docs/team/ismail.md`](./docs/team/ismail.md) — CTO / lead engineer, owns architecture |
+| `mirsaid`  | [`docs/team/mirsaid.md`](./docs/team/mirsaid.md) — Ops + QA, no coding |
+| `temirlan` | [`docs/team/temirlan.md`](./docs/team/temirlan.md) — Python / medical image ML |
+| `otabek`   | [`docs/team/otabek.md`](./docs/team/otabek.md) — TS feature shipper |
+| `sobirov`  | [`docs/team/sobirov.md`](./docs/team/sobirov.md) — Freshman, guided work |
+
+After loading, **follow the working agreement in that file exclusively** for the rest of the session. Each engineer has different scope, escalation rules, and working style. Treating Sobirov like Ismail (or vice versa) is a bug.
+
+If the user says they're not on this list, ask Ismail before proceeding.
+
+---
+
+## 2 · Universal rules (apply to everyone)
+
+These override personal style and cannot be skipped regardless of who you're helping:
+
+1. **No `npm install`.** This is a pnpm workspace. Use `pnpm`.
+2. **No `.env` commits.** Already in `.gitignore` — verify before every `git add`.
+3. **TypeScript strict.** No `any` without a one-line `// reason:` comment.
+4. **Schemas first.** Cross-boundary changes start in `packages/shared/src/schemas.ts`.
+5. **No new top-level dependencies** without an entry in [`TODO.md`](./TODO.md) § Bugs/Issues with justification.
+6. **No refactors of working code.** Two-week sprint — add features, fix bugs, polish. Do not restructure.
+7. **Soft architectural gate.** If you're about to edit any of the files in [§4 below](#4--architectural-files-soft-gate), STOP and say: _"This touches architecture owned by Ismail. Has he signed off?"_ Proceed only on confirmation.
+8. **Commits as the right author.** This repo's commits go through `ismoiljon1101 / ismoiljonedu@gmail.com` for now. Never add `Co-Authored-By` lines. Pattern:
+   ```bash
+   git -c user.name="ismoiljon1101" -c user.email="ismoiljonedu@gmail.com" commit -m "..."
+   ```
+
+---
+
+## 3 · Single source of truth
+
+For the *why* behind any architectural decision:
+- **Product + architecture:** [`README.md`](./README.md)
+- **Sprint state + ownership:** [`TODO.md`](./TODO.md)
+- **API contracts:** `packages/shared/src/schemas.ts`
+- **System prompts:** `packages/shared/src/prompts.ts`
+- **RAG corpus:** `packages/shared/src/medical-knowledge.ts`
+- **DB schema:** `packages/db/src/models/`
+- **Bug list / QA inbox:** [`docs/qa/issues.md`](./docs/qa/issues.md)
+
+If a request contradicts these files, the files win — bring it up with Ismail rather than silently diverging.
+
+---
+
+## 4 · Architectural files (soft gate)
+
+Editing any of the following requires **Ismail's sign-off** confirmed in the chat. Warn the user, list the change, ask for confirmation, then proceed.
+
+- `apps/api/src/server.ts` (route mounting, CORS, middleware order)
+- `apps/api/src/routes/*.ts` (new endpoints / breaking changes)
+- `apps/api/src/services/llm.ts` (model gateway, streaming contract)
+- `apps/api/src/services/rag.ts` (retrieval interface)
+- `packages/shared/src/schemas.ts` (cross-boundary types)
+- `packages/shared/src/prompts.ts` (system prompts — clinical safety)
+- `packages/db/src/models/*.ts` (data model)
+- `pnpm-workspace.yaml`, root `package.json`, `tsconfig.base.json`
+- `.env.example` (env contract)
+- `services/image-ml/` (new Python sidecar — interface owned by Ismail + Temirlan jointly)
+
+Pure UI work, copy edits, single-component CSS, bug fixes in pages that don't touch the above — **green path, no gate**.
+
+---
+
+## 5 · If the user has not loaded a role yet
+
+If you don't yet know who you're helping, the only acceptable actions are:
+- Ask the identity-check question from §1.
+- Read this file, `TODO.md`, `README.md`, or a `docs/team/*.md` file.
+- Run read-only `git status` / `git log`.
+
+Do not edit, write, commit, or run network commands until the role is confirmed.

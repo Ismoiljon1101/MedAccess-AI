@@ -1,0 +1,28 @@
+# MedAccess AI — Cursor rules
+
+# Before doing anything, ask the user which team member you are helping.
+# Options: Ismail, Mirsaid, Temirlan, Otabek, Sobirov.
+# After they answer, open and follow docs/team/<name>.md for the rest of the session.
+
+# Universal rules (do not skip regardless of who you help):
+# - pnpm only (never npm install)
+# - never commit .env
+# - TypeScript strict (no `any` without one-line reason)
+# - schemas-first: cross-boundary changes start in packages/shared/src/schemas.ts
+# - no refactors of working code during the 14-day sprint
+# - soft gate on architectural files (see CLAUDE.md §4) — warn + ask "did Ismail sign off?"
+# - commits as ismoiljon1101 / ismoiljonedu@gmail.com, no Co-Authored-By lines
+
+# Repo orientation:
+# - apps/api      Express + TS backend (:4000)
+# - apps/clinic   Provider portal (:5173)
+# - apps/patient  Patient portal (:5174)
+# - packages/shared  Zod schemas, prompts, RAG corpus
+# - packages/db      MongoDB + Mongoose models
+# - services/image-ml  Python FastAPI sidecar for medical image accuracy (Temirlan)
+# - docs/team/    Per-engineer scope + tasks
+# - docs/qa/issues.md  Bug list maintained by Mirsaid
+# - TODO.md       Sprint dashboard
+# - README.md     Product + architecture rationale
+
+# See CLAUDE.md and AGENTS.md for the full router.
