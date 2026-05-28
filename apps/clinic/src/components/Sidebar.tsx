@@ -8,7 +8,6 @@ import {
   LogOut,
   Stethoscope,
   ShieldCheck,
-  UsersRound,
 } from 'lucide-react';
 import { useAuthStore, type Role } from '@/store/auth';
 
@@ -27,7 +26,7 @@ const PHARMACIST_NAV: NavItem[] = [
 const ADMIN_NAV: NavItem[] = [
   { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { to: '/patients',  label: 'Patients',  icon: Users           },
-  { to: '/staff',     label: 'Staff',     icon: UsersRound      },
+  // Staff module coming in v0.2
 ];
 
 const BOTTOM_NAV: NavItem[] = [
