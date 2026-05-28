@@ -1,18 +1,18 @@
 import { Schema, model, type Document } from 'mongoose';
 
 export interface ITimeSlot extends Document {
-  doctorId: Schema.Types.ObjectId;
-  facilityId: Schema.Types.ObjectId;
-  date: string;       // 'YYYY-MM-DD' — simple string for easy querying
-  startTime: string;  // 'HH:MM'
-  endTime: string;    // 'HH:MM'
+  doctorId: string;    // seed IDs ('d1'…) or real ObjectId strings
+  facilityId: string;  // seed IDs ('f1'…) or real ObjectId strings
+  date: string;        // 'YYYY-MM-DD' — simple string for easy querying
+  startTime: string;   // 'HH:MM'
+  endTime: string;     // 'HH:MM'
   isBooked: boolean;
   appointmentId?: Schema.Types.ObjectId;
 }
 
 const TimeSlotSchema = new Schema<ITimeSlot>({
-  doctorId:      { type: Schema.Types.ObjectId, ref: 'Doctor',      required: true },
-  facilityId:    { type: Schema.Types.ObjectId, ref: 'Facility',    required: true },
+  doctorId:      { type: String, required: true },   // seed IDs or real ObjectId strings
+  facilityId:    { type: String, required: true },   // seed IDs or real ObjectId strings
   date:          { type: String, required: true },  // 'YYYY-MM-DD'
   startTime:     { type: String, required: true },  // 'HH:MM'
   endTime:       { type: String, required: true },  // 'HH:MM'
