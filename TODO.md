@@ -1,327 +1,234 @@
-# MedAccess AI — Team Task Tracker
+# MedAccess AI — Task Tracker (Updated: 2026-05-28)
 
-> **Mission:** Ship a polished, demo-ready MVP of an AI Doctor Copilot for rural
-> & underserved areas in **14 days**.
+> **Mission:** AI Doctor Copilot for rural and underserved areas — multilingual,
+> voice-first, multimodal, grounded in clinical references.
 >
-> **Timeline:** 2026-05-26 → 2026-06-09 (competition deadline).
-> **Branch model:** feature branches → `develop` → `main` (after submission).
-> **Single source of truth for API contracts:** `packages/shared/src/schemas.ts`.
-
-For the *why* behind every decision below, see [README.md](./README.md).
+> **Deadline:** 2026-06-09.  **Branch:** feature → `develop` → `main`.
+> **Commits:** always as `ismoiljon1101 / ismoiljonedu@gmail.com`. No Co-Authored-By.
 
 ---
 
-## 0 · Status Dashboard
+## 0 · STATUS DASHBOARD
 
-| Phase | Status |
+| Area | Status | Notes |
+|---|---|---|
+| Monorepo scaffold (pnpm, TS strict, Vite, Tailwind) | ✅ Done | |
+| `packages/shared` — schemas, prompts, 31 RAG docs | ✅ Done | Expanded from 15 → 31 |
+| `apps/api` — 7 routes | ✅ Done | chat, symptoms, triage, reports, transcribe, voice, health |
+| `apps/clinic` — 5 pages | ✅ Done | Home, Interview, Symptoms, Reports, Triage |
+| `apps/patient` — full PWA shell | ✅ Done | 5-tab nav, header, disclaimer |
+| MA Agent identity (hides model, identifies as MA Agent) | ✅ Done | |
+| Chat with streaming SSE | ✅ Done | |
+| RAG (BM25, 31 docs, citations in UI) | ✅ Done | Both portals show citation chips |
+| Medical image analysis — inline in patient chat | ✅ Done | Gemini Flash vision |
+| Medical image analysis — clinic Reports page | ✅ Done | |
+| Voice input — Web Speech API (no key needed) | ✅ Done | |
+| Full-screen voice mode with LiveKit | ✅ Done | Standalone fallback works |
+| Session history + resume (`?s=<id>`) | ✅ Done | |
+| MongoDB persistence (fire-and-forget) | ✅ Done | Graceful fallback if DB down |
+| Find Care page | ✅ Seed data | Real GPS + clinic DB not built yet |
+| My Records page | ✅ Done | Zustand localStorage |
+| Emergency triage | ✅ Done | Manchester colors |
+| Settings (language, font size, voice) | ✅ Done | |
+| **Patient → Clinic report handoff** | ❌ NOT BUILT | Biggest open gap |
+| **Clinic booking + doctor availability** | ❌ NOT BUILT | Core goal |
+| **Clinic patient queue (incoming referrals)** | ❌ NOT BUILT | Clinic portal missing |
+| DICOM / PDF medical file support | ❌ Deferred | Post-MVP |
+| Screenshots + DEMO.md | ❌ Not done | Needed for submission |
+| `pnpm typecheck` passing all workspaces | ⚠️ Not verified | Run before submission |
+| PWA Lighthouse ≥ 90 | ⚠️ Not verified | Run before submission |
+| CORS allows both :5173 and :5174/:5175 | ⚠️ Check | May be broken |
+
+---
+
+## 1 · MA AGENT — CURRENT TRAITS
+
+### What it CAN do now
+
+| # | Capability | Detail |
+|---|---|---|
+| 1 | **Structured diagnostic interview** | One focused question at a time: chief complaint → onset/duration → associated symptoms → history → red flags → Clinical Snapshot |
+| 2 | **RAG-grounded answers** | BM25 over 31 clinical docs injected into every system prompt |
+| 3 | **Citation chips** | Source titles shown under every AI reply in both portals |
+| 4 | **Multilingual** | Mirrors user language automatically; 17 in picker |
+| 5 | **Medical image analysis** | Upload X-ray/ECG/lab photo inline in chat → structured reading: imageType, findings + confidence, keyObservations, followUp |
+| 6 | **Voice input** | Browser Web Speech API → text → LLM (no OPENAI_API_KEY needed) |
+| 7 | **Full-screen voice mode** | Immersive overlay: Lottie avatar + waveform + TTS readback + model picker |
+| 8 | **Streaming responses** | SSE token-by-token |
+| 9 | **Session history + resume** | Local persist + server-side resume |
+| 10 | **Emergency safety floor** | 112/911/999 always visible; chest pain / stroke / sepsis / anaphylaxis never downgraded |
+| 11 | **Identity protection** | Refuses to name model/provider; always "MA Agent by MedAccess team" |
+| 12 | **Clinical Snapshot** | After 5–8 turns, summarises findings and offers to triage or find care |
+
+### What it CANNOT do yet (gaps vs ambition)
+
+| Gap | Priority |
 |---|---|
-| Research + architecture + plan approval | ✅ Done |
-| Monorepo scaffold + tooling | ✅ Done |
-| `packages/shared` (schemas, prompts, knowledge) | ✅ Done |
-| `apps/api` (Express + TS, all 5 routes) | ✅ Done |
-| `apps/web` foundations (theme, layout, components, API client) | ✅ Done |
-| `apps/web` module pages | 🚧 In progress |
-| Smoke test / typecheck / build | 📋 Todo |
-| Screenshots + demo script + README polish | 📋 Todo |
-| Multilingual e2e + PWA install verification | 📋 Todo |
-| Tag `v0.1.0` + final push | 📋 Todo |
+| Find nearest real clinic by GPS | 🔴 High |
+| Check doctor availability | 🔴 High |
+| Book appointment | 🔴 High |
+| Send full patient report to clinic | 🔴 High |
+| Auto-recommend specialist type ("you need a cardiologist") | 🟡 Medium |
+| Auto-trigger triage after red-flag chat | 🟡 Medium |
+| Show image thumbnail preview in chat bubble (shows text only) | 🟡 Medium |
+| TTS auto-readback of all responses | 🟢 Low |
+| Larger RAG corpus (WHO/MSF/CDC ~5k docs) | 🟡 Medium |
 
 ---
 
-## 1 · Locked Architecture (do not relitigate)
+## 2 · RAG STATUS
 
-| | |
+| Item | Status |
 |---|---|
-| Package manager | **pnpm** workspaces only — no `npm install` |
-| Language | **TypeScript strict**, every source file |
-| Backend | Express + TS, Zod-validated, OpenAI SDK pointed at OpenRouter |
-| Frontend | Vite + React 18 + TS + Tailwind + `vite-plugin-pwa` + Zustand + react-router v6 |
-| LLM provider | **OpenRouter** (single `OPENROUTER_API_KEY`); model picker in UI |
-| Voice (STT) | OpenAI Whisper if `OPENAI_API_KEY` set, else browser Web Speech API |
-| RAG | BM25 keyword similarity over 15 seed clinical docs (no embeddings) |
-| Storage | In-memory session map with TTL sweep |
-| Env file | Single root `.env` (loaded by `apps/api/src/server.ts`) |
-| Code style | No emojis in code/comments unless asked; comments only where the *why* is non-obvious |
+| Implementation | ✅ BM25 (`apps/api/src/services/rag.ts`) |
+| Corpus size | ✅ **31 documents** (was 15) |
+| Topics | ✅ Malaria, dengue, TB, pneumonia (adult + IMCI child), ACS, stroke, sepsis/qSOFA, asthma, anaphylaxis, pre-eclampsia, mental health, headache red flags, dehydration, oral rehydration, UTI, appendicitis, renal colic, migraine, gastroenteritis, allergic rhinitis, back pain red flags, DVT/PE, wound infection/necrotising fasciitis, chest pain differential, fever, skin rash, COVID-19, diabetes/DKA, hypertension crisis, upper respiratory infection |
+| Citations in clinic portal | ✅ Shown under every AI message |
+| Citations in patient portal | ✅ Source chips under AI messages |
+| Injected into system prompt | ✅ Top 3–4 hits as context |
+| Embeddings | ❌ Deferred — BM25 sufficient at 31 docs |
+| Large corpus | ❌ Deferred post-competition |
+
+**RAG done for MVP?** Yes. BM25 over 31 curated clinical docs is solid for the demo. Upgrade path: one file swap in `rag.ts` to move to embeddings + pgvector.
 
 ---
 
-## 2 · Repository Map
+## 3 · MEDICAL IMAGE READING STATUS
 
-```
-MedAccess-AI/
-├── apps/
-│   ├── api/                    ✅ Built
-│   │   └── src/
-│   │       ├── server.ts       — entry; loads root .env; mounts routes
-│   │       ├── routes/         — chat, symptoms, triage, reports, transcribe
-│   │       ├── services/       — llm (OpenRouter), vision, transcribe, rag (BM25)
-│   │       ├── middleware/     — error, upload (multer)
-│   │       └── utils/          — sessions (in-memory + TTL)
-│   └── web/                    🚧 Foundations done, pages remaining
-│       └── src/
-│           ├── main.tsx        ✅
-│           ├── App.tsx         ✅ (router)
-│           ├── index.css       ✅ (Tailwind + theme)
-│           ├── components/     ✅ Layout, Sidebar, Header, Disclaimer,
-│           │                       VoiceButton, MessageBubble, TriageBadge,
-│           │                       ProbabilityBar, CitationList
-│           ├── pages/          🚧 Home ✅; Interview, Symptoms, Reports, Triage 📋
-│           ├── lib/            ✅ api.ts, i18n.ts, models.ts
-│           └── store/          ✅ app.ts (Zustand prefs)
-├── packages/
-│   └── shared/                 ✅ Built
-│       └── src/
-│           ├── schemas.ts      — all Zod request/response schemas
-│           ├── prompts.ts      — every system prompt
-│           ├── medical-knowledge.ts — 15 seed RAG docs
-│           ├── types.ts        — ambient types
-│           └── index.ts        — re-exports
-├── docs/                       📋 architecture.svg, screenshots/*.png, DEMO.md
-├── .env.example                ✅
-├── pnpm-workspace.yaml         ✅
-├── tsconfig.base.json          ✅
-├── package.json                ✅ (root scripts)
-├── README.md                   ✅ professor-grade
-└── TODO.md                     ✅ this file
-```
+| Item | Status |
+|---|---|
+| Endpoint (`POST /api/reports/analyze`) | ✅ Working |
+| Inline upload in patient chat | ✅ Image icon in input bar |
+| Clinic Reports page | ✅ Working |
+| Structured output | ✅ imageType, qualityNotes, keyObservations, findings (+ confidence), suggestedFollowUp, disclaimer |
+| Refuses to fabricate | ✅ Prompted to say "unreadable/unknown" not guess |
+| Current vision model | ⚠️ **Gemini 2.0 Flash (free)** — ~70–75% medical accuracy |
+| Image preview in chat bubble | ❌ Shows `[Uploaded: filename]` text, no thumbnail |
+
+### Vision model comparison (for accuracy upgrade)
+
+| Model | Est. Medical Accuracy | Cost | How to use |
+|---|---|---|---|
+| Gemini 2.0 Flash (current) | ~70–75% | Free | Already set |
+| GPT-4o | ~82–85% | ~$0.01/image | Set `OPENROUTER_VISION_MODEL=openai/gpt-4o` |
+| **Claude 3.5 Sonnet** | ~88–92% | ~$0.015/image | Set `OPENROUTER_VISION_MODEL=anthropic/claude-sonnet-4-5` |
+| Google MedLM-Medium | ~94% | Google Cloud only | Requires Healthcare API |
+| Med-SAM / Open MONAI | ~95%+ | Self-hosted | Out of scope for MVP |
+
+**Immediate win:** switch `.env` → `OPENROUTER_VISION_MODEL=anthropic/claude-sonnet-4-5` — same code, better reads, still via OpenRouter.
 
 ---
 
-## 3 · Sprint 1 — Week 1 (May 26 → Jun 1)
+## 4 · README AMBITION — ARE WE ON TRACK?
 
-### ✅ Days 1–2 · Foundation
-- [x] Competitive + LLM landscape research
-- [x] Plan approved (OpenRouter, PWA, single repo, TS, pnpm)
-- [x] `pnpm-workspace.yaml`, root `package.json`, `tsconfig.base.json`
-- [x] `.env.example` (OPENROUTER_API_KEY required, OPENAI_API_KEY optional)
-- [x] `.gitignore` (no `.env`, no `node_modules`, no `dist`)
-- [x] Save architecture & deadline to project memory
+| README Goal | Reality | Gap |
+|---|---|---|
+| Multilingual 17+ languages | ✅ Language in Settings, model mirrors language | None |
+| Voice-first | ✅ Web Speech API + full-screen voice mode | No on-device offline Whisper |
+| Multimodal vision | ✅ Inline image upload + structured read | Accuracy upgradeable; no thumbnail preview |
+| Medical RAG | ✅ 31 docs, BM25, citations both portals | Corpus small vs 5k ambition |
+| Structured interview | ✅ One question at a time, red flags, Clinical Snapshot | Good |
+| Symptom analysis (ranked differentials) | ✅ Clinic portal full; patient uses chat | Patient doesn't show probability bars |
+| Triage (Manchester) | ✅ Emergency tab + clinic triage page | Not auto-triggered from chat red flags |
+| Report reading (images) | ✅ Inline + clinic page | Vision model accuracy; no DICOM/PDF |
+| Installable PWA | ⚠️ vite-plugin-pwa installed | Not verified — run Lighthouse |
+| **Patient → Clinic handoff** | ❌ **MISSING** | Biggest gap — product loop not closed |
+| **Clinic booking / doctor availability** | ❌ **MISSING** | Find Care shows seed data only |
+| DICOM / PDF lab parsing | ❌ | Deferred post-MVP |
+| Auth + multi-tenant | ❌ | Deferred post-competition |
 
-### ✅ Days 3–4 · Shared package + API
-- [x] `packages/shared` — Zod schemas for all endpoints
-- [x] System prompts (interview, symptom analysis, triage, vision report)
-- [x] Seed medical knowledge (15 entries: malaria, dengue, sepsis, pneumonia, ACS, stroke, etc.)
-- [x] `apps/api/src/services/llm.ts` — OpenRouter client (chat + streaming + JSON mode + safe parse)
-- [x] `apps/api/src/services/vision.ts` — multimodal image analysis
-- [x] `apps/api/src/services/transcribe.ts` — Whisper STT (optional)
-- [x] `apps/api/src/services/rag.ts` — BM25 retrieval
-- [x] `apps/api/src/middleware/` — error + multer upload
-- [x] `apps/api/src/utils/sessions.ts` — in-memory + TTL sweep
-- [x] Routes: `chat` (+ `/stream`), `symptoms`, `triage`, `reports`, `transcribe`
-- [x] `server.ts` — mounts all routes, health endpoint, root `.env` loader
-
-### ✅ Days 5–6 · Web foundations
-- [x] Vite config with React + PWA plugin + `/api` proxy
-- [x] Tailwind config + dark `ink` palette + `accent` teal
-- [x] `index.html` (Inter + JetBrains Mono via Google Fonts)
-- [x] PWA manifest + 192/512 SVG icons + favicon
-- [x] Global CSS (cards, buttons, inputs, scrollbar, prose styles)
-- [x] `main.tsx` + `App.tsx` (BrowserRouter with 5 routes)
-- [x] `Layout`, `Sidebar`, `Header` (language picker + model picker + health chip)
-- [x] `Disclaimer` (banner on every page)
-- [x] `VoiceButton` (Whisper → browser fallback)
-- [x] `MessageBubble`, `TriageBadge`, `ProbabilityBar`, `CitationList`
-- [x] `lib/api.ts` typed client for every endpoint, with SSE streaming
-- [x] `lib/i18n.ts` (17 languages incl. Uzbek, Hausa, Swahili, Amharic)
-- [x] `lib/models.ts` (Claude Sonnet 4.5, GPT-4o/-mini, Gemini Flash, Llama 3.3, DeepSeek)
-- [x] `store/app.ts` (Zustand, persisted prefs)
-
-### 🚧 Day 7 · Frontend pages (the remaining surface)
-
-Each page must: import the typed API client, use the Zustand store for `language`+`model`, render loading + empty + error states, and include the `VoiceButton` wherever free-text input exists.
-
-- [x] **`apps/web/src/pages/Home.tsx`** ✅
-  - Hero with tagline + CTA buttons
-  - 4 module cards (Interview, Symptoms, Reports, Triage) linking to routes
-  - 5 differentiator cards (LLM-agnostic, Multilingual, Voice, PWA, Safety)
-  - Uses existing `card`/`btn` theme classes
-- [ ] **`apps/web/src/pages/Interview.tsx`**
-  - Streaming chat using `streamChat()` from `lib/api.ts`
-  - Render `MessageBubble[]` from session state
-  - Voice input → fills the textarea
-  - Show `CitationList` under each AI message
-  - "New session" button (clears session id)
-- [ ] **`apps/web/src/pages/Symptoms.tsx`**
-  - Symptom chip input (Enter to add, X to remove)
-  - Patient context form: age, sex, pregnancy, conditions, meds, allergies
-  - Call `analyzeSymptoms()` → render `ProbabilityBar[]` sorted desc
-  - Urgency badge + "Recommended next steps" list + disclaimer
-- [ ] **`apps/web/src/pages/Reports.tsx`**
-  - Drag-and-drop image upload (also click-to-pick)
-  - Optional note textarea
-  - Image preview
-  - Call `analyzeReport()` → render `imageType`, `qualityNotes`, `keyObservations[]`, `possibleFindings[]` (with confidence chips), `suggestedFollowUp[]`, `disclaimer`
-- [ ] **`apps/web/src/pages/Triage.tsx`**
-  - Case textarea (with voice input)
-  - Vitals grid (HR, RR, SBP, DBP, SpO2, Temp, GCS)
-  - Call `runTriage()` → render `TriageBadge` + `targetTimeToCare` + `rationale` + actions + warning signs
-
-**Owner:** _(to assign)_  · **ETA:** 1 day  · **Acceptance:** all four routes navigate, the happy path round-trips the API, errors surface as a non-cryptic toast/banner.
+**Summary:** AI core is solid. The **product loop is not closed** — patient gets a diagnosis but can't reach a real clinic. That's what makes this a chatbot vs a healthcare access tool. Must fix before submission.
 
 ---
 
-## 4 · Sprint 2 — Week 2 (Jun 2 → Jun 9)
+## 5 · SPRINT 2 — THIS WEEK (close the loop)
 
-### Day 8 · Smoke test & TS hygiene
-- [ ] `pnpm install` succeeds on a clean clone (Windows + macOS)
-- [ ] `pnpm typecheck` passes for all three workspaces (`apps/api`, `apps/web`, `packages/shared`)
-- [ ] `pnpm build` builds API + web without warnings
-- [ ] `pnpm dev` starts API on `:4000` and web on `:5173` in parallel
-- [ ] Hit `GET /api/health` and verify all flags green
+### 🔴 P1 — Patient → Clinic handoff
+- [ ] `POST /api/clinics/search` — `{ lat, lng, specialty }` → returns nearest clinics
+- [ ] `POST /api/clinics/:id/report` — sends chat summary + image findings to clinic queue
+- [ ] `POST /api/clinics/:id/book` — stub appointment creation
+- [ ] **Clinic portal patient queue** — `apps/clinic/src/pages/Patients.tsx`
+  - List incoming patient referrals with MA Agent summary
+  - Expand to see full transcript + image analysis
+  - "Accept / Forward to Doctor" action (stub ok for demo)
+- [ ] **MA Agent "Find a Clinic" CTA** — after Clinical Snapshot, show button → `/find-care` with pre-filled specialty
 
-### Day 9 · Multilingual + PWA verification
-- [ ] Manually test each module in: English, Spanish, Uzbek, Hindi
-- [ ] Verify the model mirrors the input language (does not always answer in English)
-- [ ] Lighthouse PWA audit ≥ 90
-- [ ] Install on Android Chrome ("Add to Home Screen") — verify splash + icon
-- [ ] Install on iOS Safari ("Add to Home Screen") — verify standalone
+### 🔴 P1 — Vision model upgrade
+- [ ] Set `OPENROUTER_VISION_MODEL=anthropic/claude-sonnet-4-5` in `.env`
+- [ ] Test with real chest X-ray and ECG image
 
-### Day 10 · Screenshots + demo content
-- [ ] `docs/screenshots/01-home.png`
-- [ ] `docs/screenshots/02-interview.png` (mid-conversation, with citations visible)
-- [ ] `docs/screenshots/03-symptoms.png` (ranked differential)
-- [ ] `docs/screenshots/04-reports.png` (X-ray reading)
-- [ ] `docs/screenshots/05-triage.png` (RED case)
-- [ ] `docs/screenshots/06-pwa-install.png` (phone)
-- [ ] `docs/DEMO.md` — exact inputs for a 3-minute demo
+### 🟡 P2 — Image thumbnail in chat
+- [ ] Show `<img>` preview in user message bubble when image uploaded
+- [ ] Keep filename as caption
 
-### Day 11 · README polish + architecture diagram
-- [ ] `docs/architecture.svg` (one-page system diagram)
-- [ ] Embed screenshots in README
-- [ ] Verify all internal links resolve
-- [ ] Spellcheck pass
+### 🟡 P2 — Auto-triage from chat
+- [ ] After 6+ turns, if red-flag keywords detected, show CTA: "This sounds urgent → Check Emergency Level"
+- [ ] MA Agent should name the specialist type at end of interview
 
-### Day 12 · Polish pass
-- [ ] Loading skeletons everywhere (no jarring layout shifts)
-- [ ] Empty states everywhere ("no analysis yet — fill in fields above")
-- [ ] Error toasts that surface `err.message` from the API
-- [ ] Keyboard: Enter submits forms, Esc closes voice modal
-- [ ] Mobile breakpoint check (< 640px) — sidebar collapses, header wraps cleanly
-- [ ] Accessibility: focus rings, `aria-label` on icon buttons
+### 🟡 P2 — CORS fix
+- [ ] Update `.env` `CORS_ORIGIN` to allow `:5173,5174,5175` or use wildcard for dev
 
-### Day 13 · Demo dress rehearsal
-- [ ] Run the full `docs/DEMO.md` flow end-to-end, twice, timed
-- [ ] Cache the 5 demo prompts in a fallback static page in case of network failure
-- [ ] Pre-warm a backup OpenRouter key
-- [ ] Verify projector-friendly contrast on the dark theme
+### 🟡 P2 — TypeScript hygiene
+- [ ] `pnpm typecheck` green on all three workspaces
+- [ ] Fix `any` types from rapid dev
 
-### Day 14 · Submission
-- [ ] Final commit on `develop`
-- [ ] Tag `v0.1.0`
-- [ ] Open PR `develop` → `main`
-- [ ] Submit per competition instructions
+### 🟡 P2 — PWA
+- [ ] Lighthouse audit ≥ 90 on patient portal
+- [ ] Test "Add to Home Screen" on Android Chrome
 
 ---
 
-## 5 · Per-Endpoint Verification Checklist
+## 6 · SPRINT 3 — WEEK 2 (polish + demo)
 
-For each endpoint below, confirm: returns 2xx on happy path, returns structured error on bad input, completes in < 8s with the default model.
-
-- [ ] `GET  /api/health`
-- [ ] `POST /api/chat`               (body: `{ message }`)
-- [ ] `POST /api/chat/stream`        (SSE tokens)
-- [ ] `GET  /api/chat/session/:id`
-- [ ] `POST /api/symptoms`           (body: `{ symptoms: [...], patient: {...} }`)
-- [ ] `POST /api/triage`             (body: `{ caseSummary, vitals }`)
-- [ ] `POST /api/reports/analyze`    (multipart: `image` + optional `note`)
-- [ ] `POST /api/transcribe`         (multipart: `audio`, needs `OPENAI_API_KEY`)
-- [ ] `GET  /api/transcribe/status`
-
----
-
-## 6 · Acceptance Criteria for v0.1.0 (Definition of Done)
-
-A judge can:
-- [ ] Clone the repo and run `pnpm install && pnpm dev` with no errors after adding an OpenRouter key
-- [ ] Open `http://localhost:5173`, see the dark dashboard, see all 4 modules clickable
-- [ ] Complete a chat interview, see citations under the AI message
-- [ ] Analyze a symptom list and see a ranked differential with probabilities
-- [ ] Upload a sample X-ray and get a structured reading
-- [ ] Triage a case and see a Manchester-color badge with rationale
-- [ ] Switch the response language to Spanish (or any of 17) and verify the model mirrors it
-- [ ] Switch the model to GPT-4o or Gemini and retry the same query
-- [ ] Install the PWA on a phone and reopen it as a standalone app
-- [ ] Read the README and understand the architecture, decisions, and roadmap without asking questions
+- [ ] `docs/DEMO.md` — exact 3-minute demo script
+- [ ] 6 screenshots in `docs/screenshots/`
+- [ ] 90-second fallback MP4 recording
+- [ ] Loading skeletons (chat session load, image analysis)
+- [ ] Error toast component
+- [ ] Empty states everywhere
+- [ ] Keyboard: Enter submits all forms
+- [ ] All icon buttons have `aria-label`
+- [ ] Test all tabs at 375px (iPhone SE)
+- [ ] Pre-submission: `pnpm typecheck` + `pnpm build` + health check all green
+- [ ] Tag `v0.1.0` on `develop`, PR → `main`
 
 ---
 
-## 7 · Risk Log
+## 7 · BUGS / KNOWN ISSUES
+
+| # | Issue | Severity | Status |
+|---|---|---|---|
+| 1 | `llama-3.3-70b:free` rate-limited upstream (429) | 🔴 | Fixed — switched to Gemini Flash |
+| 2 | No `OPENAI_API_KEY` → Whisper fails silently | 🟡 | Mitigated — Web Speech fallback |
+| 3 | Image upload shows `[Uploaded: filename]` text, no preview | 🟡 | Sprint 2 |
+| 4 | Find Care uses hardcoded seed data, not real GPS | 🟡 | Sprint 2 |
+| 5 | CORS only allows `:5173` — patient on `:5175` may fail | 🔴 | Fix `.env` CORS_ORIGIN |
+| 6 | `SpeechRecognition.onend` can fire before `onresult` on some browsers | 🟡 | Add state guard |
+
+---
+
+## 8 · RISK LOG
 
 | # | Risk | Likelihood | Mitigation |
 |---|---|---|---|
-| 1 | Model returns non-JSON for `/symptoms`, `/triage`, `/reports` | Medium | `safeParseJson` regex repair + best-effort Zod validate (already in place) |
-| 2 | Vision model refuses ("I cannot analyze medical images") | Medium | Prompt framing emphasizes copilot, not diagnosis. Fallback to a different OpenRouter vision model. |
-| 3 | OpenRouter rate limit during live demo | Low | Pre-warmed backup key in `.env.demo`. Cache the 5 demo responses. |
-| 4 | Whisper latency on slow network | Medium | Browser Web Speech API fallback (already wired) |
-| 5 | Judge runs on Windows and our shell snippets are bash-only | Medium | README uses cross-platform `pnpm` commands; no bash-only steps |
-| 6 | Multilingual quality drops for low-resource languages | Medium | Disclose this honestly in README; demo with high-quality languages first |
-| 7 | TypeScript build fails on judge's Node version | Low | `engines` field requires Node ≥ 20; README states this |
-| 8 | Live demo network fails | Medium | Keep a recorded 90-sec MP4 in `docs/` as a backup |
+| 1 | Free LLM rate-limited during live demo | Medium | Backup models: `deepseek/deepseek-r1:free`, `llama-3.1-8b:free` |
+| 2 | Patient → clinic loop not done before demo | High | Stub: "Report sent" toast + static clinic confirmation screen |
+| 3 | Vision model refuses medical image | Low | Prompt framing + fallback to GPT-4o vision |
+| 4 | Web Speech API not on iOS Safari | Medium | Show "type symptoms" fallback message |
+| 5 | TS build fails on judge machine | Low | Pin Node ≥ 20 in README, run `pnpm typecheck` before tagging |
 
 ---
 
-## 8 · Bugs / Issues
+## 9 · DEFERRED (post-competition)
 
-_None tracked yet. Use this section as the work begins._
-
-| # | Title | Severity | Status | Owner |
-|---|---|---|---|---|
-| _ | _ | _ | _ | _ |
-
----
-
-## 9 · Deferred (post-competition)
-
-These are **intentionally out of scope** for v0.1.0. List them in the README too so judges see mature scoping.
-
-- HIPAA / SOC 2 compliance review and DPA workflow
-- Real EHR integration (HL7 / FHIR)
-- Production vector database (pgvector or Qdrant) with a larger curated corpus
-- Auth, RBAC, multi-tenant deployment
-- Fine-tuned medical model (Med-PaLM-style)
-- Native mobile (PWA is sufficient for the demo)
-- Audit log, clinician override workflow, signed-off recommendations
-- Text-to-speech (read-back of answers)
-- Image format expansion: DICOM upload, PDF lab parsing
-- Cost dashboard per session
-- E2E test suite (Playwright) — only smoke testing for now
-
----
-
-## 10 · Working Agreement
-
-- **Always pnpm.** Never `npm install` — it will break the lockfile and workspaces.
-- **TypeScript strict** — no `any` unless you `// eslint-disable-next-line` with a one-line reason.
-- **Schemas before code.** Add or change `packages/shared/src/schemas.ts` first; let both ends import the inferred type.
-- **No new dependencies without a TODO entry.** Every dep should be justified in a PR description.
-- **No `.env` ever committed.** The `.gitignore` already excludes it; double-check before each commit.
-- **Conventional commits** for clean history: `feat(web): ...`, `fix(api): ...`, `docs: ...`, `chore: ...`.
-- **Branching**: one feature branch per page/concern → PR into `develop` → squash-merge. Tag `v0.1.0` from `develop`, then merge to `main`.
-- **Don't refactor what works.** Two weeks. Add features, fix bugs, polish — don't restructure.
-
----
-
-## 11 · Owner Assignments (fill in)
-
-| Track | Owner | ETA |
-|---|---|---|
-| Frontend pages (Home, Interview, Symptoms, Reports, Triage) | _____ | Day 7 |
-| Smoke test + TS error fixes | _____ | Day 8 |
-| Multilingual + PWA verification | _____ | Day 9 |
-| Screenshots + `docs/DEMO.md` | _____ | Day 10 |
-| `docs/architecture.svg` + README polish | _____ | Day 11 |
-| Polish pass (loading/empty/error/a11y) | _____ | Day 12 |
-| Demo rehearsal | _____ | Day 13 |
-| Tag + submit | _____ | Day 14 |
-
----
-
-## 12 · Quick Reference
-
-- **API contracts:** `packages/shared/src/schemas.ts`
-- **System prompts:** `packages/shared/src/prompts.ts`
-- **Seed knowledge:** `packages/shared/src/medical-knowledge.ts`
-- **API client (frontend):** `apps/web/src/lib/api.ts`
-- **Theme tokens:** `apps/web/tailwind.config.ts`
-- **Env contract:** `.env.example`
-- **Why decisions:** [README.md](./README.md)
+- HIPAA / GDPR / local compliance + BAAs with LLM providers
+- Real EHR integration (HL7 / FHIR write-back)
+- Embeddings + pgvector + WHO/MSF/CDC corpus (~5k docs)
+- Auth, RBAC, multi-tenant clinic management
+- Fine-tuned medical model (Med-PaLM / Apollo)
+- DICOM upload + PDF lab parsing
+- On-device Whisper.cpp for offline STT
+- Audit log + clinician override workflow
+- E2E test suite (Playwright)
+- Cost-per-session dashboard
+- Native mobile (React Native — 70%+ shared code)
