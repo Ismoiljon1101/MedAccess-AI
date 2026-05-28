@@ -1,4 +1,5 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { useEffect } from 'react';
 import Layout from '@/components/Layout';
 import Welcome from '@/pages/Welcome';
 import Chat from '@/pages/Chat';
@@ -13,7 +14,12 @@ import Profile from '@/pages/Profile';
 import { useAppStore } from '@/store/app';
 
 function AppRoutes() {
-  const patientProfile = useAppStore((s) => s.patientProfile);
+  const { patientProfile, theme } = useAppStore();
+
+  // Sync theme to <html data-theme="...">
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+  }, [theme]);
 
   // First-time user → show beautiful onboarding
   if (!patientProfile) {

@@ -5,20 +5,20 @@ export default {
   theme: {
     extend: {
       colors: {
-        // ── Deep ink palette (matches clinic app) ───────────────────
+        // ── Deep ink palette — values driven by CSS vars for light/dark ──
         ink: {
-          950: '#070a13',
-          900: '#0b0f1a',
-          800: '#111727',
-          700: '#1a2236',
-          600: '#243049',
-          500: '#3a4666',
-          400: '#5b6786',
-          300: '#8893b3',
-          200: '#b8bfd5',
-          100: '#e3e6f0',
+          950: 'var(--ink-950)',
+          900: 'var(--ink-900)',
+          800: 'var(--ink-800)',
+          700: 'var(--ink-700)',
+          600: 'var(--ink-600)',
+          500: 'var(--ink-500)',
+          400: 'var(--ink-400)',
+          300: 'var(--ink-300)',
+          200: 'var(--ink-200)',
+          100: 'var(--ink-100)',
         },
-        // ── Teal accent (same family as clinic, slightly lighter for patient) ──
+        // ── Teal accent ──────────────────────────────────────────────
         brand: {
           50:  '#f0fdfb',
           100: '#ccfbf4',
@@ -27,12 +27,12 @@ export default {
           600: '#129079',
           700: '#0a6659',
         },
-        // ── surface aliases → ink tokens ────────────────────────────
+        // ── surface aliases → ink vars ───────────────────────────────
         surface: {
-          900: '#0b0f1a',
-          800: '#111727',
-          700: '#1a2236',
-          600: '#243049',
+          900: 'var(--ink-900)',
+          800: 'var(--ink-800)',
+          700: 'var(--ink-700)',
+          600: 'var(--ink-600)',
         },
         ok:     { 400: '#34d399', 500: '#10b981' },
         warn:   { 400: '#fbbf24', 500: '#f59e0b' },

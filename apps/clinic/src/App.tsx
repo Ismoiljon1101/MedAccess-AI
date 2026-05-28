@@ -1,5 +1,7 @@
 import { Route, Routes, Navigate } from 'react-router-dom';
+import { useEffect } from 'react';
 import { useAuthStore } from '@/store/auth';
+import { useAppStore } from '@/store/app';
 import Layout from '@/components/Layout';
 import Login from '@/pages/Login';
 import Dashboard from '@/pages/Dashboard';
@@ -23,7 +25,15 @@ function RoleGuard({ allow, children }: { allow: string[]; children: React.React
 }
 
 export default function App() {
-  const user = useAuthStore((s) => s.user);
+  const user  = useAuthStore((s) => s.user);
+  const theme = useAppStore((s) => s.theme);
+
+  // Sync theme to <html data-theme="...">
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+    // Remove legacy 'dark' class if present
+    document.documentElement.classList.remove('dark');
+  }, [theme]);
 
   return (
     <Routes>

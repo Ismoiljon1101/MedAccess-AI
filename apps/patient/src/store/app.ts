@@ -50,6 +50,9 @@ interface AppState {
   language: string;
   setLanguage: (l: string) => void;
 
+  theme: 'dark' | 'light';
+  setTheme: (t: 'dark' | 'light') => void;
+
   fontSize: 'sm' | 'md' | 'lg';
   setFontSize: (s: 'sm' | 'md' | 'lg') => void;
 
@@ -78,10 +81,12 @@ export const useAppStore = create<AppState>()(
     (set) => ({
       // Preferences
       language:      'English',
+      theme:         'dark',
       fontSize:      'md',
       voiceAutoPlay: false,
 
       setLanguage:      (language)      => set({ language }),
+      setTheme:         (theme)         => set({ theme }),
       setFontSize:      (fontSize)      => set({ fontSize }),
       setVoiceAutoPlay: (voiceAutoPlay) => set({ voiceAutoPlay }),
 

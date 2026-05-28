@@ -1,4 +1,4 @@
-import { Globe2, Type, Volume2, Trash2, Info, ChevronRight, LogOut, User } from 'lucide-react';
+import { Globe2, Type, Volume2, Trash2, Info, ChevronRight, LogOut, User, Sun, Moon } from 'lucide-react';
 import { useAppStore } from '@/store/app';
 import { useNavigate } from 'react-router-dom';
 
@@ -42,6 +42,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 export default function Settings() {
   const {
     language, setLanguage,
+    theme, setTheme,
     fontSize, setFontSize,
     voiceAutoPlay, setVoiceAutoPlay,
     chatHistory, clearHistory,
@@ -67,6 +68,22 @@ export default function Settings() {
               <option key={l} value={l} className="bg-surface-800">{l}</option>
             ))}
           </select>
+        </Row>
+
+        <Row icon={theme === 'light' ? <Sun size={18} /> : <Moon size={18} />} label="Theme" sublabel="Switch between dark and light mode">
+          <button
+            type="button"
+            role="switch"
+            aria-checked={theme === 'light'}
+            onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+            className={`relative h-6 w-11 rounded-full transition-colors ${
+              theme === 'light' ? 'bg-amber-400' : 'bg-surface-600'
+            }`}
+          >
+            <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform ${
+              theme === 'light' ? 'translate-x-5' : 'translate-x-0.5'
+            }`} />
+          </button>
         </Row>
 
         <Row icon={<Type size={18} />} label="Text size" sublabel="Adjust chat bubble text">

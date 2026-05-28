@@ -219,17 +219,17 @@ Patient needs care (from MA Agent CTA or Find Care tab)
 ### Tasks by owner
 
 **Ismail (architecture — soft gate, his own files):**
-- [ ] `Doctor` model in `packages/db/src/models/` (name, specialty[], clinicId, availability slots)
-- [ ] Extend `Clinic` model: `lat`, `lng`, `offeredSpecialties[]`, `enrolled: boolean`
-- [ ] `GET /api/clinics/:id/doctors` endpoint
-- [ ] **Map provider proxy** `apps/api/src/routes/maps.ts` — server-side Places call so the API key never reaches the client. Pluggable: `google` | `naver` by region.
-- [ ] Schema additions in `packages/shared/src/schemas.ts` (ClinicResult + lat/lng/doctors, MapPlace)
+- ✅ `Doctor` model in `packages/db/src/models/` (name, specialty[], clinicId, availability slots)
+- ✅ Extend `Clinic` model: `lat`, `lng`, `offeredSpecialties[]`, `enrolled: boolean`
+- ✅ `GET /api/clinics/:id/doctors` endpoint
+- ✅ **Map provider proxy** `apps/api/src/routes/maps.ts` — server-side Places call, API key never reaches client
+- ✅ Schema additions in `packages/shared/src/schemas.ts` (ClinicResult + lat/lng/doctors, MapPlace)
 
 **Otabek (frontend):**
-- [ ] `FindCare.tsx`: render Tier 1 enrolled clinics first (badge "In-network · book here"), Tier 2 map results below ("Navigate")
-- [ ] Doctor picker in booking sheet (filter by MA Agent specialty)
-- [ ] One-tap navigation deep links (Google + Naver, pick by locale)
-- [ ] Map view toggle (list ↔ embedded map) — optional polish
+- ✅ `FindCare.tsx`: Tier 1 enrolled clinics first, Tier 2 map results below with "Navigate" deep links
+- ✅ Doctor picker in booking sheet (filter by MA Agent specialty)
+- ✅ One-tap navigation deep links (Google + Naver, pick by locale)
+- [ ] Map view toggle (list ↔ embedded map) — optional polish, defer to v0.2
 
 **Mirsaid (ops):**
 - [ ] Procure **Google Maps Platform API key** (Places + Directions), set a **hard quota cap** to protect budget. Hand to Ismail.

@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import {
   Users, Clock, CheckCircle, AlertTriangle, Zap, Activity, Heart,
-  ArrowRight, Pill, TrendingUp, Calendar, Loader2, RefreshCw,
+  ArrowRight, Pill, TrendingUp, Calendar, RefreshCw,
 } from 'lucide-react';
 import { useAuthStore } from '@/store/auth';
 import { getReferrals, type ReferralRecord } from '@/lib/api';

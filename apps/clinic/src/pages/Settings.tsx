@@ -1,4 +1,4 @@
-import { Moon, LogOut } from 'lucide-react';
+import { Moon, Sun, LogOut } from 'lucide-react';
 import { useAuthStore } from '@/store/auth';
 import { useAppStore } from '@/store/app';
 
@@ -35,7 +35,7 @@ function Row({ label, sub, children }: { label: string; sub?: string; children: 
 }
 
 export default function Settings() {
-  const { language, setLanguage } = useAppStore();
+  const { language, setLanguage, theme, setTheme } = useAppStore();
   const { user, logout } = useAuthStore();
 
   return (
@@ -73,10 +73,17 @@ export default function Settings() {
       </Section>
 
       <Section title="Appearance">
-        <Row label="Theme" sub="Dark mode only for v0.1">
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-ink-800 border border-ink-700 text-xs text-ink-300">
-            <Moon size={13} /> Dark
-          </div>
+        <Row label="Theme" sub={theme === 'light' ? 'Light mode active' : 'Dark mode active'}>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={theme === 'light'}
+            onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+            className="flex items-center gap-2 px-3 py-1.5 rounded-xl border border-ink-700 bg-ink-800 text-xs text-ink-300 hover:border-accent-500/50 transition"
+          >
+            {theme === 'light' ? <Sun size={13} className="text-amber-400" /> : <Moon size={13} />}
+            {theme === 'light' ? 'Light' : 'Dark'}
+          </button>
         </Row>
       </Section>
 
