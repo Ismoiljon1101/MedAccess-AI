@@ -24,7 +24,7 @@
 | Python image-ml sidecar (scaffold + contract) | ✅ Scaffold done · specialist models pending |
 | **Research folder** (`research/`) — Pareto disease + model + dataset survey | ✅ **Complete** ([`research/00-overview.md`](./research/00-overview.md)) |
 | Cheapest LLM switch — Qwen 3.x (qwen3.5-plus / qwen3.6-flash) | ✅ Done (Ismail) |
-| Patient image-quality guidance modal + checklist | 📋 Todo (Otabek, **research-confirmed REQUIRED, not optional**) |
+| Patient image-quality guidance modal + checklist | ✅ Done (Otabek) — `imageQuality.ts` + `ImageCaptureFlow.tsx` |
 | Vision model upgrade (Sonnet 4.5) | ❌ **Cancelled** — going free-Chinese instead |
 | QA pass across both portals | 🚧 In progress (Mirsaid) |
 | Image thumbnails in chat | 📋 Todo (Otabek) |
@@ -162,23 +162,18 @@ Required components (Otabek):
 1. ✅ ~~Image thumbnail in `apps/patient/src/pages/Chat.tsx`~~ — `11c818c`
 2. ✅ ~~Dismiss-X on the Connect-to-Care CTA card.~~ — `6d207fb`
 3. ✅ ~~30s polling on `apps/clinic/src/pages/Patients.tsx`~~ — `5fd2044` (+ visibility-change refresh + sync indicator)
+4. ✅ ~~Image-quality capture interface~~ — `imageQuality.ts` + `ImageCaptureFlow.tsx` (blur/glare/brightness gate, modality overlays, 3-item checklist, retake flow)
+5. ✅ ~~Care discovery — map integration~~ — Tier 1 enrolled + Tier 2 Google Maps fallback + navigation deep links in `FindCare.tsx`
+7. ✅ ~~Loading / empty / error states pass~~ — Dashboard skeleton + error state added; Patients/Prescriptions already had them
+8. ✅ ~~Lighthouse PWA ≥ 90~~ — Split icon purposes, add patient `public/` icons, Apple meta tags, font caching
 
 **Next:**
-4. **Image-quality capture interface** in `apps/patient/src/pages/Chat.tsx` (**research-confirmed REQUIRED** — specialist models lose 15–25% accuracy without it):
-   - **Alignment overlay per modality** — different on-screen template for skin lesion vs X-ray vs fundus (research file `06-image-quality-ux-template.md`)
-   - **Client-side ambient quality gate** — variance-of-Laplacian blur check + brightness histogram check + glare detection. Block submit if image fails; show specific reason ("too blurry — hold still", "too dark — find better light").
-   - **Pre-upload guidance modal** — 4 do's / 3 don'ts (lighting / framing / focus / no other body parts)
-   - **Post-capture checklist** — preview + 3 confirmations + Retake button
-   - Coordinate with Temirlan on Phase 2 — X-ray photographs need parallax-correction overlay (camera parallel to lightbox).
-5. **Care discovery — map integration** (see §3.5 Care Discovery epic): in-network clinics first, then Google Maps / Naver Places fallback list + one-tap navigation deep links.
 6. LLM-switch smoke test — after Ismail switches to Qwen 3.6 Plus, walk Chat / Symptoms / Reports / Triage in both portals. Note language quality on Uzbek + Hindi.
-7. Loading / empty / error states pass across both portals.
-8. Lighthouse PWA ≥ 90 on both.
 
 ### Sobirov
 1. Take all screenshots listed in [§5 Demo Assets](#5--demo-assets).
-2. Spellcheck pass on `README.md` (open PR, tag Ismail).
-3. Add `aria-label` to every icon-only button (one PR per page).
+2. ✅ ~~Spellcheck pass on `README.md`~~ — model names corrected, consistent with `llm.ts`
+3. ✅ ~~Add `aria-label` to every icon-only button~~ — VoiceMode, FindCare, Reports, Symptoms, VoiceButton done
 4. Pull SEV-3 / SEV-4 bugs from [`docs/qa/issues.md`](./docs/qa/issues.md) once Mirsaid starts filing. Use the guided workflow in [`docs/team/sobirov.md`](./docs/team/sobirov.md).
 
 ---
