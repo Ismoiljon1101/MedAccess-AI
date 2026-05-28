@@ -212,3 +212,41 @@ export async function getTranscribeStatus(): Promise<{ available: boolean; provi
   if (!res.ok) throw await safeError(res);
   return res.json();
 }
+
+// ── Referrals (patient queue) ─────────────────────────────────────────
+
+export interface ReferralRecord {
+  _id: string;
+  sessionId: string;
+  patientName: string;
+  patientPhone?: string;
+  clinicId: string;
+  clinicName: string;
+  specialty: string;
+  urgency: string;
+  summary: string;
+  preferredTime?: string;
+  status: 'pending' | 'confirmed' | 'cancelled';
+  createdAt: string;
+}
+
+export async function getReferrals(): Promise<ReferralRecord[]> {
+  const res = await fetch(`${BASE}/api/clinics/referrals`);
+  if (!res.ok) throw await safeError(res);
+  const data = await res.json();
+  return (data.referrals ?? []) as ReferralRecord[];
+}
+
+export async function updateReferral(
+  id: string,
+  status: 'confirmed' | 'cancelled' | 'pending',
+): Promise<ReferralRecord> {
+  const res = await fetch(`${BASE}/api/clinics/referrals/${id}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ status }),
+  });
+  if (!res.ok) throw await safeError(res);
+  const data = await res.json();
+  return data.referral as ReferralRecord;
+}

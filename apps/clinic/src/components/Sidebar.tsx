@@ -6,10 +6,12 @@ import {
   Home,
   MessagesSquare,
   Stethoscope,
+  Users,
 } from 'lucide-react';
 
 const NAV = [
   { to: '/', label: 'Overview', icon: Home },
+  { to: '/patients', label: 'Patients', icon: Users },
   { to: '/interview', label: 'Interview', icon: MessagesSquare },
   { to: '/symptoms', label: 'Symptom Analysis', icon: ClipboardList },
   { to: '/reports', label: 'Report Reading', icon: FileImage },

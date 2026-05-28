@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { Send, Phone, Plus, Headphones, BookText, Image as ImageIcon } from 'lucide-react';
+import { Send, Phone, Plus, Headphones, BookText, Image as ImageIcon, MapPin } from 'lucide-react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { AiAvatar, type AvatarState } from '@/components/AiAvatar';
 import { streamChatRequest, loadSession, analyzeReport } from '@/lib/api';
@@ -39,6 +39,8 @@ export default function Chat() {
   const [avatarState, setAvatarState] = useState<AvatarState>('idle');
   const [loadError, setLoadError]     = useState<string | null>(null);
 
+  const [ctaSpec, setCtaSpec] = useState<{ specialty: string; urgency: string } | null>(null);
+
   const bottomRef   = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
@@ -46,6 +48,37 @@ export default function Chat() {
   // Track first user message for history preview
   const previewRef  = useRef<string>('');
   const msgCountRef = useRef<number>(0);
+  // Count user turns (not counting greeting)
+  const userTurnRef = useRef<number>(0);
+
+  // ── Clinical Snapshot CTA detection ──────────────────────────────────
+  function detectClinicalSnapshot(text: string, userTurns: number): { specialty: string; urgency: string } | null {
+    if (userTurns < 3) return null;
+    const t = text.toLowerCase();
+    const clinicalKeywords = ['recommend', 'consult', 'specialist', 'clinic', 'doctor', 'appointment',
+      'see a ', 'urgent', 'emergency', 'diagnosis', 'condition', 'treatment', 'follow up', 'seek care',
+      'medical attention', 'possible cause', 'likely cause', 'suggest', 'refer'];
+    const hasClinical = clinicalKeywords.some((k) => t.includes(k));
+    if (!hasClinical) return null;
+
+    // Urgency
+    let urgency = 'see-clinician-soon';
+    if (/emergency|immediately|call 9|call 1|life.threaten/i.test(t)) urgency = 'emergency';
+    else if (/urgent|as soon as possible|asap|right away/i.test(t)) urgency = 'urgent';
+    else if (/self.care|home remedy|rest at home|over.the.counter/i.test(t)) urgency = 'self-care';
+
+    // Specialty
+    let specialty = 'General Practice';
+    if (/heart|cardiac|chest pain|palpitation|cardiovascular/i.test(t)) specialty = 'Cardiology';
+    else if (/headache|migraine|neurolog|seizure|stroke|nerve/i.test(t)) specialty = 'Neurology';
+    else if (/breath|respiratory|lung|asthma|pulmon|cough/i.test(t)) specialty = 'Respiratory';
+    else if (/mental|anxiety|depress|psychiatr|psycholog/i.test(t)) specialty = 'Mental Health';
+    else if (/child|pediatr|infant|baby/i.test(t)) specialty = 'Pediatrics';
+    else if (/urgent care|minor injur|wound/i.test(t)) specialty = 'Urgent Care';
+    else if (/emergency|trauma/i.test(t)) specialty = 'Emergency';
+
+    return { specialty, urgency };
+  }
 
   // ── Load resumed session ──────────────────────────────────────────────
   useEffect(() => {
@@ -96,6 +129,7 @@ export default function Chat() {
 
       // Save first user message as preview
       if (!previewRef.current) previewRef.current = trimmed.slice(0, 80);
+      userTurnRef.current += 1;
 
       setInput('');
       if (textareaRef.current) textareaRef.current.style.height = 'auto';
@@ -147,6 +181,10 @@ export default function Chat() {
               : m,
           ),
         );
+
+        // Check for clinical snapshot → show Connect to Care CTA
+        const snap = detectClinicalSnapshot(assembled, userTurnRef.current);
+        if (snap) setCtaSpec(snap);
 
         // Persist to local history
         if (resolvedSid) persistSession(resolvedSid, 2); // +user +assistant
@@ -230,11 +268,13 @@ _${result.disclaimer}_
     abortRef.current?.abort();
     previewRef.current = '';
     msgCountRef.current = 0;
+    userTurnRef.current = 0;
     setMessages([GREETING]);
     setInput('');
     setSessionId(undefined);
     setLoadError(null);
     setAvatarState('idle');
+    setCtaSpec(null);
     navigate('/');
   }
 
@@ -315,6 +355,31 @@ _${result.disclaimer}_
         })}
         <div ref={bottomRef} className="h-1" />
       </div>
+
+      {/* ── Connect to Care CTA ──────────────────────────────────── */}
+      {ctaSpec && !isThinking && (
+        <div className="shrink-0 mx-3 mb-1 rounded-xl border border-brand-500/30 bg-brand-500/10 px-3 py-2.5 flex items-center gap-3">
+          <MapPin size={16} className="text-brand-400 shrink-0" />
+          <div className="flex-1 min-w-0">
+            <p className="text-xs font-semibold text-brand-300">Ready to see a {ctaSpec.specialty} provider?</p>
+            <p className="text-[11px] text-slate-400 truncate">Find clinics and book an appointment near you</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              const params = new URLSearchParams();
+              params.set('specialty', ctaSpec.specialty);
+              params.set('urgency', ctaSpec.urgency);
+              if (sessionId) params.set('s', sessionId);
+              if (previewRef.current) params.set('summary', previewRef.current);
+              navigate(`/find-care?${params.toString()}`);
+            }}
+            className="shrink-0 rounded-xl border border-brand-500/40 bg-brand-600/20 px-3 py-1.5 text-xs font-semibold text-brand-400 hover:bg-brand-600/30 transition whitespace-nowrap"
+          >
+            Find Care →
+          </button>
+        </div>
+      )}
 
       {/* ── Emergency pill ───────────────────────────────────────── */}
       <div className="flex items-center justify-center gap-1.5 py-1.5 text-[10px] shrink-0">

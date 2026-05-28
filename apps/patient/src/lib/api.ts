@@ -225,6 +225,58 @@ export async function analyzeReport(
   return data.analysis;
 }
 
+// ---------- clinics + referrals -------------------------------------------
+
+export interface ClinicResult {
+  id: string;
+  name: string;
+  specialty: string[];
+  phone: string;
+  hours: string;
+  rating: number;
+  available: boolean;
+  waitMinutes: number | null;
+  distanceKm: number | null;
+  distanceLabel: string;
+}
+
+export async function searchClinics(opts: {
+  lat?: number;
+  lng?: number;
+  specialty?: string;
+}): Promise<ClinicResult[]> {
+  const params = new URLSearchParams();
+  if (opts.lat != null) params.set('lat', String(opts.lat));
+  if (opts.lng != null) params.set('lng', String(opts.lng));
+  if (opts.specialty) params.set('specialty', opts.specialty);
+  const res = await fetch(`${BASE}/api/clinics?${params}`);
+  if (!res.ok) throw await safeError(res);
+  const data = await res.json();
+  return data.clinics as ClinicResult[];
+}
+
+export interface ReferralPayload {
+  sessionId?: string;
+  patientName: string;
+  patientPhone?: string;
+  clinicId: string;
+  clinicName: string;
+  specialty: string;
+  urgency?: string;
+  summary?: string;
+  preferredTime?: string;
+}
+
+export async function createReferral(payload: ReferralPayload): Promise<{ referralId: string; message: string }> {
+  const res = await fetch(`${BASE}/api/clinics/referrals`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) throw await safeError(res);
+  return res.json();
+}
+
 // ---------- transcribe (voice) --------------------------------------------
 
 export async function transcribeAudio(blob: Blob, language?: string): Promise<string> {

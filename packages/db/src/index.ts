@@ -18,6 +18,7 @@ export { ReportAnalysis }  from './models/ReportAnalysis.js';
 export { Session }         from './models/Session.js';
 export { AuditLog }        from './models/AuditLog.js';
 export { RagDoc }          from './models/RagDoc.js';
+export { Referral }        from './models/Referral.js';
 
 // Types
 export type { IRole }            from './models/Role.js';
@@ -37,3 +38,4 @@ export type { IReportAnalysis }  from './models/ReportAnalysis.js';
 export type { ISession }         from './models/Session.js';
 export type { IAuditLog }        from './models/AuditLog.js';
 export type { IRagDoc }          from './models/RagDoc.js';
+export type { IReferral }        from './models/Referral.js';
