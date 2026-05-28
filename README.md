@@ -82,26 +82,28 @@ working alone never had.
 | **`apps/patient`** | `:5174` | Patients — simplified symptom checker and emergency guide, plain language, no technical details |
 | **`apps/api`** | `:4000` | Shared backend serving both portals |
 
-Both portals share the same API and `packages/shared` contract. The patient portal intentionally hides model selection, probability percentages, and RAG citations — surfacing only plain-language results and urgency guidance.
+Both portals share the same API and `packages/shared` contract. The patient portal intentionally hides model selection, probability percentages — surfacing only plain-language results and urgency guidance.
 
-### Four Core Modules
+### Five Core Modules
 
-| # | Module | What it does |
-|---|---|---|
-| 1 | **Interview** | Conducts a structured but conversational diagnostic interview — one focused question at a time, grounded in clinical RAG. |
-| 2 | **Symptom Analysis** | Returns a ranked differential (3–6 conditions) with calibrated probabilities, urgency level, and red-flag callouts. |
-| 3 | **Report Reading** | Analyzes uploaded medical images (X-ray, ECG, lab photo, dermatology photo) and returns a structured plain-language reading. |
-| 4 | **Triage** | Emergency triage in Manchester-style colors (RED / ORANGE / YELLOW / GREEN / BLUE) with target time-to-care and immediate actions. |
+| # | Module | Portal | What it does |
+|---|---|---|---|
+| 1 | **MA Agent Chat** | Patient | Conversational health assistant — structured interview, image upload inline, RAG-grounded, citation chips, session history |
+| 2 | **Interview** | Clinic | Structured diagnostic intake for clinicians — one focused question at a time, RAG context, citation chips per turn |
+| 3 | **Symptom Analysis** | Clinic | Ranked differential (3–6 conditions) with calibrated probabilities, urgency level, red-flag callouts |
+| 4 | **Report Reading** | Both | Upload X-ray / ECG / lab photo → structured plain-language reading with findings + confidence levels |
+| 5 | **Triage** | Both | Manchester-style colors (RED → BLUE) with target time-to-care and immediate action list |
 
-### Four Cross-cutting Differentiators
+### Five Cross-cutting Differentiators
 
 | # | Differentiator | Why it matters |
 |---|---|---|
-| 1 | **Multilingual** (auto-detect, 17 surfaced) | The model mirrors the user's language. Hindi → Hindi, Uzbek → Uzbek. |
-| 2 | **Voice-first** | Whisper for high-quality multilingual STT, with browser Web Speech fallback for zero-key demos. |
-| 3 | **Multimodal vision** | Snap a photo of an ECG strip or chest X-ray, get a structured read. |
-| 4 | **Medical RAG** | Every chat / differential is grounded in a vetted clinical reference base; sources surface as chips below the answer. |
-| 5 | **Installable PWA** | One tap on a phone → standalone app icon → works under spotty connectivity. |
+| 1 | **MA Agent identity** | Patients talk to "MA Agent" — a named, trusted assistant. Refuses to reveal underlying model or provider. |
+| 2 | **Multilingual** (auto-detect, 17 surfaced) | The model mirrors the user's language. Hindi → Hindi, Uzbek → Uzbek. |
+| 3 | **Voice-first** | Full-screen immersive voice mode (LiveKit + Web Speech API) + inline mic in chat — zero API key needed for demos. |
+| 4 | **Multimodal vision** | Snap a photo of an ECG strip or chest X-ray directly in the chat — get a structured read inline. |
+| 5 | **Medical RAG** | Every chat turn grounded in 31 vetted clinical docs; sources surface as chips below each answer. |
+| 6 | **Installable PWA** | One tap on a phone → standalone app icon → works under spotty connectivity. |
 
 ---
 
@@ -148,8 +150,8 @@ pnpm dev:clinic   # Clinic portal only
 pnpm dev:patient  # Patient portal only
 ```
 
-- **Clinic portal** `http://localhost:5173` — dark dashboard with 4 module cards (Interview, Symptoms, Reports, Triage), model picker, RAG citations.
-- **Patient portal** `http://localhost:5174` — simplified symptom checker and emergency guide in plain language.
+- **Clinic portal** `http://localhost:5173` — dark dashboard with 4 module cards (Interview, Symptoms, Reports, Triage), model picker, RAG citations, probability bars.
+- **Patient portal** `http://localhost:5174` — MA Agent chat (streaming, voice, inline image upload), Find Care, Emergency triage, Records, Settings. Installable as PWA.
 
 To install as a PWA: open either site in Chrome on your phone (or desktop) →
 address-bar "Install" icon → done.
@@ -167,14 +169,14 @@ address-bar "Install" icon → done.
 ┌─────────────────────────────────┐         ┌──────────────────────────────────┐
 │  apps/clinic  :5173             │         │  apps/patient  :5174             │
 │  (Vite + React + TS)            │         │  (Vite + React + TS)             │
-│  ── Sidebar · Header            │         │  ── Language picker              │
-│  ── Model picker (8 models)     │         │  ── No model picker              │
-│  ── Pages: Home · Interview     │         │  ── Pages: Home                  │
-│       Symptoms · Reports        │         │       SymptomCheck               │
-│       Triage                    │         │       EmergencyCheck             │
-│  ── RAG citations visible       │         │  ── Plain-language results       │
-│  ── Probability % bars          │         │  ── No % bars / no citations     │
-│  ── VoiceButton                 │         │  ── VoiceButton                  │
+│  ── Sidebar · Header            │         │  ── MA Agent (named identity)    │
+│  ── Model picker (8 models)     │         │  ── No model picker exposed      │
+│  ── Pages: Home · Interview     │         │  ── Pages: Chat · VoiceMode      │
+│       Symptoms · Reports        │         │       EmergencyCheck · FindCare  │
+│       Triage                    │         │       MyRecords · Settings       │
+│  ── RAG citations visible       │         │  ── Citation chips under replies │
+│  ── Probability % bars          │         │  ── No % bars                    │
+│  ── VoiceButton                 │         │  ── Inline image upload in chat  │
 └──────────────┬──────────────────┘         └──────────────┬───────────────────┘
                │   /api/*  (Vite proxy → :4000)            │   /api/*
                └──────────────────────┬────────────────────┘
@@ -182,14 +184,15 @@ address-bar "Install" icon → done.
 ┌─────────────────────────────────────────────────────────────────────────────────┐
 │                              apps/api  :4000  (Express + TS)                     │
 │                                                                                  │
-│   routes/  ── chat (+stream) · symptoms · triage · reports · transcribe         │
+│   routes/  ── chat (+stream) · symptoms · triage · reports · transcribe · voice │
 │   services/                                                                      │
 │      ├── llm.ts          → OpenRouter (OpenAI SDK, baseURL swap)                │
 │      ├── vision.ts       → multimodal image → structured JSON                   │
 │      ├── transcribe.ts   → OpenAI Whisper (optional key)                        │
-│      └── rag.ts          → BM25 over 15 seed clinical docs                      │
+│      └── rag.ts          → BM25 over 31 seed clinical docs                      │
 │   middleware/  ── error · upload (multer)                                        │
 │   utils/       ── sessions (in-memory + TTL)                                    │
+│   packages/db  ── MongoDB + Mongoose (Interview model, fire-and-forget)         │
 └──────────────────────────┬──────────────────────────────┬───────────────────────┘
                             │                              │
                             ▼                              ▼
@@ -210,7 +213,7 @@ packages/shared/
   └── src/
       ├── schemas.ts            ← Zod schemas; types inferred for both ends
       ├── prompts.ts            ← Every system prompt the API uses
-      ├── medical-knowledge.ts  ← Seed RAG corpus (15 clinical references)
+      ├── medical-knowledge.ts  ← Seed RAG corpus (31 clinical references)
       └── types.ts              ← Ambient TS types
 ```
 
@@ -221,22 +224,11 @@ duplicate definition of an API contract** anywhere in the codebase.
 
 Our frontend UI architecture implements the **Atomic Design methodology** to organize components cleanly, making the codebase highly modular, searchable, and AI-friendly:
 
-- **Atoms (Basic building blocks)**:
-  - `TriageBadge` (color-calibrated badge displaying level and text)
-  - `ProbabilityBar` (progress bar indicating calibrated diagnostic confidence)
-  - `VoiceButton` (standardized icon/mic button driving voice-first inputs)
-- **Molecules (Combinations of atoms)**:
-  - `MessageBubble` (displays a single chat bubble with avatar, text, and voice control)
-  - `CitationList` (collapsible listing of clinical RAG reference sources)
-- **Organisms (Complex UI sections)**:
-  - `Header` (manages global language selection, active model selection, and health/ping status)
-  - `Sidebar` (collapsible navigation grid for the monorepo pages)
-  - `Disclaimer` (safety warning banner mandated across the top of all user interfaces)
-- **Templates (Structural page layouts)**:
-  - `Layout.tsx` (the grid coordinating the responsive layout shell)
-- **Pages (Instance views with dynamic data)**:
-  - *Clinic portal:* `Home.tsx` · `Interview.tsx` · `Symptoms.tsx` · `Reports.tsx` · `Triage.tsx`
-  - *Patient portal:* `Home.tsx` · `SymptomCheck.tsx` · `EmergencyCheck.tsx`
+- **Atoms:** `TriageBadge` · `ProbabilityBar` · `VoiceButton` · `AiAvatar` (Lottie, 3 states)
+- **Molecules:** `MessageBubble` · `CitationList`
+- **Organisms:** `Header` · `Sidebar` · `Disclaimer` · `Layout`
+- **Pages (Clinic):** `Home` · `Interview` · `Symptoms` · `Reports` · `Triage`
+- **Pages (Patient):** `Chat` · `VoiceMode` · `EmergencyCheck` · `FindCare` · `MyRecords` · `History` · `Settings`
 
 ### Request Lifecycle (Symptom Analysis example)
 
@@ -280,10 +272,12 @@ Our frontend UI architecture implements the **Atomic Design methodology** to org
 | **LLM gateway** | **OpenRouter** | One key → 50+ models from Anthropic, OpenAI, Google, Meta, DeepSeek |
 | **LLM (default chat/vision)** | `anthropic/claude-sonnet-4.5` | Top of HealthBench medical benchmark in 2026 |
 | **LLM (fast/cheap fallback)** | `openai/gpt-4o-mini`, `google/gemini-2.0-flash` | Sub-cent demo cost |
-| **Voice STT** | OpenAI Whisper (optional) | Best multilingual STT; browser Web Speech as zero-key fallback |
-| **RAG** | BM25 over 15 seed docs | Zero infra; embeddings deferred to post-comp |
+| **Voice STT** | Web Speech API (primary) + OpenAI Whisper (optional) | Zero-key fallback for demos; Whisper for production accuracy |
+| **Voice mode** | LiveKit + Web Speech TTS | Full-screen immersive voice UI; standalone fallback if LiveKit unconfigured |
+| **Avatar** | Lottie (`lottie-react`) | Animated doctor avatar, 3 states: idle / listening / thinking |
+| **RAG** | BM25 over **31 seed docs** | Zero infra; covers 25+ clinical topics; embeddings deferred |
 | **Sessions** | In-memory map + TTL sweep | Zero infra; Redis deferred |
-| **Storage** | None (stateless beyond sessions) | Patient data never persists in v0.1 |
+| **Persistence** | MongoDB + Mongoose (`packages/db`) | Fire-and-forget; app works even if DB is down |
 | **Tooling** | tsx (dev), tsc (build) | Single-file dev loop |
 
 ---
@@ -383,12 +377,17 @@ client-side and passed through the OpenRouter chat completions endpoint with
 
 ### Medical RAG
 
-Fifteen high-signal seed entries covering tropical infections (malaria, dengue,
-TB), pediatric emergencies (IMCI thresholds, dehydration), cardiology (ACS),
-neuro (stroke BE-FAST, headache red flags), obstetrics (pre-eclampsia),
-sepsis (qSOFA), asthma, anaphylaxis, and mental-health screening. BM25-scored
-at request time; the top 3–4 hits are injected into the system prompt and
-surface in the UI as citation chips.
+**31 high-signal clinical reference documents** covering: tropical infections
+(malaria, dengue, TB), pediatric emergencies (IMCI thresholds, dehydration,
+oral rehydration), cardiology (ACS, chest pain differential, hypertension
+crisis), neurology (stroke BE-FAST, migraine, headache red flags), obstetrics
+(pre-eclampsia / eclampsia), sepsis (qSOFA bundle), asthma, anaphylaxis,
+mental-health screening, UTI, appendicitis, renal colic, DVT/PE, wound
+infection, gastroenteritis, allergic rhinitis, back pain red flags, COVID-19,
+diabetes/DKA, fever approach, and skin rash.
+
+BM25-scored at request time; top 3–4 hits injected into the system prompt;
+source titles surface as citation chips under every AI reply in both portals.
 
 ### Installable PWA
 
@@ -408,9 +407,21 @@ Base URL: `http://localhost:4000` (or proxied via `/api/*` in dev).
   "status": "ok",
   "version": "0.1.0",
   "providers": { "openrouter": true, "openaiWhisper": false },
-  "defaultModel": "anthropic/claude-sonnet-4.5",
-  "rag": { "ready": true, "size": 15 }
+  "defaultModel": "google/gemini-2.0-flash-exp:free",
+  "rag": { "ready": true, "size": 31 },
+  "db": { "connected": true }
 }
+```
+
+### `POST /api/voice/token`
+Returns a LiveKit room token for the immersive voice mode.
+```json
+{ "token": "...", "url": "wss://...", "room": "session-xyz", "identity": "patient-abc" }
+```
+
+### `GET /api/voice/status`
+```json
+{ "configured": true }
 ```
 
 ### `POST /api/chat`
@@ -473,10 +484,14 @@ All env vars live in a **single `.env` at the repo root**. Copy from `.env.examp
 | `OPENROUTER_VISION_MODEL` | no | `anthropic/claude-sonnet-4.5` | Must support image input |
 | `OPENROUTER_APP_NAME` | no | `MedAccess AI` | Sent to OpenRouter for analytics |
 | `OPENROUTER_APP_URL` | no | `http://localhost:5173` | Sent to OpenRouter |
-| `OPENAI_API_KEY` | no | — | Only if you want server-side Whisper |
+| `OPENAI_API_KEY` | no | — | Only if you want server-side Whisper STT |
 | `OPENAI_WHISPER_MODEL` | no | `whisper-1` | |
+| `MONGODB_URI` | no | — | Persist sessions to MongoDB; app works without it |
+| `LIVEKIT_URL` | no | — | `wss://your-project.livekit.cloud` — enables LiveKit voice mode |
+| `LIVEKIT_API_KEY` | no | — | From LiveKit dashboard |
+| `LIVEKIT_API_SECRET` | no | — | From LiveKit dashboard |
 | `PORT` | no | `4000` | API port |
-| `CORS_ORIGIN` | no | `http://localhost:5173` | |
+| `CORS_ORIGIN` | no | `http://localhost:5173` | Comma-separate for multiple ports |
 | `MAX_UPLOAD_MB` | no | `15` | Image / audio size cap |
 | `SESSION_TTL_MIN` | no | `60` | Idle-session TTL |
 
@@ -505,7 +520,7 @@ the Web Speech API fallback.
 
 ## Why BM25, not embeddings?
 
-The seed corpus is **15 documents**. At that size:
+The seed corpus is **31 documents**. At that size:
 
 - BM25 keyword similarity with IDF + length normalization is, empirically, on
   par with cosine-similarity over embeddings for clinical short-text retrieval.
