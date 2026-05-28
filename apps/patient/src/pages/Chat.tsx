@@ -17,6 +17,8 @@ interface Message {
   content: string;
   streaming?: boolean;
   citations?: RagCitation[];
+  imageUrl?: string;
+  imageName?: string;
 }
 
 const GREETING: Message = {
@@ -100,6 +102,16 @@ export default function Chat() {
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
+
+  // ── Revoke object URLs on unmount (memory cleanup) ────────────────────
+  useEffect(() => {
+    return () => {
+      messages.forEach((m) => {
+        if (m.imageUrl) URL.revokeObjectURL(m.imageUrl);
+      });
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // ── Auto-resize textarea ─────────────────────────────────────────────
   function resizeTextarea() {
@@ -216,10 +228,13 @@ export default function Chat() {
 
     const userId = crypto.randomUUID();
     const imageName = file.name || 'image.jpg';
+    const imageUrl = URL.createObjectURL(file);
     setMessages((prev) => [...prev, {
       id: userId,
       role: 'user',
-      content: `[Uploaded: ${imageName}]`,
+      content: '',
+      imageUrl,
+      imageName,
     }]);
 
     const aiId = crypto.randomUUID();
@@ -327,6 +342,21 @@ _${result.disclaimer}_
                   </div>
                 )}
                 <div className={`chat-bubble ${msg.role === 'user' ? 'chat-bubble-user' : 'chat-bubble-ai'}`}>
+                  {msg.imageUrl && (
+                    <div className="mb-1.5">
+                      <img
+                        src={msg.imageUrl}
+                        alt={msg.imageName ?? 'Uploaded image'}
+                        className="max-w-[200px] max-h-[200px] rounded-lg object-cover"
+                        loading="lazy"
+                      />
+                      {msg.imageName && (
+                        <p className="mt-1 text-[10px] text-slate-400 truncate max-w-[200px]">
+                          {msg.imageName}
+                        </p>
+                      )}
+                    </div>
+                  )}
                   {msg.content || (msg.streaming && (
                     <span className="chat-typing" aria-label="Thinking…">
                       <span /><span /><span />
