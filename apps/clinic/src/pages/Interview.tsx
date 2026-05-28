@@ -135,6 +135,7 @@ export default function Interview() {
             type="button"
             onClick={send}
             disabled={!input.trim() || streaming}
+            aria-label={streaming ? 'Sending…' : 'Send message'}
             className="btn-primary h-10 w-10 rounded-full p-0"
           >
             {streaming ? <Loader2 size={16} className="animate-spin" /> : <ArrowUp size={16} />}

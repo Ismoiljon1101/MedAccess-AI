@@ -111,7 +111,7 @@ export default function SymptomCheck() {
           >
             {recording ? <MicOff size={16} /> : <Mic size={16} />}
           </button>
-          <button type="button" onClick={() => addSymptom(input)} className="btn">
+          <button type="button" onClick={() => addSymptom(input)} aria-label="Add symptom" className="btn">
             <Plus size={16} />
           </button>
         </div>
