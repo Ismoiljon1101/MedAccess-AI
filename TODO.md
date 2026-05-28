@@ -176,6 +176,8 @@
 - [ ] Lighthouse audit ≥ 90 on patient portal
 - [ ] Test "Add to Home Screen" on Android Chrome
 
+**Owner:** _Team lead_  · **ETA:** 1 day
+
 ---
 
 ## 6 · SPRINT 3 — WEEK 2 (polish + demo)
