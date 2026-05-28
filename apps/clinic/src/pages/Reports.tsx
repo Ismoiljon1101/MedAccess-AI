@@ -80,6 +80,7 @@ export default function Reports() {
                 setPreview(null);
                 setResult(null);
               }}
+              aria-label="Remove image"
               className="absolute -right-2 -top-2 rounded-full bg-ink-800 p-1 text-ink-300 hover:text-white ring-1 ring-ink-700"
             >
               <X size={14} />

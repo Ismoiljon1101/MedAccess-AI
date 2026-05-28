@@ -103,6 +103,7 @@ export default function VoiceButton({ language, onTranscript, disabled }: VoiceB
         'btn h-10 w-10 rounded-full p-0',
         recording ? 'border-danger-500 bg-danger-500/15 text-danger-500 animate-pulse' : '',
       ].join(' ')}
+      aria-label={busy ? 'Transcribing…' : recording ? 'Stop recording' : 'Start voice input'}
       title={
         busy
           ? 'Transcribing...'

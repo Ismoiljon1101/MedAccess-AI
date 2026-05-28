@@ -384,7 +384,7 @@ export default function FindCare() {
             </p>
             <p className="text-[10px] text-slate-500 mt-0.5">Status: pending · The clinic will confirm.</p>
           </div>
-          <button type="button" onClick={() => setBookedAppt(null)} className="ml-auto text-slate-600 hover:text-slate-400"><X size={14} /></button>
+          <button type="button" onClick={() => setBookedAppt(null)} aria-label="Dismiss booking confirmation" className="ml-auto text-slate-600 hover:text-slate-400"><X size={14} /></button>
         </div>
       )}
 
@@ -598,7 +598,7 @@ export default function FindCare() {
                   {bookDoctor.doctor.specialty} · {bookDoctor.facility.name}
                 </p>
               </div>
-              <button type="button" onClick={() => setBookDoctor(null)} className="text-slate-500 hover:text-white">
+              <button type="button" onClick={() => setBookDoctor(null)} aria-label="Close booking sheet" className="text-slate-500 hover:text-white">
                 <X size={18} />
               </button>
             </div>

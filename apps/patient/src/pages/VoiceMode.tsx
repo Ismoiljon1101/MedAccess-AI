@@ -196,6 +196,7 @@ function VoiceUI({
         <button
           type="button"
           onClick={onEnd}
+          aria-label="Exit voice mode"
           className="flex h-9 w-9 items-center justify-center rounded-full bg-white/8 text-slate-400 hover:text-white transition"
         >
           <X size={18} />
@@ -208,6 +209,7 @@ function VoiceUI({
         <button
           type="button"
           onClick={() => { setMuted((m) => !m); if (!muted) window.speechSynthesis?.cancel(); }}
+          aria-label={muted ? 'Unmute audio' : 'Mute audio'}
           className="flex h-9 w-9 items-center justify-center rounded-full bg-white/8 text-slate-400 hover:text-white transition"
         >
           {muted ? <VolumeX size={17} /> : <Volume2 size={17} className="text-brand-400" />}

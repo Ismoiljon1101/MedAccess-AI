@@ -75,6 +75,7 @@ export default function Symptoms() {
           <button
             type="button"
             onClick={() => addSymptom(inputVal)}
+            aria-label="Add symptom"
             className="btn"
           >
             <Plus size={16} />
