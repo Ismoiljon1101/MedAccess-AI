@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Stethoscope, Pill, ShieldCheck, ArrowRight, Building2 } from 'lucide-react';
 import { useAuthStore, type Role, type AuthUser } from '@/store/auth';
+import { MEDICAL_SPECIALTIES } from '@medaccess/shared';
 
 interface RoleCard {
   role: Role;
@@ -149,12 +150,25 @@ export default function Login() {
 
               <div>
                 <label className="label">{card?.specialtyLabel}</label>
-                <input
-                  className="input"
-                  placeholder={card?.specialtyPlaceholder}
-                  value={specialty}
-                  onChange={(e) => setSpecialty(e.target.value)}
-                />
+                {selected === 'doctor' ? (
+                  <select
+                    className="input"
+                    value={specialty}
+                    onChange={(e) => setSpecialty(e.target.value)}
+                  >
+                    <option value="">— Select specialty —</option>
+                    {MEDICAL_SPECIALTIES.map((s) => (
+                      <option key={s} value={s}>{s}</option>
+                    ))}
+                  </select>
+                ) : (
+                  <input
+                    className="input"
+                    placeholder={card?.specialtyPlaceholder}
+                    value={specialty}
+                    onChange={(e) => setSpecialty(e.target.value)}
+                  />
+                )}
               </div>
 
               <div>

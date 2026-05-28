@@ -20,12 +20,18 @@ export { AuditLog }        from './models/AuditLog.js';
 export { RagDoc }          from './models/RagDoc.js';
 export { Referral }        from './models/Referral.js';
 
+// v0.2 facility-based models
+export { Facility }        from './models/Facility.js';
+export { Doctor }          from './models/Doctor.js';
+export { TimeSlot }        from './models/TimeSlot.js';
+export { Appointment }     from './models/Appointment.js';
+
 // Types
 export type { IRole }            from './models/Role.js';
 export type { IPermission }      from './models/Permission.js';
 export type { IClinic }          from './models/Clinic.js';
 export type { IUser }            from './models/User.js';
-export type { IPatient }         from './models/Patient.js';
+export type { IPatient, IEmergencyContact } from './models/Patient.js';
 export type { IMedication }      from './models/Medication.js';
 export type { IAllergy }         from './models/Allergy.js';
 export type { ICondition }       from './models/Condition.js';
@@ -39,3 +45,9 @@ export type { ISession }         from './models/Session.js';
 export type { IAuditLog }        from './models/AuditLog.js';
 export type { IRagDoc }          from './models/RagDoc.js';
 export type { IReferral }        from './models/Referral.js';
+
+// v0.2 types
+export type { IFacility }        from './models/Facility.js';
+export type { IDoctor }          from './models/Doctor.js';
+export type { ITimeSlot }        from './models/TimeSlot.js';
+export type { IAppointment, AppointmentStatus } from './models/Appointment.js';

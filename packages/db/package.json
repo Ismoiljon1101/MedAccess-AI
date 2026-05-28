@@ -12,6 +12,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@medaccess/shared": "workspace:*",
     "mongoose": "^8.9.0"
   },
   "devDependencies": {

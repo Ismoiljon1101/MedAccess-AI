@@ -173,6 +173,9 @@ importers:
 
   packages/db:
     dependencies:
+      '@medaccess/shared':
+        specifier: workspace:*
+        version: link:../shared
       mongoose:
         specifier: ^8.9.0
         version: 8.24.0
