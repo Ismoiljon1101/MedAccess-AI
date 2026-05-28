@@ -15,9 +15,9 @@ import {
   Calendar, User, Map, ShieldCheck,
 } from 'lucide-react';
 import {
-  searchFacilities, getFacilitySlots,
-  bookAppointment,
-  type FacilityResult, type DoctorResult, type SlotResult,
+  searchFacilities, getFacilitySlots, bookAppointment,
+  searchMapNearby,
+  type FacilityResult, type DoctorResult, type SlotResult, type MapPlace,
 } from '@/lib/api';
 import { useAppStore } from '@/store/app';
 
@@ -38,11 +38,37 @@ const SPECIALTY_CHIPS = [
   'Neurology', 'Psychiatry', 'Dermatology', 'ENT', 'Oncology', 'Pharmacy',
 ] as const;
 
-function getMapUrl(provider: MapProvider, name: string, city: string): string {
+/** One-tap navigation deep-link — directions, not search (no API key needed). */
+function navUrl(provider: MapProvider, lat: number | undefined, lng: number | undefined, name: string, city: string): string {
+  if (lat != null && lng != null) {
+    return provider === 'naver'
+      ? `nmap://route/walk?dlat=${lat}&dlng=${lng}&dname=${encodeURIComponent(name)}&appname=com.medaccess`
+      : `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
+  }
+  // Fallback to text search if no coords
   const q = encodeURIComponent(`${name} ${city}`);
   return provider === 'naver'
     ? `https://map.naver.com/v5/search/${q}`
     : `https://www.google.com/maps/search/?api=1&query=${q}`;
+}
+
+/** Skeleton card shown while loading */
+function SkeletonCard() {
+  return (
+    <div className="card p-4 space-y-3 animate-pulse">
+      <div className="flex items-start gap-3">
+        <div className="h-8 w-8 rounded-xl bg-ink-700 shrink-0" />
+        <div className="flex-1 space-y-2">
+          <div className="h-3.5 w-2/3 rounded bg-ink-700" />
+          <div className="h-2.5 w-1/2 rounded bg-ink-800" />
+        </div>
+      </div>
+      <div className="flex gap-1.5">
+        <div className="h-5 w-16 rounded-full bg-ink-800" />
+        <div className="h-5 w-20 rounded-full bg-ink-800" />
+      </div>
+    </div>
+  );
 }
 
 function typeBadgeClass(type: FacilityResult['type']): string {
@@ -91,10 +117,13 @@ export default function FindCare() {
   const [coords,        setCoords]        = useState<{ lat: number; lng: number } | null>(null);
   const [locDone,       setLocDone]       = useState(false);
 
-  // Data state
-  const [facilities,  setFacilities]  = useState<FacilityResult[]>([]);
-  const [loading,     setLoading]     = useState(false);
-  const [expanded,    setExpanded]    = useState<string | null>(null);
+  // Data state — Tier 1 (enrolled) + Tier 2 (Google Places fallback)
+  const [facilities,   setFacilities]   = useState<FacilityResult[]>([]);
+  const [loading,      setLoading]      = useState(false);
+  const [loadError,    setLoadError]    = useState<string | null>(null);
+  const [mapPlaces,    setMapPlaces]    = useState<MapPlace[]>([]);
+  const [mapLoading,   setMapLoading]   = useState(false);
+  const [expanded,     setExpanded]     = useState<string | null>(null);
 
   // Booking sheet state
   const [bookDoctor,    setBookDoctor]    = useState<{ doctor: DoctorResult; facility: FacilityResult } | null>(null);
@@ -120,6 +149,8 @@ export default function FindCare() {
     lat: number; lng: number; spec: string; type: FacilityType; city: string;
   }>) => {
     setLoading(true);
+    setLoadError(null);
+    setMapPlaces([]);
     try {
       const spec = overrides?.spec ?? specialty;
       const typ  = overrides?.type ?? typeFilter;
@@ -128,15 +159,29 @@ export default function FindCare() {
       const lng  = overrides?.lng  ?? coords?.lng;
 
       const results = await searchFacilities({
-        lat,
-        lng,
+        lat, lng,
         specialty: spec && spec !== 'All' ? spec : undefined,
         type:      typ  !== 'all'         ? typ  : undefined,
         city:      city.trim()            || undefined,
-        radius:    500, // wide default — Uzbekistan is ~447k km²
+        radius:    500,
       });
       setFacilities(results);
-    } catch {
+
+      // Tier 2: fetch Google Places fallback when < 3 enrolled + have coords
+      if (results.length < 3 && lat != null && lng != null) {
+        setMapLoading(true);
+        searchMapNearby({
+          lat, lng,
+          type:    typ !== 'all' ? typ : 'hospital',
+          radius:  5000,
+          keyword: spec && spec !== 'All' ? spec : undefined,
+        })
+          .then((r) => setMapPlaces(r.places.slice(0, 8)))
+          .catch(() => {/* silent — Tier 2 is best-effort */})
+          .finally(() => setMapLoading(false));
+      }
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to load facilities.');
       setFacilities([]);
     } finally {
       setLoading(false);
@@ -345,27 +390,47 @@ export default function FindCare() {
 
       {/* ── Facility list ──────────────────────────────────────────────── */}
       <div className="flex-1 overflow-y-auto px-3 pb-4 space-y-2">
-        {loading && (
-          <div className="flex items-center justify-center py-16 gap-2 text-slate-500 text-sm">
-            <Loader2 size={16} className="animate-spin" /> Loading facilities…
-          </div>
-        )}
 
-        {!loading && facilities.length === 0 && (
-          <div className="flex flex-col items-center justify-center py-16 gap-3 text-center">
-            <Building2 size={32} className="text-slate-700" />
-            <p className="text-sm text-slate-500">No facilities found.</p>
-            <button
-              type="button"
-              onClick={() => { setTypeFilter('all'); setSpecialty('All'); setCitySearch(''); load({ type: 'all', spec: 'All', city: '' }); }}
-              className="text-xs text-brand-400"
-            >
-              Clear filters
+        {/* Skeleton loading */}
+        {loading && [0, 1, 2].map((i) => <SkeletonCard key={i} />)}
+
+        {/* Error state */}
+        {!loading && loadError && (
+          <div className="flex flex-col items-center gap-3 py-12 text-center">
+            <div className="rounded-2xl border border-danger-500/30 bg-danger-500/10 px-4 py-3 text-sm text-danger-400 max-w-xs">
+              {loadError}
+            </div>
+            <button type="button" onClick={() => load()} className="text-xs text-brand-400">
+              Retry
             </button>
           </div>
         )}
 
-        {!loading && facilities.map((f) => (
+        {/* Empty state (Tier 1 empty, Tier 2 loading or also empty) */}
+        {!loading && !loadError && facilities.length === 0 && !mapLoading && mapPlaces.length === 0 && (
+          <div className="flex flex-col items-center justify-center py-12 gap-3 text-center">
+            <Building2 size={32} className="text-ink-700" />
+            <p className="text-sm text-ink-400">No facilities found nearby.</p>
+            <p className="text-xs text-ink-600 max-w-xs leading-relaxed">
+              Enable location or search by city for better results.
+            </p>
+            <button
+              type="button"
+              onClick={() => { setTypeFilter('all'); setSpecialty('All'); setCitySearch(''); load({ type: 'all', spec: 'All', city: '' }); }}
+              className="text-xs font-medium text-brand-400 hover:text-brand-300 transition"
+            >
+              Clear filters &amp; retry
+            </button>
+          </div>
+        )}
+
+        {/* ── TIER 1: Enrolled clinics ─────────────────────────────── */}
+        {!loading && facilities.length > 0 && (
+          <div className="space-y-2">
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-ink-500 px-1 pt-1 flex items-center gap-1.5">
+              <ShieldCheck size={10} className="text-ok-400" /> In-network · Book here
+            </p>
+            {facilities.map((f) => (
           <div key={f.id} className="card overflow-hidden">
             {/* Facility header */}
             <button
@@ -420,12 +485,12 @@ export default function FindCare() {
                   </a>
                 )}
                 <a
-                  href={getMapUrl(mapProvider, f.name, f.city)}
+                  href={navUrl(mapProvider, f.lat, f.lng, f.name, f.city)}
                   target="_blank"
                   rel="noopener noreferrer"
                   onClick={(e) => e.stopPropagation()}
-                  className="flex h-7 w-7 items-center justify-center rounded-lg bg-surface-700 text-slate-400 hover:text-white transition"
-                  title={`Open in ${mapProvider === 'naver' ? 'Naver' : 'Google'} Maps`}
+                  className="flex h-7 w-7 items-center justify-center rounded-lg bg-ink-800 text-ink-400 hover:text-white transition"
+                  title={`Navigate in ${mapProvider === 'naver' ? 'Naver' : 'Google'} Maps`}
                 >
                   <Navigation size={13} />
                 </a>
@@ -467,6 +532,52 @@ export default function FindCare() {
             )}
           </div>
         ))}
+          </div>
+        )}
+
+        {/* ── TIER 2: Google Places fallback ───────────────────────── */}
+        {(mapLoading || mapPlaces.length > 0) && (
+          <div className="space-y-2 pt-2">
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-ink-500 px-1 flex items-center gap-1.5">
+              <Map size={10} /> Public map results · Navigate only
+            </p>
+            {mapLoading && [0, 1].map((i) => <SkeletonCard key={i} />)}
+            {mapPlaces.map((p) => (
+              <div key={p.placeId} className="card p-4 flex items-start gap-3">
+                <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-ink-800 text-ink-400">
+                  <Building2 size={15} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-white leading-snug">{p.name}</p>
+                  <p className="text-[11px] text-ink-500 mt-0.5 truncate">{p.address}</p>
+                  <div className="flex items-center gap-2 mt-1.5">
+                    {p.rating != null && (
+                      <span className="text-[10px] text-warn-400">★ {p.rating.toFixed(1)}</span>
+                    )}
+                    {p.openNow != null && (
+                      <span className={`text-[10px] font-medium ${p.openNow ? 'text-ok-400' : 'text-danger-400'}`}>
+                        {p.openNow ? 'Open now' : 'Closed'}
+                      </span>
+                    )}
+                    {p.distanceKm != null && (
+                      <span className="text-[10px] text-ink-500">{p.distanceKm} km</span>
+                    )}
+                  </div>
+                </div>
+                <a
+                  href={p.navUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="shrink-0 flex items-center gap-1 rounded-xl border border-ink-700 bg-ink-800 px-3 py-2 text-xs font-medium text-ink-300 hover:border-brand-500/50 hover:text-ink-100 transition"
+                  title="Open navigation"
+                >
+                  <Navigation size={13} /> Navigate
+                </a>
+              </div>
+            ))}
+          </div>
+        )}
+
       </div>
 
       {/* ── Booking sheet ──────────────────────────────────────────────────── */}
