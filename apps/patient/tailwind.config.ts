@@ -7,16 +7,16 @@ export default {
       colors: {
         // ── Deep ink palette — values driven by CSS vars for light/dark ──
         ink: {
-          950: 'var(--ink-950)',
-          900: 'var(--ink-900)',
-          800: 'var(--ink-800)',
-          700: 'var(--ink-700)',
-          600: 'var(--ink-600)',
-          500: 'var(--ink-500)',
-          400: 'var(--ink-400)',
-          300: 'var(--ink-300)',
-          200: 'var(--ink-200)',
-          100: 'var(--ink-100)',
+          950: 'rgb(var(--ink-950-rgb) / <alpha-value>)',
+          900: 'rgb(var(--ink-900-rgb) / <alpha-value>)',
+          800: 'rgb(var(--ink-800-rgb) / <alpha-value>)',
+          700: 'rgb(var(--ink-700-rgb) / <alpha-value>)',
+          600: 'rgb(var(--ink-600-rgb) / <alpha-value>)',
+          500: 'rgb(var(--ink-500-rgb) / <alpha-value>)',
+          400: 'rgb(var(--ink-400-rgb) / <alpha-value>)',
+          300: 'rgb(var(--ink-300-rgb) / <alpha-value>)',
+          200: 'rgb(var(--ink-200-rgb) / <alpha-value>)',
+          100: 'rgb(var(--ink-100-rgb) / <alpha-value>)',
         },
         // ── Teal accent ──────────────────────────────────────────────
         brand: {
@@ -27,12 +27,12 @@ export default {
           600: '#129079',
           700: '#0a6659',
         },
-        // ── surface aliases → ink vars ───────────────────────────────
+        // ── surface aliases → ink vars (RGB for opacity modifier support) ─
         surface: {
-          900: 'var(--ink-900)',
-          800: 'var(--ink-800)',
-          700: 'var(--ink-700)',
-          600: 'var(--ink-600)',
+          900: 'rgb(var(--ink-900-rgb) / <alpha-value>)',
+          800: 'rgb(var(--ink-800-rgb) / <alpha-value>)',
+          700: 'rgb(var(--ink-700-rgb) / <alpha-value>)',
+          600: 'rgb(var(--ink-600-rgb) / <alpha-value>)',
         },
         ok:     { 400: '#34d399', 500: '#10b981' },
         warn:   { 400: '#fbbf24', 500: '#f59e0b' },

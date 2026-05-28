@@ -4,6 +4,7 @@
 
 /* ── CSS custom properties — dark (default) ─────────────────────────────── */
 :root {
+  /* Hex vars — used by raw CSS (body-bg, prose, scrollbar, etc.) */
   --ink-950: #070a13;
   --ink-900: #0b0f1a;
   --ink-800: #111727;
@@ -14,6 +15,17 @@
   --ink-300: #8893b3;
   --ink-200: #b8bfd5;
   --ink-100: #e3e6f0;
+  /* RGB channel vars — used by Tailwind for opacity modifiers (bg-ink-900/70 etc.) */
+  --ink-950-rgb: 7 10 19;
+  --ink-900-rgb: 11 15 26;
+  --ink-800-rgb: 17 23 39;
+  --ink-700-rgb: 26 34 54;
+  --ink-600-rgb: 36 48 73;
+  --ink-500-rgb: 58 70 102;
+  --ink-400-rgb: 91 103 134;
+  --ink-300-rgb: 136 147 179;
+  --ink-200-rgb: 184 191 213;
+  --ink-100-rgb: 227 230 240;
   --body-bg: #070a13;
   --body-color: #e3e6f0;
   --scrollbar-track: #0b0f1a;
@@ -36,6 +48,16 @@
   --ink-300: #475569;
   --ink-200: #334155;
   --ink-100: #0f172a;
+  --ink-950-rgb: 255 255 255;
+  --ink-900-rgb: 248 250 252;
+  --ink-800-rgb: 241 245 249;
+  --ink-700-rgb: 226 232 240;
+  --ink-600-rgb: 203 213 225;
+  --ink-500-rgb: 148 163 184;
+  --ink-400-rgb: 100 116 139;
+  --ink-300-rgb: 71 85 105;
+  --ink-200-rgb: 51 65 85;
+  --ink-100-rgb: 15 23 42;
   --body-bg: #f8fafc;
   --body-color: #0f172a;
   --scrollbar-track: #f1f5f9;
