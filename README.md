@@ -78,7 +78,7 @@ working alone never had.
 
 | Service | URL | Who it's for |
 |---|---|---|
-| **`apps/clinic`** | `:5173` | Doctors, nurses, frontline clinicians — full clinical dashboard with the **Patients Queue**, Interview, Symptoms, Reports, Triage, and model/RAG options. Now includes a dedicated **Pharmacist Queue** view for dispensing medication referrals. |
+| **`apps/clinic`** | `:5173` | Doctors, nurses, frontline clinicians — full clinical dashboard with the **Patients Queue**, Interview, Symptoms, Reports, Triage, and model/RAG options. Includes a **Pharmacist role** (Dashboard + Prescriptions queue, login as `pharmacist`). |
 | **`apps/patient`** | `:5174` | Patients — PWA with the **MA Agent Chat** (symptom analysis, smart clinical routing, voice, inline uploads), the **Find Care & Booking** directory (enrolled scheduling + external navigation deep links), and records. |
 | **`apps/api`** | `:4000` | Shared Node/Express backend serving both portals |
 | **`services/image-ml`** | `:5001` | **(optional)** Python FastAPI sidecar for specialist medical-image inference (skin lesions, chest X-ray). Node degrades gracefully if unset. |
@@ -100,14 +100,13 @@ Patient describes symptoms to MA Agent  →  Clinical Snapshot after ~3 turns
        → Doctor reviews snapshot, confirms booking, and meets patient
 ```
 
-#### B) Simple Illness (Pharmacy Referral Loop)
-For minor/common complaints (e.g., simple headache, mild stomach ache, cold, simple muscle strain) that do not require clinic escalation:
+#### B) Simple Illness (Pharmacy Referral Loop — v0.2 roadmap)
+For minor/common complaints (simple headache, cold, mild stomach ache) that do not require clinic escalation. **v0.1 status:** the clinic portal has a pharmacist login role with a Dashboard (filters self-care urgency referrals) and Prescriptions queue. Seed data includes pharmacy facilities and pharmacist doctors. The patient-side "Send to Pharmacy" CTA and automated Pharmacist Referral Report are planned for v0.2.
 ```
-Patient describes symptoms to MA Agent  →  MA Agent triages case as minor (urgency: self-care)
-       → "Send to Pharmacy" CTA appears
-       → Patient picks nearest GPS-sorted pharmacy and confirms booking
-       → System compiles & sends a "Pharmacist Referral Report" containing symptoms, reasoning, and full transcript
-       → Pharmacist Dashboard (/patients?type=pharmacy): pharmacist reviews report, re-checks patient, dispenses medicine, or refers to a clinician if needed
+[v0.1 ✅] Pharmacist logs in → sees self-care referrals in Dashboard + Prescriptions queue
+[v0.2 📋] MA Agent detects self-care urgency  →  "Send to Pharmacy" CTA
+          → patient picks GPS-sorted pharmacy, confirms booking
+          → pharmacist receives structured symptom report, dispenses medicine or refers up
 ```
 
 #### C) Hybrid Maps Navigation Routing
@@ -293,7 +292,7 @@ Our frontend UI architecture implements the **Atomic Design methodology** to org
 ### Request Lifecycle (Symptom Analysis example)
 
 ```
-1. user enters symptoms in clinic/src/pages/Symptoms.tsx (or patient/src/pages/SymptomCheck.tsx)
+1. user enters symptoms in clinic/src/pages/Symptoms.tsx (clinic) or patient/src/pages/Chat.tsx (patient, via MA Agent)
 2. lib/api.ts → POST /api/symptoms with { symptoms, patient, language, model }
 3. apps/api/routes/symptoms.ts validates with SymptomsRequestSchema
 4. services/rag.ts → BM25 retrieval against seed knowledge
@@ -330,7 +329,7 @@ Our frontend UI architecture implements the **Atomic Design methodology** to org
 | **Backend** | Express 4 + TS | Well-known, minimal, fast to write; Fastify deferred |
 | **Validation** | Zod | Schemas double as TS types and runtime validators |
 | **Frontend** | React 18 + Vite + TS | Industry-standard, sub-second HMR |
-| **Styling** | Tailwind CSS + custom `ink`/`accent` palette | Dark-mode trivial; matches pitch-deck aesthetic |
+| **Styling** | Tailwind CSS + custom `ink`/`accent` palette | **Light + dark mode** via CSS variable theming; persisted in Zustand |
 | **State** | Zustand (persisted) | Smaller than Redux, no boilerplate, persists prefs (language + model) |
 | **Routing** | react-router v6 | De facto |
 | **PWA** | `vite-plugin-pwa` (Workbox) | Auto-update service worker, generated manifest |
@@ -494,7 +493,7 @@ Base URL: `http://localhost:4000` (or proxied via `/api/*` in dev).
   "status": "ok",
   "version": "0.1.0",
   "providers": { "openrouter": true, "openaiWhisper": false },
-  "defaultModel": "google/gemini-2.0-flash-exp:free",
+  "defaultModel": "qwen/qwen3.5-plus-20260420",
   "rag": { "ready": true, "size": 31 },
   "db": { "connected": true }
 }
@@ -692,9 +691,11 @@ prompt enforces:
 
 A non-dismissible disclaimer banner appears at the top of every page.
 
-We do not store patient data. There is no database. Sessions live in server RAM
-with a TTL and a sweep, and clear on restart. Real-world deployment would
-require HIPAA / GDPR / local-equivalent work — see [Roadmap](#roadmap--deferred-work).
+Patient data handling:
+- **Default (no `MONGODB_URI`):** sessions live in server RAM with a TTL sweep, cleared on restart — no persistent storage.
+- **With `MONGODB_URI`:** referrals, appointments, and time slots persist to MongoDB Atlas. Patient chat history stays in `localStorage` only — never sent to a database.
+
+Real-world deployment would require HIPAA / GDPR / local-equivalent work — see [Roadmap](#roadmap--deferred-work).
 
 ---
 
