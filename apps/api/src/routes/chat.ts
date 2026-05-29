@@ -5,8 +5,57 @@ import { chat, chatStream } from '../services/llm.js';
 import { formatContext, ragStatus, retrieve, toCitations } from '../services/rag.js';
 import { appendMessage, ensureSession, getSession, newSessionId, replaceMessages } from '../utils/sessions.js';
 import { HttpError } from '../middleware/error.js';
+import { SEED_DOCTORS, SEED_FACILITIES } from './facilities.js';
 
 const router: Router = Router();
+
+// ── Detect specialty from conversation and get matching doctors ──────────
+function detectSpecialty(messages: Array<{ role: string; content: string }>): string {
+  const combined = messages.map((m) => m.content).join(' ').toLowerCase();
+  const specs: Record<string, string[]> = {
+    Cardiology: ['heart', 'cardiac', 'chest pain', 'palpitation', 'cardiovascular', 'bp', 'hypertension'],
+    Neurology: ['headache', 'migraine', 'neurolog', 'seizure', 'stroke', 'nerve', 'brain', 'dizziness'],
+    Respiratory: ['breath', 'respiratory', 'lung', 'asthma', 'pulmon', 'cough', 'pneumon'],
+    'Mental Health': ['mental', 'anxiety', 'depress', 'psychiatr', 'psycholog', 'stress'],
+    Pediatrics: ['child', 'pediatr', 'infant', 'baby', 'kid'],
+    Dermatology: ['skin', 'rash', 'lesion', 'dermat', 'eczema', 'acne'],
+    'Obstetrics & Gynecology': ['pregnant', 'pregnancy', 'obstetric', 'gynec', 'menstrual'],
+    Gastroenterology: ['stomach', 'gastro', 'digestion', 'diarrhea', 'constipation', 'nausea'],
+    Orthopedics: ['bone', 'fracture', 'joint', 'orthoped', 'arthritis', 'spine'],
+    'General Practice': [],
+  };
+
+  for (const [specialty, keywords] of Object.entries(specs)) {
+    if (keywords.some((k) => combined.includes(k))) {
+      return specialty;
+    }
+  }
+  return 'General Practice';
+}
+
+function getMatchedDoctors(specialty: string) {
+  const matched = SEED_DOCTORS.filter((d) => d.specialty === specialty || d.specialty.includes(specialty));
+  if (matched.length === 0) {
+    // Fallback to General Practice doctors
+    return SEED_DOCTORS.filter((d) => d.specialty === 'General Practice' || d.specialty === 'Family Medicine')
+      .slice(0, 3);
+  }
+  return matched.slice(0, 3);
+}
+
+function enrichWithFacilityNames(doctors: typeof SEED_DOCTORS) {
+  return doctors.map((d) => {
+    const facility = SEED_FACILITIES.find((f) => f.id === d.facilityId);
+    return {
+      id: d.id,
+      name: d.name,
+      specialty: d.specialty,
+      facilityId: d.facilityId,
+      facilityName: facility?.name || d.facilityId,
+      languages: d.languages,
+    };
+  });
+}
 
 router.post('/', async (req, res, next) => {
   try {
@@ -23,7 +72,12 @@ router.post('/', async (req, res, next) => {
     const results = parsed.useRag ? retrieve(parsed.message, { k: 3 }) : [];
     const context = formatContext(results);
 
-    const system = interviewSystemPrompt({ context, language: parsed.language });
+    const s = getSession(sessionId);
+    const specialty = detectSpecialty(s!.messages);
+    const matchedDocs = getMatchedDoctors(specialty);
+    const enrolledDoctors = enrichWithFacilityNames(matchedDocs);
+
+    const system = interviewSystemPrompt({ context, language: parsed.language, enrolledDoctors });
 
     const { text, model } = await chat({
       system,
@@ -77,7 +131,12 @@ router.post('/stream', async (req, res, next) => {
     const context = formatContext(results);
     const citations = toCitations(results);
 
-    const system = interviewSystemPrompt({ context, language: parsed.language });
+    const s = getSession(sessionId);
+    const specialty = detectSpecialty(s!.messages);
+    const matchedDocs = getMatchedDoctors(specialty);
+    const enrolledDoctors = enrichWithFacilityNames(matchedDocs);
+
+    const system = interviewSystemPrompt({ context, language: parsed.language, enrolledDoctors });
 
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache, no-transform');
@@ -134,13 +193,34 @@ router.post('/stream', async (req, res, next) => {
   }
 });
 
-router.get('/session/:id', (req, res) => {
-  const s = getSession(req.params.id);
-  if (!s) {
-    res.status(404).json({ error: 'NotFound', message: 'Session not found or expired' });
-    return;
+router.get('/session/:id', async (req, res, next) => {
+  try {
+    let s = getSession(req.params.id);
+
+    // Fallback to DB if not in memory
+    if (!s && dbReady()) {
+      try {
+        const doc = await Interview.findOne({ sessionId: req.params.id }).lean();
+        if (doc) {
+          s = {
+            id: req.params.id,
+            messages: doc.messages || [],
+            updatedAt: doc.updatedAt?.getTime() || Date.now(),
+          };
+        }
+      } catch {
+        /* non-fatal */
+      }
+    }
+
+    if (!s) {
+      res.status(404).json({ error: 'NotFound', message: 'Session not found or expired' });
+      return;
+    }
+    res.json({ sessionId: s.id, messages: s.messages, updatedAt: s.updatedAt });
+  } catch (err) {
+    next(err);
   }
-  res.json({ sessionId: s.id, messages: s.messages, updatedAt: s.updatedAt });
 });
 
 export default router;

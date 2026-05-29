@@ -16,7 +16,7 @@ import {
 } from 'lucide-react';
 import {
   searchFacilities, getFacilitySlots, bookAppointment,
-  searchMapNearby,
+  searchMapNearby, loadSession,
   type FacilityResult, type DoctorResult, type SlotResult, type MapPlace,
 } from '@/lib/api';
 import { useAppStore } from '@/store/app';
@@ -104,10 +104,12 @@ export default function FindCare() {
   const { patientProfile, addAppointment } = useAppStore();
 
   // Query param pre-fill from MA Agent CTA
-  const preSpecialty  = searchParams.get('specialty') || 'All';
-  const preSummary    = searchParams.get('summary')   || '';
-  const preUrgency    = searchParams.get('urgency')   || 'see-clinician-soon';
-  const preSessionId  = searchParams.get('s')         || undefined;
+  const preSpecialty    = searchParams.get('specialty')   || 'All';
+  const preSummary      = searchParams.get('summary')     || '';
+  const preUrgency      = searchParams.get('urgency')     || 'see-clinician-soon';
+  const preSessionId    = searchParams.get('s')           || undefined;
+  const preDoctorId     = searchParams.get('doctorId')    || undefined;
+  const preFacilityId   = searchParams.get('facilityId')  || undefined;
 
   // Search state
   const [typeFilter,    setTypeFilter]    = useState<FacilityType>('all');
@@ -145,6 +147,9 @@ export default function FindCare() {
 
   // Success state
   const [bookedAppt, setBookedAppt] = useState<{ doctorName: string; date: string; startTime: string; endTime: string } | null>(null);
+
+  // Assembled summary for appointment (from session + preSummary)
+  const [assembledSummary, setAssembledSummary] = useState(preSummary);
 
   // ── Load facilities ───────────────────────────────────────────────────────
   const load = useCallback(async (overrides?: Partial<{
@@ -258,6 +263,40 @@ export default function FindCare() {
     );
   }
 
+  // ── Load and assemble session summary from chat ────────────────────────────
+  useEffect(() => {
+    if (!preSessionId) return;
+    loadSession(preSessionId)
+      .then((messages) => {
+        if (!messages.length) return;
+        // Assemble full interview transcript + image analysis
+        const summary = messages
+          .map((m) => {
+            if (m.role === 'user') return `Patient: ${m.content}`;
+            return `Agent: ${m.content}`;
+          })
+          .join('\n\n');
+        setAssembledSummary(summary);
+      })
+      .catch(() => {
+        // Silent fail — use pre-filled summary
+      });
+  }, [preSessionId]);
+
+  // ── Auto-open doctor when pre-selected from Chat ──────────────────────────
+  useEffect(() => {
+    if (!preDoctorId || !preFacilityId) return;
+    // Find the pre-selected doctor in loaded facilities
+    const facility = facilities.find((f) => f.id === preFacilityId);
+    if (facility) {
+      const doctor = facility.doctors?.find((d) => d.id === preDoctorId);
+      if (doctor) {
+        setBookDoctor({ doctor, facility });
+        setExpanded(preFacilityId);
+      }
+    }
+  }, [facilities, preDoctorId, preFacilityId]);
+
   // ── Load slots for selected doctor + date ─────────────────────────────────
   useEffect(() => {
     if (!bookDoctor) return;
@@ -289,7 +328,7 @@ export default function FindCare() {
         startTime:      selectedSlot.startTime,
         specialty:      bookDoctor.doctor.specialty,
         urgency:        preUrgency,
-        maAgentSummary: preSummary     || undefined,
+        maAgentSummary: assembledSummary || undefined,
         sessionId:      preSessionId,
       });
 

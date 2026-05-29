@@ -277,7 +277,12 @@ router.get('/', (req, res) => {
 
   // Filter by radius (only if user provided location)
   if (lat && lng) {
-    facilities = facilities.filter((f) => (f.distanceKm ?? 0) <= radius);
+    facilities = facilities.filter((f) => {
+      const dist = f.distanceKm ?? 0;
+      // Exclude Tashkent (Tier 1) facilities if user is >50km away
+      if (dist > 50 && f.city.toLowerCase() === 'tashkent') return false;
+      return dist <= radius;
+    });
     facilities.sort((a, b) => (a.distanceKm ?? 999) - (b.distanceKm ?? 999));
   }
 

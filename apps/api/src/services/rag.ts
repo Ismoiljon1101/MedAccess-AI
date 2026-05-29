@@ -95,6 +95,13 @@ export function retrieve(query: string, opts: RetrieveOptions = {}): RetrieveRes
   const scored = INDEX.docs
     .map((d) => ({ doc: d.doc, score: bm25(qTokens, d, INDEX) }))
     .filter((r) => r.score >= minScore)
+    // Term-overlap filter: document must share ≥2 query terms to avoid generic results
+    .filter((r) => {
+      const qTermSet = new Set(qTokens);
+      const docTermSet = new Set(Array.from((INDEX.docs.find((d) => d.doc.id === r.doc.id)?.termFreq.keys()) || []));
+      const overlap = Array.from(qTermSet).filter((t) => docTermSet.has(t)).length;
+      return overlap >= 2;
+    })
     .sort((a, b) => b.score - a.score)
     .slice(0, k);
 

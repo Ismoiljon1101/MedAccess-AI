@@ -1,4 +1,5 @@
 import type { ChatMessage } from '@medaccess/shared';
+import { Interview, dbReady } from '@medaccess/db';
 
 // Minimal in-memory session store for MVP.
 // Production should swap this for Redis with a TTL.
@@ -35,7 +36,27 @@ export function newSessionId(): string {
 export function getSession(id: string | undefined): Session | null {
   if (!id) return null;
   const session = store.get(id);
-  if (!session) return null;
+  if (!session) {
+    // Fallback: try loading from MongoDB (non-blocking check)
+    // Note: This is async but we call it without await to maintain sync API.
+    // In production, refactor to use async/await throughout the chat routes.
+    if (dbReady()) {
+      Interview.findOne({ sessionId: id }).lean().then((doc) => {
+        if (doc) {
+          const cached: Session = {
+            id,
+            messages: doc.messages || [],
+            createdAt: doc.createdAt?.getTime() || now(),
+            updatedAt: doc.updatedAt?.getTime() || now(),
+          };
+          store.set(id, cached);
+        }
+      }).catch(() => {
+        /* non-fatal */
+      });
+    }
+    return null;
+  }
   if (now() - session.updatedAt > SESSION_TTL_MS) {
     store.delete(id);
     return null;

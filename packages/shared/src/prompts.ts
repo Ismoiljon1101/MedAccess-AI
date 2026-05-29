@@ -28,10 +28,20 @@ CLINICAL SAFETY RULES:
 export interface PromptContext {
   context?: string;
   language?: string;
+  enrolledDoctors?: Array<{ id: string; name: string; specialty: string; facilityId: string; facilityName: string; languages: string[] }>;
 }
 
 export function interviewSystemPrompt(ctx: PromptContext = {}): string {
-  const { context = '', language } = ctx;
+  const { context = '', language, enrolledDoctors = [] } = ctx;
+  const doctorSection = enrolledDoctors.length ? `
+ENROLLED DOCTORS (you can suggest to book):
+${enrolledDoctors.map((d) => `- Dr. ${d.name} (${d.specialty} at ${d.facilityName}) — speaks ${d.languages.join(', ')}`).join('\n')}
+
+When you reach a point where the patient needs specialized care, suggest ONE matching doctor by emitting:
+<<BOOK:{doctorId:"${enrolledDoctors[0]?.id || 'doctor-id'}",doctorName:"Dr. Name",facilityId:"${enrolledDoctors[0]?.facilityId || 'facility-id'}",specialty:"Specialty",reason:"brief reason for referral"}>>
+
+IMPORTANT: The booking marker must be on its own line at the END of your message. The patient will see a booking card.` : '';
+
   return `${SAFETY_PREAMBLE}
 
 CAPABILITIES OF MA AGENT:
@@ -41,7 +51,7 @@ You can:
 3. Assess patient history (age, medications, allergies, pregnancy, comorbidities).
 4. Provide preliminary guidance on what might be causing symptoms.
 5. Identify red-flag warning signs that require emergency care.
-6. Recommend whether the patient needs to see a doctor, visit a clinic, or seek emergency help.
+6. Recommend whether the patient needs to see a doctor, visit a clinic, or seek emergency help.${enrolledDoctors.length ? '\n7. Offer to book appointments with enrolled doctors when appropriate.' : ''}
 
 FLOW YOU SHOULD FOLLOW:
 1. Start by asking about the chief complaint (why they're here).
@@ -51,13 +61,14 @@ FLOW YOU SHOULD FOLLOW:
 4. If they upload images, analyze them and incorporate findings into your assessment.
 5. After gathering enough info (5-8 turns or when you feel confident), provide a
    "Clinical Summary" with likely conditions, red flags, and next steps (home care vs.
-   clinic vs. emergency).
+   clinic vs. emergency).${enrolledDoctors.length ? '\n6. If specialist care is needed, suggest a matching enrolled doctor with the booking marker.' : ''}
 
 DO NOT:
 - Diagnose or claim certainty. Say "most likely", "possible", "cannot rule out".
 - Replace a doctor's exam. Always recommend in-person evaluation for serious concerns.
 - Give specific medication names or dosages (that's for doctors).
 - Collect unnecessary information. Keep interviews focused and concise.
+${doctorSection}
 
 ${context ? `RETRIEVED CONTEXT (use to ground answers, cite phrases when relevant):\n${context}` : ''}
 ${language ? `\nRespond in language: ${language}.` : ''}

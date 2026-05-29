@@ -15,6 +15,14 @@ interface RagCitation {
   score: number;
 }
 
+interface BookingAction {
+  doctorId: string;
+  doctorName: string;
+  facilityId: string;
+  specialty: string;
+  reason: string;
+}
+
 interface Message {
   id: string;
   role: 'user' | 'assistant';
@@ -23,6 +31,7 @@ interface Message {
   citations?: RagCitation[];
   imageUrl?: string;
   imageName?: string;
+  bookingAction?: BookingAction;
 }
 
 const GREETING: Message = {
@@ -46,6 +55,7 @@ export default function Chat() {
   const [loadError, setLoadError]     = useState<string | null>(null);
 
   const [ctaSpec, setCtaSpec] = useState<{ specialty: string; urgency: string } | null>(null);
+  const [pendingBooking, setPendingBooking] = useState<BookingAction | null>(null);
   const [showCapture, setShowCapture] = useState(false);
   const [micActive, setMicActive]     = useState(false);  // inline voice input
   const [isReasoning, setIsReasoning] = useState(false);  // model is in <think> block
@@ -59,6 +69,28 @@ export default function Chat() {
   const msgCountRef = useRef<number>(0);
   // Count user turns (not counting greeting)
   const userTurnRef = useRef<number>(0);
+
+  // ── Parse booking marker from text ───────────────────────────────
+  function parseBookingMarker(text: string): { cleanText: string; booking?: BookingAction } {
+    const match = text.match(/<<BOOK:([\s\S]*?)>>/);
+    if (!match) return { cleanText: text };
+    try {
+      const payload = JSON.parse(match[1]);
+      const cleanText = text.replace(/<<BOOK:[\s\S]*?>>/, '').trim();
+      return {
+        cleanText,
+        booking: {
+          doctorId: payload.doctorId,
+          doctorName: payload.doctorName,
+          facilityId: payload.facilityId,
+          specialty: payload.specialty,
+          reason: payload.reason,
+        },
+      };
+    } catch {
+      return { cleanText: text };
+    }
+  }
 
   // ── Clinical Snapshot CTA detection ──────────────────────────────────
   function detectClinicalSnapshot(text: string, userTurns: number): { specialty: string; urgency: string } | null {
@@ -189,24 +221,34 @@ export default function Chat() {
             setIsReasoning(false);
           } else if (event.type === 'token') {
             assembled += event.data.delta ?? '';
+            // Strip booking marker during streaming for display
+            const { cleanText } = parseBookingMarker(assembled);
             setMessages((prev) =>
-              prev.map((m) => (m.id === aiId ? { ...m, content: assembled } : m)),
+              prev.map((m) => (m.id === aiId ? { ...m, content: cleanText } : m)),
             );
           } else if (event.type === 'done' || event.type === 'error') {
             break;
           }
         }
 
+        // Parse booking marker from final text
+        const { cleanText, booking } = parseBookingMarker(assembled);
+
         setMessages((prev) =>
           prev.map((m) =>
             m.id === aiId
-              ? { ...m, streaming: false, citations: resolvedCitations.length ? resolvedCitations : undefined }
+              ? { ...m, streaming: false, citations: resolvedCitations.length ? resolvedCitations : undefined, content: cleanText, bookingAction: booking }
               : m,
           ),
         );
 
+        // Check for booking action
+        if (booking) {
+          setPendingBooking(booking);
+        }
+
         // Check for clinical snapshot → show Connect to Care CTA
-        const snap = detectClinicalSnapshot(assembled, userTurnRef.current);
+        const snap = detectClinicalSnapshot(cleanText, userTurnRef.current);
         if (snap) setCtaSpec(snap);
 
         // Persist to local history
@@ -476,6 +518,43 @@ export default function Chat() {
         })}
         <div ref={bottomRef} className="h-1" />
       </div>
+
+      {/* ── Booking card (inline agent-suggested doctor) ──────────── */}
+      {pendingBooking && !isThinking && (
+        <div className="shrink-0 mx-3 mb-1 rounded-xl border border-brand-500/30 bg-brand-500/10 px-3 py-2.5 flex items-center gap-2">
+          <div className="flex-1 min-w-0">
+            <p className="text-xs font-semibold text-brand-300">{pendingBooking.doctorName}</p>
+            <p className="text-[11px] text-slate-400">{pendingBooking.specialty}</p>
+            {pendingBooking.reason && (
+              <p className="text-[10px] text-slate-500 mt-0.5 italic">{pendingBooking.reason}</p>
+            )}
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              // Pre-fill FindCare with doctor/facility and session summary
+              const params = new URLSearchParams();
+              params.set('doctorId', pendingBooking.doctorId);
+              params.set('facilityId', pendingBooking.facilityId);
+              params.set('specialty', pendingBooking.specialty);
+              if (sessionId) params.set('s', sessionId);
+              if (previewRef.current) params.set('summary', previewRef.current);
+              navigate(`/find-care?${params.toString()}`);
+            }}
+            className="shrink-0 rounded-xl border border-brand-500/40 bg-brand-600/20 px-3 py-1.5 text-xs font-semibold text-brand-400 hover:bg-brand-600/30 transition whitespace-nowrap"
+          >
+            Book Now →
+          </button>
+          <button
+            type="button"
+            onClick={() => setPendingBooking(null)}
+            aria-label="Dismiss"
+            className="shrink-0 rounded-full p-1 text-slate-500 hover:text-slate-200 hover:bg-surface-700/60 transition"
+          >
+            <X size={14} />
+          </button>
+        </div>
+      )}
 
       {/* ── Connect to Care CTA ──────────────────────────────────── */}
       {ctaSpec && !isThinking && (
