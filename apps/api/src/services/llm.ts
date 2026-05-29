@@ -26,24 +26,22 @@ export function openrouter(): OpenAI {
 }
 
 export function defaultChatModel(): string {
-  return process.env.OPENROUTER_CHAT_MODEL || 'qwen/qwen3.5-plus-20260420';
+  return process.env.OPENROUTER_CHAT_MODEL || 'deepseek/deepseek-r1:free';
 }
 
-// reason: reasoning models (qwen3.5-plus, deepseek-r1) hold delta.content null for
-// 10-30s during the thinking phase — real-time streaming must use a non-reasoning model.
 export function defaultStreamModel(): string {
   return process.env.OPENROUTER_STREAM_MODEL
     || process.env.OPENROUTER_FAST_MODEL
-    || 'qwen/qwen3.6-flash';
+    || 'deepseek/deepseek-r1:free';
 }
 
 /** Cheap/fast model for triage, symptoms quick-parse, and high-volume calls. */
 export function defaultFastModel(): string {
-  return process.env.OPENROUTER_FAST_MODEL || 'qwen/qwen3.6-flash';
+  return process.env.OPENROUTER_FAST_MODEL || 'deepseek/deepseek-chat-v3-0324:free';
 }
 
 export function defaultVisionModel(): string {
-  return process.env.OPENROUTER_VISION_MODEL || 'qwen/qwen3.6-flash';
+  return process.env.OPENROUTER_VISION_MODEL || 'google/gemini-2.0-flash-exp:free';
 }
 
 export interface ChatOptions {
@@ -79,7 +77,12 @@ export async function chat(opts: ChatOptions): Promise<ChatResult> {
   return { text, model };
 }
 
-export async function* chatStream(opts: ChatOptions): AsyncGenerator<string> {
+export type StreamChunk =
+  | { type: 'token'; text: string }
+  | { type: 'thinking_start' }
+  | { type: 'thinking_end' };
+
+export async function* chatStream(opts: ChatOptions): AsyncGenerator<StreamChunk> {
   const client = openrouter();
   const model = opts.model || defaultStreamModel();
   const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [
@@ -95,42 +98,62 @@ export async function* chatStream(opts: ChatOptions): AsyncGenerator<string> {
     messages,
   });
 
-  // Strip <think>...</think> blocks emitted by Qwen 3.x / DeepSeek R1 reasoning models.
-  // These models emit internal chain-of-thought before the actual response; the UI
-  // should only show the final answer.
-  let inThink = false;
-  let thinkBuf = '';
+  // reason: reasoning models surface chain-of-thought in two ways:
+  //   1. <think>...</think> tags inside delta.content  (DeepSeek R1 content-mode)
+  //   2. delta.reasoning_content field (Qwen3.x, DeepSeek via certain routes)
+  // We emit thinking_start/end so the UI shows "Reasoning…" during think phase.
+  let inTagThink  = false;  // inside a <think> tag in content
+  let inFieldThink = false; // receiving reasoning_content field chunks
+  let buf = '';
 
   for await (const part of stream) {
-    // reasoning_content is a separate field some providers use — always skip it
-    const delta: string = part.choices?.[0]?.delta?.content ?? '';
+    const choice = part.choices?.[0];
+
+    // Path A: reasoning_content field (Qwen3, DeepSeek-via-provider field)
+    const reasoningDelta: string = (choice?.delta as any)?.reasoning_content ?? '';
+    if (reasoningDelta) {
+      if (!inFieldThink) { inFieldThink = true; yield { type: 'thinking_start' }; }
+      continue; // consume silently
+    }
+
+    // If we just finished a reasoning_content phase, close it
+    if (inFieldThink) {
+      inFieldThink = false;
+      yield { type: 'thinking_end' };
+    }
+
+    const delta: string = choice?.delta?.content ?? '';
     if (!delta) continue;
 
-    if (inThink) {
-      thinkBuf += delta;
-      const end = thinkBuf.indexOf('</think>');
-      if (end !== -1) {
-        inThink = false;
-        const after = thinkBuf.slice(end + 8);
-        thinkBuf = '';
-        if (after) yield after;
+    // Path B: <think> tags embedded in content (DeepSeek R1 content-mode)
+    if (inTagThink) {
+      buf += delta;
+      const closeIdx = buf.indexOf('</think>');
+      if (closeIdx !== -1) {
+        const after = buf.slice(closeIdx + 8);
+        buf = '';
+        inTagThink = false;
+        yield { type: 'thinking_end' };
+        if (after) yield { type: 'token', text: after };
       }
     } else {
-      const start = delta.indexOf('<think>');
-      if (start !== -1) {
-        const before = delta.slice(0, start);
-        if (before) yield before;
-        inThink = true;
-        thinkBuf = delta.slice(start + 7);
-        const end = thinkBuf.indexOf('</think>');
-        if (end !== -1) {
-          inThink = false;
-          const after = thinkBuf.slice(end + 8);
-          thinkBuf = '';
-          if (after) yield after;
+      const openIdx = delta.indexOf('<think>');
+      if (openIdx !== -1) {
+        const before = delta.slice(0, openIdx);
+        if (before) yield { type: 'token', text: before };
+        inTagThink = true;
+        buf = delta.slice(openIdx + 7);
+        yield { type: 'thinking_start' };
+        const closeIdx = buf.indexOf('</think>');
+        if (closeIdx !== -1) {
+          const after = buf.slice(closeIdx + 8);
+          buf = '';
+          inTagThink = false;
+          yield { type: 'thinking_end' };
+          if (after) yield { type: 'token', text: after };
         }
       } else {
-        yield delta;
+        yield { type: 'token', text: delta };
       }
     }
   }

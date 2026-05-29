@@ -1,6 +1,8 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { Send, Phone, Plus, Headphones, BookText, Image as ImageIcon, MapPin, X, Mic, MicOff } from 'lucide-react';
+import { Send, Phone, Plus, Headphones, BookText, Image as ImageIcon, MapPin, X, Mic, MicOff, Brain } from 'lucide-react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { AiAvatar, type AvatarState } from '@/components/AiAvatar';
 import ImageCaptureFlow from '@/components/ImageCaptureFlow';
 import type { ImageModality } from '@/components/ImageCaptureFlow';
@@ -46,6 +48,7 @@ export default function Chat() {
   const [ctaSpec, setCtaSpec] = useState<{ specialty: string; urgency: string } | null>(null);
   const [showCapture, setShowCapture] = useState(false);
   const [micActive, setMicActive]     = useState(false);  // inline voice input
+  const [isReasoning, setIsReasoning] = useState(false);  // model is in <think> block
 
   const bottomRef    = useRef<HTMLDivElement>(null);
   const textareaRef  = useRef<HTMLTextAreaElement>(null);
@@ -180,6 +183,10 @@ export default function Chat() {
             if (event.data.citations?.length) {
               resolvedCitations = event.data.citations;
             }
+          } else if (event.type === 'thinking_start') {
+            setIsReasoning(true);
+          } else if (event.type === 'thinking_end') {
+            setIsReasoning(false);
           } else if (event.type === 'token') {
             assembled += event.data.delta ?? '';
             setMessages((prev) =>
@@ -216,6 +223,7 @@ export default function Chat() {
         }
       } finally {
         setAvatarState('idle');
+        setIsReasoning(false);
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -339,6 +347,7 @@ export default function Chat() {
     setSessionId(undefined);
     setLoadError(null);
     setAvatarState('idle');
+    setIsReasoning(false);
     setCtaSpec(null);
     navigate('/');
   }
@@ -414,11 +423,36 @@ export default function Chat() {
                       )}
                     </div>
                   )}
-                  {msg.content || (msg.streaming && (
-                    <span className="chat-typing" aria-label="Thinking…">
-                      <span /><span /><span />
-                    </span>
-                  ))}
+
+                  {/* Reasoning indicator: model is thinking / generating first token */}
+                  {isLastAi && msg.streaming && !msg.content && (
+                    <div className="flex items-center gap-2 text-xs text-brand-400">
+                      <Brain size={13} className="shrink-0 animate-pulse" />
+                      <span className="animate-pulse">{isReasoning ? 'Reasoning…' : 'Thinking…'}</span>
+                      <span className="chat-typing scale-75 origin-left"><span /><span /><span /></span>
+                    </div>
+                  )}
+
+                  {/* Message content — rendered as markdown */}
+                  {msg.content ? (
+                    <ReactMarkdown
+                      remarkPlugins={[remarkGfm]}
+                      components={{
+                        p:      ({ children }) => <p className="mb-1.5 last:mb-0 leading-relaxed">{children}</p>,
+                        ul:     ({ children }) => <ul className="mb-1.5 ml-3 space-y-0.5 list-disc">{children}</ul>,
+                        ol:     ({ children }) => <ol className="mb-1.5 ml-3 space-y-0.5 list-decimal">{children}</ol>,
+                        li:     ({ children }) => <li className="leading-relaxed">{children}</li>,
+                        strong: ({ children }) => <strong className="font-semibold text-white">{children}</strong>,
+                        em:     ({ children }) => <em className="italic text-slate-300">{children}</em>,
+                        h3:     ({ children }) => <h3 className="font-semibold text-white mt-2 mb-1">{children}</h3>,
+                        h4:     ({ children }) => <h4 className="font-medium text-slate-200 mt-1.5 mb-0.5">{children}</h4>,
+                        code:   ({ children }) => <code className="rounded bg-surface-700 px-1 py-0.5 text-[11px] font-mono text-brand-300">{children}</code>,
+                        hr:     () => <hr className="my-2 border-surface-600" />,
+                      }}
+                    >
+                      {msg.content}
+                    </ReactMarkdown>
+                  ) : null}
                 </div>
               </div>
               {msg.role === 'assistant' && !msg.streaming && msg.citations?.length ? (

@@ -116,6 +116,8 @@ export default function FindCare() {
   const [mapProvider,   setMapProvider]   = useState<MapProvider>('google');
   const [coords,        setCoords]        = useState<{ lat: number; lng: number } | null>(null);
   const [locDone,       setLocDone]       = useState(false);
+  const [locLabel,      setLocLabel]      = useState<string>('');   // human-readable address
+  const [locRequesting, setLocRequesting] = useState(false);
 
   // Data state — Tier 1 (enrolled) + Tier 2 (Google Places fallback)
   const [facilities,   setFacilities]   = useState<FacilityResult[]>([]);
@@ -188,18 +190,69 @@ export default function FindCare() {
     }
   }, [specialty, typeFilter, citySearch, coords]);
 
-  useEffect(() => { load(); }, []); // initial load
+  useEffect(() => { load(); }, []); // initial load (no coords yet)
 
-  // ── Geolocation ───────────────────────────────────────────────────────────
-  function requestLocation() {
-    navigator.geolocation?.getCurrentPosition(
-      (pos) => {
+  // ── Geolocation — auto-request on mount ───────────────────────────────────
+  useEffect(() => {
+    if (!navigator.geolocation) { setLocDone(true); return; }
+    setLocRequesting(true);
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
         const { latitude: lat, longitude: lng } = pos.coords;
         setCoords({ lat, lng });
         setLocDone(true);
+        setLocRequesting(false);
         load({ lat, lng });
+
+        // Reverse-geocode via browser Nominatim (no API key needed)
+        try {
+          const r = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&accept-language=en`,
+            { headers: { 'User-Agent': 'MedAccessAI/1.0' } },
+          );
+          if (r.ok) {
+            const d = await r.json() as any;
+            const addr = d.address;
+            const parts = [
+              addr?.road || addr?.suburb,
+              addr?.city || addr?.town || addr?.county,
+              addr?.country,
+            ].filter(Boolean);
+            setLocLabel(parts.join(', '));
+          }
+        } catch { /* non-fatal */ }
       },
-      () => { setLocDone(true); load(); },
+      () => { setLocDone(true); setLocRequesting(false); load(); },
+      { timeout: 10_000, enableHighAccuracy: false },
+    );
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  function requestLocation() {
+    if (locRequesting) return;
+    setLocLabel('');
+    setLocDone(false);
+    setLocRequesting(true);
+    navigator.geolocation?.getCurrentPosition(
+      async (pos) => {
+        const { latitude: lat, longitude: lng } = pos.coords;
+        setCoords({ lat, lng });
+        setLocDone(true);
+        setLocRequesting(false);
+        load({ lat, lng });
+        try {
+          const r = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&accept-language=en`,
+            { headers: { 'User-Agent': 'MedAccessAI/1.0' } },
+          );
+          if (r.ok) {
+            const d = await r.json() as any;
+            const addr = d.address;
+            setLocLabel([addr?.road || addr?.suburb, addr?.city || addr?.town, addr?.country].filter(Boolean).join(', '));
+          }
+        } catch { /* non-fatal */ }
+      },
+      () => { setLocDone(true); setLocRequesting(false); load(); },
       { timeout: 8000 },
     );
   }
@@ -354,13 +407,26 @@ export default function FindCare() {
       </div>
 
       {/* ── Location banner ────────────────────────────────────────────── */}
-      {!locDone && (
+      {locRequesting ? (
+        <div className="shrink-0 mx-3 mb-2 rounded-xl border border-brand-500/25 bg-brand-500/8 px-3 py-2 flex items-center gap-2">
+          <Loader2 size={13} className="text-brand-400 shrink-0 animate-spin" />
+          <p className="text-[11px] text-slate-400 flex-1">Detecting your location…</p>
+        </div>
+      ) : locDone && coords ? (
+        <div className="shrink-0 mx-3 mb-2 rounded-xl border border-ok-500/25 bg-ok-500/8 px-3 py-2 flex items-center gap-2">
+          <Navigation size={13} className="text-ok-400 shrink-0" />
+          <p className="text-[11px] text-slate-300 flex-1 truncate">
+            {locLabel || `${coords.lat.toFixed(4)}, ${coords.lng.toFixed(4)}`}
+          </p>
+          <button type="button" onClick={requestLocation} className="text-[10px] text-slate-500 hover:text-slate-300 shrink-0">Refresh</button>
+        </div>
+      ) : !locDone ? (
         <div className="shrink-0 mx-3 mb-2 rounded-xl border border-brand-500/25 bg-brand-500/8 px-3 py-2 flex items-center gap-2">
           <Navigation size={13} className="text-brand-400 shrink-0" />
           <p className="text-[11px] text-slate-400 flex-1">Enable location for distance sorting</p>
           <button type="button" onClick={requestLocation} className="text-[11px] font-semibold text-brand-400">Allow</button>
         </div>
-      )}
+      ) : null}
 
       {/* ── MA Agent context ───────────────────────────────────────────── */}
       {(preSpecialty !== 'All' || preSummary) && (

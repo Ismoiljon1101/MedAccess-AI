@@ -96,8 +96,14 @@ router.post('/stream', async (req, res, next) => {
         temperature: 0.4,
         maxTokens: 900,
       })) {
-        assembled += chunk;
-        res.write(`event: token\ndata: ${JSON.stringify({ delta: chunk })}\n\n`);
+        if (chunk.type === 'thinking_start') {
+          res.write(`event: thinking_start\ndata: {}\n\n`);
+        } else if (chunk.type === 'thinking_end') {
+          res.write(`event: thinking_end\ndata: {}\n\n`);
+        } else {
+          assembled += chunk.text;
+          res.write(`event: token\ndata: ${JSON.stringify({ delta: chunk.text })}\n\n`);
+        }
       }
     } catch (err: any) {
       console.error('[chat/stream] LLM error:', err.message, err.status, err.cause?.code);

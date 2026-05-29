@@ -146,7 +146,7 @@ export async function loadSession(sessionId: string): Promise<StoredMessage[]> {
 // ---------- chat (conversational AI) -------------------------------------
 
 export interface ChatStreamEvent {
-  type: 'meta' | 'token' | 'done' | 'error' | string;
+  type: 'meta' | 'token' | 'thinking_start' | 'thinking_end' | 'done' | 'error' | string;
   data: Record<string, any>;
 }
 
