@@ -7,6 +7,10 @@ __pycache__/
 
 # Model weights — download via download_weights.sh instead
 weights/
+models/*.pt
+models/*.pth
+models/*.onnx
+models/*.h5
 *.pt
 *.pth
 *.onnx

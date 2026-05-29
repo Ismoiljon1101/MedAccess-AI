@@ -14,8 +14,8 @@ pillow>=10.4
 opencv-python-headless>=4.10  # `headless` avoids GUI libs on servers
 numpy>=1.26
 
-# Specialist model dependencies — uncomment when you wire them in:
-# torch>=2.4
-# torchvision>=0.19
-# ultralytics>=8.3      # YOLOv8
-# torchxrayvision>=1.2  # chest X-ray pathology models
+# Specialist model dependencies
+torch>=2.4
+torchvision>=0.19
+ultralytics>=8.3      # YOLOv8
+# torchxrayvision>=1.2  # chest X-ray — install when Temirlan implements xray path
