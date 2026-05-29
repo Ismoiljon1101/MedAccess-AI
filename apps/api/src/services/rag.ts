@@ -88,7 +88,7 @@ export interface RetrieveResult {
 }
 
 export function retrieve(query: string, opts: RetrieveOptions = {}): RetrieveResult[] {
-  const { k = 4, minScore = 0.5 } = opts;
+  const { k = 4, minScore = 1.5 } = opts;
   const qTokens = tokenize(query);
   if (qTokens.length === 0) return [];
 

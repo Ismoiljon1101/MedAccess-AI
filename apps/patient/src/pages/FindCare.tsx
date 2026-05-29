@@ -169,8 +169,9 @@ export default function FindCare() {
       });
       setFacilities(results);
 
-      // Tier 2: Naver/Google fallback when < 3 enrolled facilities found
-      if (results.length < 3) {
+      // Tier 2: always fire when GPS coords available (shows local real-world results)
+      // or when enrolled DB returned too few results
+      if (results.length < 3 || (lat != null && lng != null)) {
         setMapLoading(true);
         searchMapNearby({
           ...(lat != null && lng != null ? { lat, lng } : {}),

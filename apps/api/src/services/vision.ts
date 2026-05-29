@@ -3,6 +3,41 @@ import { visionReportPrompt } from '@medaccess/shared';
 import { HttpError } from '../middleware/error.js';
 import { defaultVisionModel, openrouter, safeParseJson } from './llm.js';
 
+// ── Gemini vision (Google AI Studio) ─────────────────────────────────────────
+
+async function callGeminiVision(
+  base64: string,
+  mimeType: string,
+  systemPrompt: string,
+  userText: string,
+): Promise<string> {
+  const key = process.env.GEMINI_API_KEY;
+  if (!key) throw new HttpError(503, 'GEMINI_API_KEY not configured');
+
+  const body = {
+    system_instruction: { parts: [{ text: systemPrompt }] },
+    contents: [{
+      parts: [
+        { text: userText },
+        { inline_data: { mime_type: mimeType, data: base64 } },
+      ],
+    }],
+    generationConfig: { responseMimeType: 'application/json', temperature: 0.2, maxOutputTokens: 1400 },
+  };
+
+  const res = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${key}`,
+    { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) },
+  );
+  if (!res.ok) {
+    const err = await res.text().catch(() => '');
+    throw new HttpError(502, `Gemini vision error ${res.status}: ${err}`);
+  }
+  // reason: Gemini wraps content in candidates[0].content.parts[0].text
+  const data = await res.json() as any;
+  return data?.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
+}
+
 // ── Python sidecar contract (services/image-ml/main.py) ──────────────────
 
 /**
@@ -44,14 +79,21 @@ export interface AnalyzeImageResult {
 
 export async function analyzeMedicalImage(opts: AnalyzeImageOptions): Promise<AnalyzeImageResult> {
   if (!opts.buffer?.length) throw new HttpError(400, 'No image buffer provided');
-  const client = openrouter();
-  const model = opts.model || defaultVisionModel();
   const base64 = opts.buffer.toString('base64');
   const system = visionReportPrompt({ language: opts.language });
   const userText = opts.userNote
     ? `Provider note about this image: "${opts.userNote}"\n\nAnalyze and return JSON per the schema.`
     : 'Analyze this medical image and return JSON per the schema.';
 
+  // Prefer Gemini when key is present — supports vision natively
+  if (process.env.GEMINI_API_KEY) {
+    const raw = await callGeminiVision(base64, opts.mimetype, system, userText);
+    return { model: 'gemini-2.0-flash', raw, analysis: safeParseJson<VisionAnalysis>(raw) };
+  }
+
+  // Fallback: OpenRouter (requires a vision-capable model)
+  const client = openrouter();
+  const model = opts.model || defaultVisionModel();
   const resp = await client.chat.completions.create({
     model,
     temperature: 0.2,
@@ -63,10 +105,7 @@ export async function analyzeMedicalImage(opts: AnalyzeImageOptions): Promise<An
         role: 'user',
         content: [
           { type: 'text', text: userText },
-          {
-            type: 'image_url',
-            image_url: { url: `data:${opts.mimetype};base64,${base64}` },
-          },
+          { type: 'image_url', image_url: { url: `data:${opts.mimetype};base64,${base64}` } },
         ],
       },
     ],

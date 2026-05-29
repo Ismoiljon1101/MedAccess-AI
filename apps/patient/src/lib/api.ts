@@ -222,7 +222,16 @@ export async function analyzeReport(
   const res = await fetch(`${BASE}/api/reports/analyze`, { method: 'POST', body: form });
   if (!res.ok) throw await safeError(res);
   const data = await res.json();
-  return data.analysis;
+  const a = data.analysis ?? {};
+  // reason: server returns possibleFindings; client interface uses findings
+  return {
+    imageType:        a.imageType        ?? '',
+    qualityNotes:     a.qualityNotes     ?? '',
+    keyObservations:  a.keyObservations  ?? [],
+    findings:         a.possibleFindings ?? a.findings ?? [],
+    suggestedFollowUp: a.suggestedFollowUp ?? [],
+    disclaimer:       a.disclaimer       ?? '',
+  };
 }
 
 // ---------- facilities (v0.2) ─────────────────────────────────────────────
