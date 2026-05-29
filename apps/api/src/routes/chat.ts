@@ -100,6 +100,7 @@ router.post('/stream', async (req, res, next) => {
         res.write(`event: token\ndata: ${JSON.stringify({ delta: chunk })}\n\n`);
       }
     } catch (err: any) {
+      console.error('[chat/stream] LLM error:', err.message, err.status, err.cause?.code);
       res.write(`event: error\ndata: ${JSON.stringify({ message: err.message })}\n\n`);
     }
 

@@ -29,6 +29,14 @@ export function defaultChatModel(): string {
   return process.env.OPENROUTER_CHAT_MODEL || 'qwen/qwen3.5-plus-20260420';
 }
 
+// reason: reasoning models (qwen3.5-plus, deepseek-r1) hold delta.content null for
+// 10-30s during the thinking phase — real-time streaming must use a non-reasoning model.
+export function defaultStreamModel(): string {
+  return process.env.OPENROUTER_STREAM_MODEL
+    || process.env.OPENROUTER_FAST_MODEL
+    || 'qwen/qwen3.6-flash';
+}
+
 /** Cheap/fast model for triage, symptoms quick-parse, and high-volume calls. */
 export function defaultFastModel(): string {
   return process.env.OPENROUTER_FAST_MODEL || 'qwen/qwen3.6-flash';
@@ -73,7 +81,7 @@ export async function chat(opts: ChatOptions): Promise<ChatResult> {
 
 export async function* chatStream(opts: ChatOptions): AsyncGenerator<string> {
   const client = openrouter();
-  const model = opts.model || defaultChatModel();
+  const model = opts.model || defaultStreamModel();
   const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [
     ...(opts.system ? [{ role: 'system' as const, content: opts.system }] : []),
     ...opts.messages.map((m) => ({ role: m.role, content: m.content })),
@@ -87,9 +95,44 @@ export async function* chatStream(opts: ChatOptions): AsyncGenerator<string> {
     messages,
   });
 
+  // Strip <think>...</think> blocks emitted by Qwen 3.x / DeepSeek R1 reasoning models.
+  // These models emit internal chain-of-thought before the actual response; the UI
+  // should only show the final answer.
+  let inThink = false;
+  let thinkBuf = '';
+
   for await (const part of stream) {
-    const delta = part.choices?.[0]?.delta?.content;
-    if (delta) yield delta;
+    // reasoning_content is a separate field some providers use — always skip it
+    const delta: string = part.choices?.[0]?.delta?.content ?? '';
+    if (!delta) continue;
+
+    if (inThink) {
+      thinkBuf += delta;
+      const end = thinkBuf.indexOf('</think>');
+      if (end !== -1) {
+        inThink = false;
+        const after = thinkBuf.slice(end + 8);
+        thinkBuf = '';
+        if (after) yield after;
+      }
+    } else {
+      const start = delta.indexOf('<think>');
+      if (start !== -1) {
+        const before = delta.slice(0, start);
+        if (before) yield before;
+        inThink = true;
+        thinkBuf = delta.slice(start + 7);
+        const end = thinkBuf.indexOf('</think>');
+        if (end !== -1) {
+          inThink = false;
+          const after = thinkBuf.slice(end + 8);
+          thinkBuf = '';
+          if (after) yield after;
+        }
+      } else {
+        yield delta;
+      }
+    }
   }
 }
 
