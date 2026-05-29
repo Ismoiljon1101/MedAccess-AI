@@ -167,11 +167,11 @@ export default function FindCare() {
       });
       setFacilities(results);
 
-      // Tier 2: fetch Google Places fallback when < 3 enrolled + have coords
-      if (results.length < 3 && lat != null && lng != null) {
+      // Tier 2: Naver/Google fallback when < 3 enrolled facilities found
+      if (results.length < 3) {
         setMapLoading(true);
         searchMapNearby({
-          lat, lng,
+          ...(lat != null && lng != null ? { lat, lng } : {}),
           type:    typ !== 'all' ? typ : 'hospital',
           radius:  5000,
           keyword: spec && spec !== 'All' ? spec : undefined,

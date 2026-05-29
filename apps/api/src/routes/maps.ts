@@ -47,6 +47,7 @@ async function searchNaver(
   lat: number, lng: number, type: string, keyword: string,
   clientId: string, clientSecret: string,
 ): Promise<object[]> {
+  const hasCoords = !isNaN(lat) && !isNaN(lng);
   const query = naverTypeQuery(type, keyword);
   const params = new URLSearchParams({ query, display: '20', sort: 'random' });
 
@@ -87,7 +88,7 @@ async function searchNaver(
       rating:     undefined,
       openNow:    undefined,
       types:      [type],
-      distanceKm: Number(haversine(lat, lng, pLat, pLng).toFixed(2)),
+      distanceKm: hasCoords ? Number(haversine(lat, lng, pLat, pLng).toFixed(2)) : undefined,
       navUrl:     naverNavUrl(pLat, pLng, name),
       source:     'naver',
     };
@@ -103,10 +104,6 @@ router.get('/nearby', async (req, res, next) => {
     const radius  = parseInt(req.query.radius   as string) || 5000;
     const keyword = (req.query.keyword as string) || '';
 
-    if (isNaN(lat) || isNaN(lng)) {
-      return next(new HttpError(400, 'lat and lng are required numeric parameters'));
-    }
-
     const naverClientId     = process.env.NAVER_CLIENT_ID;
     const naverClientSecret = process.env.NAVER_CLIENT_SECRET;
     const googleApiKey      = process.env.GOOGLE_MAPS_API_KEY;
@@ -114,10 +111,10 @@ router.get('/nearby', async (req, res, next) => {
     // ── Naver (preferred — Korea coverage, no billing) ────────────────
     if (naverClientId && naverClientSecret) {
       const places = await searchNaver(lat, lng, type, keyword, naverClientId, naverClientSecret);
-      const nearby = places
+      const nearby = !isNaN(lat) && !isNaN(lng)
         // reason: filter to requested radius since Naver search doesn't support radius param
-        .filter((p: any) => p.distanceKm <= radius / 1000)
-        .sort((a: any, b: any) => a.distanceKm - b.distanceKm);
+        ? places.filter((p: any) => p.distanceKm <= radius / 1000).sort((a: any, b: any) => a.distanceKm - b.distanceKm)
+        : places; // no coords → return all results sorted by Naver's own relevance
       return res.json({ places: nearby, source: 'naver', total: nearby.length });
     }
 

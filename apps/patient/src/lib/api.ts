@@ -428,18 +428,19 @@ export interface MapNearbyResult {
 }
 
 export async function searchMapNearby(opts: {
-  lat: number;
-  lng: number;
+  lat?: number;
+  lng?: number;
   type?: string;
   radius?: number;
   keyword?: string;
 }): Promise<MapNearbyResult> {
   const params = new URLSearchParams({
-    lat:    String(opts.lat),
-    lng:    String(opts.lng),
     type:   opts.type   || 'hospital',
     radius: String(opts.radius || 5000),
   });
+  // lat/lng optional — Naver Local Search works by keyword without coords
+  if (opts.lat != null) params.set('lat', String(opts.lat));
+  if (opts.lng != null) params.set('lng', String(opts.lng));
   if (opts.keyword) params.set('keyword', opts.keyword);
   const res = await fetch(`${BASE}/api/maps/nearby?${params}`);
   if (!res.ok) throw await safeError(res);
