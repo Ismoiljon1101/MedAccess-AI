@@ -1,7 +1,7 @@
 import type { VisionAnalysis } from '@medaccess/shared';
 import { visionReportPrompt } from '@medaccess/shared';
 import { HttpError } from '../middleware/error.js';
-import { defaultVisionModel, openrouter, safeParseJson } from './llm.js';
+import { chat, defaultChatModel, defaultVisionModel, openrouter, safeParseJson } from './llm.js';
 
 // ── Gemini vision (Google AI Studio) ─────────────────────────────────────────
 
@@ -123,15 +123,17 @@ export interface AnalyzeImageFullResult extends AnalyzeImageResult {
 }
 
 /**
- * Run BOTH paths in parallel: LLM vision analysis + Python specialist sidecar.
- * Merges sidecar findings into VisionAnalysis.possibleFindings (prepended, marked).
- * Falls back gracefully if sidecar is unavailable (IMAGE_ML_URL unset).
+ * Correct pipeline:
+ *   1. Sidecar (local YOLO / TorchXRayVision) runs on the image → structured findings JSON
+ *   2. If sidecar has findings → TEXT LLM explains them (image never sent to main LLM)
+ *   3. If sidecar skipped / unavailable → Gemini vision fallback (rate-limited, last resort)
+ *
+ * The main LLM only ever sees text — specialist model output + user note.
+ * This avoids Gemini vision quota hits and keeps clinical accuracy high.
  */
 export async function analyzeImageFull(
   opts: AnalyzeImageOptions,
 ): Promise<AnalyzeImageFullResult> {
-  // ── Hint detection ─────────────────────────────────────────────
-  // Derive a type hint from the user note / model hint for the sidecar.
   const rawHint = (opts.userNote || '').toLowerCase();
   const hint =
     /xray|x-ray|chest|lung|pneumon/.test(rawHint) ? 'xray' :
@@ -139,42 +141,44 @@ export async function analyzeImageFull(
     /eye|retina|fundus|diabetic/.test(rawHint) ? 'eye' :
     undefined;
 
-  // ── Run both paths in parallel ──────────────────────────────────
-  const [llmResult, sidecarResult] = await Promise.all([
-    analyzeMedicalImage(opts),
-    analyzeImageViaSidecar(opts.buffer, hint),
-  ]);
+  // ── Step 1: specialist sidecar ─────────────────────────────────
+  const sidecarResult = await analyzeImageViaSidecar(opts.buffer, hint);
 
-  // ── Merge sidecar findings into LLM analysis ────────────────────
-  if (
-    sidecarResult &&
-    !sidecarResult.skipped &&
-    sidecarResult.findings.length > 0 &&
-    llmResult.analysis
-  ) {
-    // Map MLFinding → VisionFinding
-    const specialistFindings = sidecarResult.findings.map((f) => ({
-      finding: f.label,
-      confidence: (
-        f.confidence >= 0.75 ? 'high' :
-        f.confidence >= 0.45 ? 'moderate' : 'low'
-      ) as 'high' | 'moderate' | 'low',
-      notes: [
-        f.notes || '',
-        `[Specialist model: ${sidecarResult.model_used}, conf: ${(f.confidence * 100).toFixed(0)}%]`,
-      ].filter(Boolean).join(' '),
-    }));
+  // ── Step 2: sidecar has real findings → text LLM explains them ─
+  if (sidecarResult && !sidecarResult.skipped && sidecarResult.findings.length > 0) {
+    const findingLines = sidecarResult.findings
+      .map((f, i) => `${i + 1}. ${f.label} (confidence: ${(f.confidence * 100).toFixed(0)}%)${f.notes ? ' — ' + f.notes : ''}`)
+      .join('\n');
 
-    // Prepend specialist findings so they appear first
-    llmResult.analysis = {
-      ...llmResult.analysis,
-      possibleFindings: [...specialistFindings, ...llmResult.analysis.possibleFindings],
-      qualityNotes: llmResult.analysis.qualityNotes
-        ? `${llmResult.analysis.qualityNotes} · Specialist model: ${sidecarResult.model_used}`
-        : `Specialist model: ${sidecarResult.model_used}`,
+    const prompt = [
+      `A specialist medical CV model (${sidecarResult.model_used}) analyzed a ${sidecarResult.image_type} image and found:`,
+      findingLines,
+      opts.userNote ? `\nProvider note: "${opts.userNote}"` : '',
+      `\nProduce a clinical summary for a frontline provider. Return strict JSON matching this schema exactly:`,
+      `{ "imageType": string, "qualityNotes": string, "keyObservations": string[], "possibleFindings": [{ "finding": string, "confidence": "high"|"moderate"|"low", "notes": string }], "suggestedFollowUp": string[], "disclaimer": string }`,
+      opts.language ? `\nRespond in language: ${opts.language}.` : '',
+    ].filter(Boolean).join('\n');
+
+    const { text, model } = await chat({
+      messages: [{ role: 'user', content: prompt }],
+      model: defaultChatModel(),
+      temperature: 0.2,
+      maxTokens: 1200,
+      json: true,
+    });
+
+    const analysis = safeParseJson<VisionAnalysis>(text);
+    return {
+      model: `${sidecarResult.model_used}+${model}`,
+      raw: text,
+      analysis,
+      sidecar: sidecarResult,
     };
   }
 
+  // ── Step 3: sidecar unavailable/skipped → Gemini vision fallback ─
+  console.warn(`[vision] sidecar skipped (${sidecarResult?.skipped_reason ?? 'unavailable'}) — falling back to Gemini vision`);
+  const llmResult = await analyzeMedicalImage(opts);
   return { ...llmResult, sidecar: sidecarResult };
 }
 
