@@ -23,12 +23,10 @@ export default function Welcome() {
   const [city, setCity] = useState('');
 
   function handleStart() {
-    const profile = {
+    setPatientProfile({
       fullName: name.trim() || 'Guest',
       city:     city.trim() || undefined,
-      preferredLanguage: lang,
-    };
-    setPatientProfile(profile);
+    });
     setLanguage(lang);
   }
 
