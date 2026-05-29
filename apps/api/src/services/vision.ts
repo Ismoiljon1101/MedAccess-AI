@@ -176,10 +176,37 @@ export async function analyzeImageFull(
     };
   }
 
-  // ── Step 3: sidecar unavailable/skipped → Gemini vision fallback ─
-  console.warn(`[vision] sidecar skipped (${sidecarResult?.skipped_reason ?? 'unavailable'}) — falling back to Gemini vision`);
+  // ── Step 3: sidecar configured but skipped (model not yet trained) ─
+  // Do NOT call Gemini — sidecar is running, image type was detected,
+  // specialist model just isn't trained yet. Tell the text LLM that.
+  if (sidecarResult !== null) {
+    const reason = sidecarResult.skipped_reason || 'Specialist model not yet loaded';
+    const prompt = [
+      `The patient uploaded a ${sidecarResult.image_type || 'medical'} image.`,
+      `Specialist model status: ${reason}`,
+      opts.userNote ? `Provider note: "${opts.userNote}"` : '',
+      `Produce a clinical response acknowledging the image was received but the specialist model is not yet available for this image type.`,
+      `Advise the patient on what the image type typically shows and recommend in-person evaluation.`,
+      `Return strict JSON: { "imageType": string, "qualityNotes": string, "keyObservations": string[], "possibleFindings": [], "suggestedFollowUp": string[], "disclaimer": string }`,
+      opts.language ? `Respond in language: ${opts.language}.` : '',
+    ].filter(Boolean).join('\n');
+
+    const { text, model } = await chat({
+      messages: [{ role: 'user', content: prompt }],
+      model: defaultChatModel(),
+      temperature: 0.2,
+      maxTokens: 800,
+      json: true,
+    });
+
+    return { model, raw: text, analysis: safeParseJson<VisionAnalysis>(text), sidecar: sidecarResult };
+  }
+
+  // ── Step 4: sidecar not configured at all → Gemini vision fallback ─
+  // IMAGE_ML_URL is unset — only then do we use Gemini.
+  console.warn('[vision] sidecar not configured (IMAGE_ML_URL unset) — falling back to Gemini');
   const llmResult = await analyzeMedicalImage(opts);
-  return { ...llmResult, sidecar: sidecarResult };
+  return { ...llmResult, sidecar: null };
 }
 
 /**
