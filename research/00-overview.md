@@ -26,11 +26,33 @@ Selected by prevalence in target markets (rural Uzbekistan, sub-Saharan Africa, 
 |---|---|---|---|---|---|---|---|
 | 1 | **YOLOv8n-Malaria** (NIH Thin Blood Smear) | MIT ✅ | 99.1% F1 / 96.4% sens | ~120ms | 12 MB | **✅ Ship now** | Permissive license, fast, accurate. Needs focus-locking slide adapter to minimize blur. |
 | 2 | **TorchXRayVision (DenseNet121-all)** | Apache 2.0 ✅ (but VinDr-CXR data CC BY-NC) | 0.82–0.89 AUROC | ~850ms | 135 MB | **⚠️ Conditional** | Requires alignment UI for X-ray photography. Local Python sidecar (too heavy for mobile). |
-| 3 | **YOLOv8n-cls / HAM10000** | CC BY-NC 4.0 ⚠️ | 86.2% (91.9% w/ CLAHE preprocessing) | ~15ms | 16 MB | **⚠️ Demo / pilot only** | Non-commercial license — humanitarian programs only for v0.1. Pair with polarized dermoscopic lens. |
+| 3 | **YOLOv8n-cls / HAM10000** | CC BY-NC 4.0 ⚠️ | 86.2% (91.9% w/ CLAHE preprocessing) | ~15ms | 16 MB | **🔴 UPGRADE NEEDED** | Non-commercial license + low accuracy. See §2b for better alternatives. |
 | 4 | **ResNet50-DR** | Research / non-commercial ⚠️ | 84.1% (0.89 AUROC) | ~350ms | 98 MB | **⚠️ Non-profit only** | Mixed non-commercial dataset licenses. Viable for charity screenings. |
 | 5 | **MobileNetV2-ScabAI** | Academic / non-commercial ⚠️ | 87.5% acc / 83.3% recall | ~80ms | 14 MB | **❌ Defer** | Dataset too small (800 images), licensing blocks deployment. Re-train on larger corpus later. |
 
 **Real-world accuracy drop:** all models lose 10–25% on non-curated phone photos vs benchmark. The image-quality UX (§4 below) is non-negotiable — not a nice-to-have.
+
+---
+
+## 2b. Skin Model Upgrade — Better Alternatives Found (2026-05-30)
+
+Original plan (HAM10000 YOLOv8n-cls, 86.2%) is **insufficient** — no pre-trained weights, non-commercial license, low accuracy. Better options:
+
+| Model | Architecture | Accuracy | License | Effort | Link |
+|---|---|---|---|---|---|
+| **Skin_Disease_AI** | Xception CNN | **92%** | Open | Clone + extract | [github.com/NadavIs56/Skin_Disease_AI](https://github.com/NadavIs56/Skin_Disease_AI) |
+| **Skin-Disease-Detection** | EfficientNet-B0 | **95.5%** | Open | Clone + convert | [github.com/MahimaKhatri/Skin-Disease-Detection](https://github.com/MahimaKhatri/Skin-Disease-Detection) |
+| **YOLO11 Skin Disease** | YOLO11 | — | Open | Download weights | [pyresearch on YouTube](https://www.youtube.com/watch?v=nz6Ta90BOtM) |
+| **Roboflow skin-disease-ia** | CNN | — | **CC BY 4.0 ✅** | API / download | [universe.roboflow.com](https://universe.roboflow.com/health-ai-detection/skin-disease-ia-detection) |
+
+**Better training datasets:**
+- **ISIC Archive** — 85,000+ images, melanoma + BCC + SCC + benign — gold standard
+- **Fitzpatrick 17K** — 16,577 images, diverse skin tones (critical for reducing bias on darker skin)
+- **DermaMNIST** — 10,015 lightweight images for fast experiments
+
+**Decision needed (Ismail):** Choose model before Temirlan integrates. Recommendation:
+- **v0.1 demo:** Use `Skin_Disease_AI` (Xception 92%, open) — clone, extract weights, wire into sidecar
+- **v0.2 production:** Train EfficientNet-B0 on ISIC + Fitzpatrick 17K → 95%+ with skin tone coverage
 
 ---
 

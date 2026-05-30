@@ -28,12 +28,47 @@
 | Vision model upgrade (Sonnet 4.5) | ❌ **Cancelled** — going free-Chinese instead |
 | QA pass across both portals | 🚧 In progress (Mirsaid) |
 | Image thumbnails in chat | 📋 Todo (Otabek) |
-| Specialist disease models: **YOLOv8n-Malaria** (Phase 1, MIT) | 📋 Todo (Temirlan, **unblocked**) |
-| Specialist disease models: **TorchXRayVision** pneumonia (Phase 2) | 📋 Todo (Temirlan + Otabek for alignment UI) |
-| Specialist disease models: **YOLOv8n-cls** skin lesions (Phase 3, non-commercial pilot only) | 📋 Todo (Temirlan) |
+| Specialist disease models: **YOLOv8n-Malaria** (Phase 1, MIT) | ✅ Done — `models/malaria-yolov8s.pt` running on :5001 |
+| Specialist disease models: **TorchXRayVision DenseNet121-all** pneumonia (Phase 2) | ✅ Done — auto-downloads, running on :5001 |
+| Specialist disease models: **skin lesion classifier** (Phase 3) | 🔴 **BLOCKED — no medical weights** — see §0.6 below |
+| Fix: FindCare GPS — loads Tashkent seed data then GPS fires but page doesn't reload with local results | 🔴 **Bug (Ismail)** |
 | PWA Lighthouse audit ≥ 90 | 📋 Todo (Otabek) |
 | Screenshots + DEMO.md | 📋 Todo (Sobirov) |
 | Tag `v0.1.0` + submit | 📋 Todo (Ismail) |
+
+---
+
+## 0.6 · Skin Disease Model — Options (UNBLOCKED, needs decision)
+
+**Problem:** `YOLOv8n-cls / HAM10000` (86.2% acc) was the original plan but:
+1. No pre-trained weights exist publicly — must train from scratch on HAM10000 dataset (~30 min on CPU)
+2. HAM10000 license is **CC BY-NC 4.0** — non-commercial only
+3. Better alternatives exist with higher accuracy and permissive licensing
+
+**Newly found alternatives (Ismail to decide):**
+
+| Model | Architecture | Accuracy | License | Ready to use? | Repo |
+|---|---|---|---|---|---|
+| **Skin_Disease_AI** | Xception (CNN) | **92%** | Open | Clone + convert weights | [NadavIs56/Skin_Disease_AI](https://github.com/NadavIs56/Skin_Disease_AI) |
+| **Skin-Disease-Detection** | EfficientNet-B0 | **95.5%** | Open | Clone + convert weights | [MahimaKhatri/Skin-Disease-Detection](https://github.com/MahimaKhatri/Skin-Disease-Detection) |
+| **YOLO11 Skin Disease** | YOLO11 | — | Open | Download weights | [pyresearch/Skin-Diseases-Detection-System](https://github.com/pyresearch/Skin-Diseases-Detection-System) |
+| **Roboflow skin-disease-ia** | CNN | — | **CC BY 4.0 ✅** | API or download | [universe.roboflow.com](https://universe.roboflow.com/health-ai-detection/skin-disease-ia-detection) |
+
+**Better datasets (if training):**
+
+| Dataset | Images | Notes |
+|---|---|---|
+| **ISIC Archive** | 85,000+ | Melanoma, BCC, SCC, benign — gold standard |
+| **Fitzpatrick 17K** | 16,577 | Diverse skin tones — reduces AI bias on darker skin |
+| **HAM10000** | 10,015 | 7 classes — original plan, CC BY-NC |
+| **DermaMNIST** | 10,015 | Lightweight, fast experiments |
+
+**Recommendation:**
+1. **Fastest path:** `Skin_Disease_AI` (Xception, 92%) or `YOLO11` — clone repo, extract weights, drop in `services/image-ml/models/skin-ham10000.pt`
+2. **Best accuracy:** EfficientNet-B0 (95.5%) — needs PyTorch weight conversion to YOLO format
+3. **Best license:** Roboflow CC BY 4.0 — commercial safe, API available immediately
+
+**Owner: Temirlan** (model integration) + **Ismail** (license decision)
 
 ---
 

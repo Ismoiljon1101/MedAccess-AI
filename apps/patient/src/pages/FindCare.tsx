@@ -197,21 +197,37 @@ export default function FindCare() {
     }
   }, [specialty, typeFilter, citySearch, coords]);
 
-  useEffect(() => { load(); }, []); // initial load (no coords yet)
-
-  // ── Geolocation — auto-request on mount ───────────────────────────────────
+  // ── Geolocation — request first, THEN load facilities with real coords ──────
   useEffect(() => {
-    if (!navigator.geolocation) { setLocDone(true); return; }
+    if (!navigator.geolocation) {
+      // No GPS support — load immediately without coords
+      setLocDone(true);
+      load();
+      return;
+    }
+
     setLocRequesting(true);
+
+    // Try GPS first (3s timeout). On success → load with real coords.
+    // On fail/deny → load without coords (all facilities, unsorted).
+    const gpsTimeout = setTimeout(() => {
+      // GPS took too long — load without coords rather than show blank screen
+      setLocDone(true);
+      setLocRequesting(false);
+      load();
+    }, 3000);
+
     navigator.geolocation.getCurrentPosition(
       async (pos) => {
+        clearTimeout(gpsTimeout);
         const { latitude: lat, longitude: lng } = pos.coords;
         setCoords({ lat, lng });
         setLocDone(true);
         setLocRequesting(false);
+        // Pass coords directly — don't rely on state being updated yet
         load({ lat, lng });
 
-        // Reverse-geocode via browser Nominatim (no API key needed)
+        // Reverse-geocode via Nominatim (no API key)
         try {
           const r = await fetch(
             `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&accept-language=en`,
@@ -220,17 +236,20 @@ export default function FindCare() {
           if (r.ok) {
             const d = await r.json() as any;
             const addr = d.address;
-            const parts = [
-              addr?.road || addr?.suburb,
-              addr?.city || addr?.town || addr?.county,
-              addr?.country,
-            ].filter(Boolean);
-            setLocLabel(parts.join(', '));
+            setLocLabel(
+              [addr?.road || addr?.suburb, addr?.city || addr?.town || addr?.county, addr?.country]
+                .filter(Boolean).join(', '),
+            );
           }
         } catch { /* non-fatal */ }
       },
-      () => { setLocDone(true); setLocRequesting(false); load(); },
-      { timeout: 10_000, enableHighAccuracy: false },
+      () => {
+        clearTimeout(gpsTimeout);
+        setLocDone(true);
+        setLocRequesting(false);
+        load(); // denied — load without coords
+      },
+      { timeout: 5000, enableHighAccuracy: false },
     );
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
