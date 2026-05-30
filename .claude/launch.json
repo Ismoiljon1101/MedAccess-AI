@@ -2,28 +2,25 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "all-dev",
-      "runtimeExecutable": "pnpm",
-      "runtimeArgs": ["-r", "--parallel", "run", "dev"],
-      "port": 5173
-    },
-    {
       "name": "api-dev",
       "runtimeExecutable": "pnpm",
       "runtimeArgs": ["--filter", "@medaccess/api", "run", "dev"],
-      "port": 4000
+      "port": 4000,
+      "autoPort": false
     },
     {
       "name": "clinic-dev",
       "runtimeExecutable": "pnpm",
       "runtimeArgs": ["--filter", "@medaccess/clinic", "run", "dev"],
-      "port": 5173
+      "port": 5173,
+      "autoPort": false
     },
     {
       "name": "patient-dev",
       "runtimeExecutable": "pnpm",
       "runtimeArgs": ["--filter", "@medaccess/patient", "run", "dev"],
-      "port": 5174
+      "port": 5174,
+      "autoPort": false
     }
   ]
 }

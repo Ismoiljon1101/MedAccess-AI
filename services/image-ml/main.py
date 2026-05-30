@@ -121,17 +121,18 @@ def preprocess_skin(img: np.ndarray) -> np.ndarray:
     return cv2.cvtColor(cv2.merge([l, a, b]), cv2.COLOR_LAB2BGR)
 
 
-def preprocess_xray(img: np.ndarray) -> np.ndarray:
-    """Normalize X-ray to TorchXRayVision expected input [-1024, 1024] float32."""
+def preprocess_xray(img: np.ndarray):
+    """Normalize X-ray to TorchXRayVision expected input: [1, 1, 224, 224] tensor."""
     import torch  # type: ignore
     import torchxrayvision as xrv  # type: ignore
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY).astype(np.float32)
-    # Scale to [-1024, 1024] range expected by TorchXRayVision
-    gray = (gray / 255.0) * 2048.0 - 1024.0
+    # xrv.datasets.normalize: scales to [-1024, 1024], adds channel dim → (1, H, W)
     gray = xrv.datasets.normalize(gray, maxval=255, reshape=True)
-    transform = xrv.datasets.XRayCenterCrop()
-    gray = transform({"img": gray})["img"]
-    return torch.from_numpy(gray).unsqueeze(0)  # type: ignore
+    # Resize to 224×224 (model input size)
+    gray = gray[0]  # remove channel dim for resize
+    gray = cv2.resize(gray, (224, 224))
+    gray = gray[np.newaxis, np.newaxis, ...]  # (1, 1, 224, 224)
+    return torch.from_numpy(gray).float()  # type: ignore
 
 
 # ── Image type detection ──────────────────────────────────────────────────────
