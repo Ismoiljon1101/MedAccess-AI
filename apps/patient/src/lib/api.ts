@@ -387,6 +387,13 @@ export interface ReferralPayload {
   specialty: string;
   urgency?: string;
   summary?: string;
+  /** AI image analysis report — attached when patient uploaded a medical image */
+  imageAnalysis?: {
+    imageType: string;
+    findings: Array<{ finding: string; confidence: string; notes: string }>;
+    suggestedFollowUp: string[];
+    model: string;
+  };
   preferredTime?: string;
 }
 

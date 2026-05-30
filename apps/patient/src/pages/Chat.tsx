@@ -102,21 +102,45 @@ export default function Chat() {
     const hasClinical = clinicalKeywords.some((k) => t.includes(k));
     if (!hasClinical) return null;
 
-    // Urgency
-    let urgency = 'see-clinician-soon';
-    if (/emergency|immediately|call 9|call 1|life.threaten/i.test(t)) urgency = 'emergency';
-    else if (/urgent|as soon as possible|asap|right away/i.test(t)) urgency = 'urgent';
-    else if (/self.care|home remedy|rest at home|over.the.counter/i.test(t)) urgency = 'self-care';
+    return { specialty: detectSpecialty(t), urgency: detectUrgency(t) };
+  }
 
-    // Specialty
-    let specialty = 'General Practice';
-    if (/heart|cardiac|chest pain|palpitation|cardiovascular/i.test(t)) specialty = 'Cardiology';
-    else if (/headache|migraine|neurolog|seizure|stroke|nerve/i.test(t)) specialty = 'Neurology';
-    else if (/breath|respiratory|lung|asthma|pulmon|cough/i.test(t)) specialty = 'Respiratory';
-    else if (/mental|anxiety|depress|psychiatr|psycholog/i.test(t)) specialty = 'Mental Health';
-    else if (/child|pediatr|infant|baby/i.test(t)) specialty = 'Pediatrics';
-    else if (/urgent care|minor injur|wound/i.test(t)) specialty = 'Urgent Care';
-    else if (/emergency|trauma/i.test(t)) specialty = 'Emergency';
+  function detectUrgency(t: string): string {
+    if (/emergency|immediately|call 9|call 1|life.threaten/i.test(t)) return 'emergency';
+    if (/urgent|as soon as possible|asap|right away/i.test(t)) return 'urgent';
+    if (/self.care|home remedy|rest at home|over.the.counter/i.test(t)) return 'self-care';
+    return 'see-clinician-soon';
+  }
+
+  function detectSpecialty(t: string): string {
+    if (/heart|cardiac|chest pain|palpitation|cardiovascular/i.test(t)) return 'Cardiology';
+    if (/headache|migraine|neurolog|seizure|stroke|nerve/i.test(t)) return 'Neurology';
+    if (/breath|respiratory|lung|asthma|pulmon|cough/i.test(t)) return 'Respiratory';
+    if (/mental|anxiety|depress|psychiatr|psycholog/i.test(t)) return 'Mental Health';
+    if (/child|pediatr|infant|baby/i.test(t)) return 'Pediatrics';
+    if (/skin|lesion|rash|melanom|dermat|mole/i.test(t)) return 'Dermatology';
+    if (/eye|retina|fundus|vision|diabetic retino/i.test(t)) return 'Ophthalmology';
+    if (/x.?ray|pneumon|lung|chest/i.test(t)) return 'Pulmonology';
+    if (/urgent care|minor injur|wound/i.test(t)) return 'Urgent Care';
+    if (/emergency|trauma/i.test(t)) return 'Emergency';
+    return 'General Practice';
+  }
+
+  // ── Image analysis → urgency + specialty detection ───────────────────
+  function detectImageUrgency(result: import('@/lib/api').ReportAnalysisResult): { specialty: string; urgency: string } | null {
+    const findings = result.findings || [];
+    const hasHighConf = findings.some((f) => f.confidence === 'high');
+    const hasModConf = findings.some((f) => f.confidence === 'moderate');
+
+    // Always suggest care if there are real findings
+    if (!hasHighConf && !hasModConf && findings.length === 0) return null;
+
+    // Urgency: high confidence finding = urgent, moderate = see-clinician-soon
+    const urgency = hasHighConf ? 'urgent' : 'see-clinician-soon';
+
+    // Specialty from image type
+    const t = (result.imageType + ' ' + findings.map((f) => f.finding).join(' ')).toLowerCase();
+    const specialty = detectSpecialty(t);
 
     return { specialty, urgency };
   }
@@ -334,6 +358,9 @@ export default function Chat() {
     sr.start();
   }
 
+  // Store latest image analysis for attaching to referral
+  const lastImageAnalysisRef = useRef<import('@/lib/api').ReportAnalysisResult | null>(null);
+
   async function handleCaptureConfirm(file: File, _modality: ImageModality) {
     setShowCapture(false);
 
@@ -347,6 +374,9 @@ export default function Chat() {
 
     try {
       const result = await analyzeReport(file, language, sessionId);
+      // Store for referral attachment
+      lastImageAnalysisRef.current = result;
+
       const analysisText = [
         '**Medical Image Analysis:**',
         `- Type: ${result.imageType}`,
@@ -367,6 +397,18 @@ export default function Chat() {
       setMessages((prev) =>
         prev.map((m) => (m.id === aiId ? { ...m, content: analysisText, streaming: false } : m)),
       );
+
+      // ── CONNECTION 1: Image analysis → trigger Find Care CTA ──────
+      // If findings are serious, auto-show CTA — no need for 3 chat turns
+      const imageSnap = detectImageUrgency(result);
+      if (imageSnap) {
+        setCtaSpec(imageSnap);
+        // Also store analysis summary as preview for referral
+        if (!previewRef.current) {
+          previewRef.current = `Image analysis: ${result.imageType} — ${result.findings.map((f) => f.finding).join(', ') || 'see report'}`;
+        }
+      }
+
       if (sessionId) persistSession(sessionId, 1);
     } catch (err: any) {
       setMessages((prev) =>
@@ -571,7 +613,19 @@ export default function Chat() {
               params.set('specialty', ctaSpec.specialty);
               params.set('urgency', ctaSpec.urgency);
               if (sessionId) params.set('s', sessionId);
-              if (previewRef.current) params.set('summary', previewRef.current);
+              // CONNECTION 2: Include image analysis in referral summary
+              const analysis = lastImageAnalysisRef.current;
+              if (analysis) {
+                const imgSummary = [
+                  `[AI Image Analysis — ${analysis.imageType}]`,
+                  ...analysis.findings.map((f) => `• ${f.finding} (${f.confidence}): ${f.notes}`),
+                  `Follow-up: ${analysis.suggestedFollowUp.join('; ')}`,
+                ].join('\n');
+                params.set('summary', imgSummary);
+                params.set('imageReport', 'true');
+              } else if (previewRef.current) {
+                params.set('summary', previewRef.current);
+              }
               navigate(`/find-care?${params.toString()}`);
             }}
             className="shrink-0 rounded-xl border border-brand-500/40 bg-brand-600/20 px-3 py-1.5 text-xs font-semibold text-brand-400 hover:bg-brand-600/30 transition whitespace-nowrap"

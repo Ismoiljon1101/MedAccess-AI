@@ -116,13 +116,14 @@ router.get('/:id/doctors', async (req, res, next) => {
 // Patient books / requests an appointment
 router.post('/referrals', async (req, res, next) => {
   try {
-    const { sessionId, patientName, patientPhone, clinicId, clinicName, specialty, urgency, summary, preferredTime } = req.body;
+    const { sessionId, patientName, patientPhone, clinicId, clinicName, specialty, urgency, summary, imageAnalysis, preferredTime } = req.body;
 
     if (!patientName || !clinicId || !clinicName) {
       return next(new HttpError(400, 'patientName, clinicId, clinicName are required'));
     }
 
-    const referral = {
+    // reason: Record<string, any> because imageAnalysis is optional mixed-schema
+    const referral: Record<string, any> = {
       sessionId:    sessionId || 'anonymous',
       patientName:  patientName.slice(0, 100),
       patientPhone: patientPhone?.slice(0, 30),
@@ -134,6 +135,16 @@ router.post('/referrals', async (req, res, next) => {
       preferredTime: preferredTime?.slice(0, 100),
       status:       'pending',
     };
+
+    // Attach AI image analysis report if present (from image upload flow)
+    if (imageAnalysis && typeof imageAnalysis === 'object') {
+      referral.imageAnalysis = {
+        imageType: imageAnalysis.imageType || 'unknown',
+        findings: Array.isArray(imageAnalysis.findings) ? imageAnalysis.findings.slice(0, 10) : [],
+        suggestedFollowUp: Array.isArray(imageAnalysis.suggestedFollowUp) ? imageAnalysis.suggestedFollowUp.slice(0, 10) : [],
+        model: imageAnalysis.model || '',
+      };
+    }
 
     if (dbReady()) {
       const doc = await Referral.create(referral);

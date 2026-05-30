@@ -242,6 +242,42 @@ export default function Patients() {
                           <p className="text-xs text-ink-200 leading-relaxed">{ref.summary}</p>
                         </div>
                       )}
+                      {/* CONNECTION 3: Display AI image analysis report */}
+                      {ref.imageAnalysis && (
+                        <div className="rounded-xl bg-brand-500/5 border border-brand-500/20 p-3">
+                          <p className="text-[10px] uppercase tracking-wider text-brand-400 mb-1.5 flex items-center gap-1">
+                            🔬 AI Image Analysis — {ref.imageAnalysis.imageType}
+                          </p>
+                          {ref.imageAnalysis.findings?.length > 0 ? (
+                            <ul className="space-y-1">
+                              {ref.imageAnalysis.findings.map((f: any, i: number) => (
+                                <li key={i} className="text-xs text-ink-200 flex items-start gap-1.5">
+                                  <span className={`shrink-0 mt-0.5 inline-block h-2 w-2 rounded-full ${
+                                    f.confidence === 'high' ? 'bg-red-400' : f.confidence === 'moderate' ? 'bg-amber-400' : 'bg-slate-400'
+                                  }`} />
+                                  <span><strong>{f.finding}</strong> ({f.confidence}){f.notes ? ` — ${f.notes}` : ''}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          ) : (
+                            <p className="text-xs text-ink-400">No specific findings detected</p>
+                          )}
+                          {ref.imageAnalysis.suggestedFollowUp?.length > 0 && (
+                            <div className="mt-2 pt-2 border-t border-brand-500/10">
+                              <p className="text-[10px] text-ink-500 mb-1">Suggested follow-up:</p>
+                              <ul className="text-[11px] text-ink-300 space-y-0.5">
+                                {ref.imageAnalysis.suggestedFollowUp.map((s: string, i: number) => (
+                                  <li key={i}>• {s}</li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+                          {ref.imageAnalysis.model && (
+                            <p className="mt-1.5 text-[9px] text-ink-600">Model: {ref.imageAnalysis.model}</p>
+                          )}
+                        </div>
+                      )}
+
                       <div className="grid grid-cols-2 gap-3 text-[11px]">
                         <div>
                           <span className="text-ink-500 block mb-0.5">Patient</span>

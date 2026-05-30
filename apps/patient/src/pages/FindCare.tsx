@@ -110,6 +110,7 @@ export default function FindCare() {
   const preSessionId    = searchParams.get('s')           || undefined;
   const preDoctorId     = searchParams.get('doctorId')    || undefined;
   const preFacilityId   = searchParams.get('facilityId')  || undefined;
+  // imageReport=true is set when the CTA came from image analysis (summary contains AI findings)
 
   // Search state
   const [typeFilter,    setTypeFilter]    = useState<FacilityType>('all');
