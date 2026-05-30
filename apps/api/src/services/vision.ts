@@ -110,14 +110,21 @@ export async function analyzeImageFull(
   }
 
   // ── Step 3: sidecar running but model skipped (not trained yet) ────
-  const reason = sidecarResult.skipped_reason || 'Specialist model not yet loaded for this image type';
+  const imgType = sidecarResult.image_type || 'medical';
   const prompt = [
-    `The patient uploaded a ${sidecarResult.image_type || 'medical'} image.`,
-    `Specialist model status: ${reason}`,
-    opts.userNote ? `Provider note: "${opts.userNote}"` : '',
-    `Produce a clinical response acknowledging the image was received but the specialist model is not yet available for this image type.`,
-    `Advise the patient on what the image type typically shows and recommend in-person evaluation.`,
-    `Return strict JSON: { "imageType": string, "qualityNotes": string, "keyObservations": string[], "possibleFindings": [], "suggestedFollowUp": string[], "disclaimer": string }`,
+    `You are a medical AI copilot. A patient uploaded a ${imgType} image.`,
+    `The local specialist CV model could not run automated classification for this image type.`,
+    opts.userNote ? `Provider/patient note: "${opts.userNote}"` : '',
+    '',
+    `Even without automated model output, provide USEFUL medical guidance:`,
+    `- For skin images: describe common dermatological conditions that match the described symptoms, what features to look for (ABCDE criteria for melanoma, distribution patterns, morphology), and when to seek urgent care.`,
+    `- For X-ray images: describe what a frontline provider should look for, common pathologies, and positioning/quality checks.`,
+    `- For eye/fundus images: describe diabetic retinopathy grading, what to look for, and referral criteria.`,
+    `- For microscopy images: describe what parasites or abnormal cells look like in blood smears.`,
+    '',
+    `Be specific and clinically useful — not generic. The patient needs actionable guidance.`,
+    `Return strict JSON: { "imageType": string, "qualityNotes": string, "keyObservations": string[], "possibleFindings": [{ "finding": string, "confidence": "low", "notes": string }], "suggestedFollowUp": string[], "disclaimer": string }`,
+    `possibleFindings should list the MOST LIKELY conditions for this image type and the patient's description, even at low confidence.`,
     opts.language ? `Respond in language: ${opts.language}.` : '',
   ].filter(Boolean).join('\n');
 

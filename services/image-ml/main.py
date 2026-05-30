@@ -88,10 +88,18 @@ def get_malaria_model() -> object | None:
     return _models["malaria"]
 
 
-def get_skin_model() -> object | None:
+def get_skin_model() -> tuple[object | None, str]:
+    """Returns (model, model_name). Falls back to base yolov8n-cls if HAM10000 not trained yet."""
     if "skin" not in _models:
-        _models["skin"] = _load_yolo(SKIN_MODEL_PATH)
-    return _models["skin"]
+        ham = _load_yolo(SKIN_MODEL_PATH)
+        if ham:
+            _models["skin"] = (ham, "skin-ham10000")
+        else:
+            # Fallback: base YOLOv8n-cls (ImageNet classes, not medical — but gives the LLM something)
+            base_path = BASE_DIR / "yolov8n-cls.pt"
+            base = _load_yolo(base_path)
+            _models["skin"] = (base, "yolov8n-cls-base") if base else (None, "")
+    return _models["skin"]  # type: ignore
 
 
 def get_xray_model() -> object | None:
@@ -238,11 +246,11 @@ async def analyze(
 
     # ── Skin lesion ───────────────────────────────────────────────
     if image_type == "skin":
-        model = get_skin_model()
+        model, model_name = get_skin_model()
         if model is None:
             return AnalyzeResponse(
                 image_type="skin", skipped=True,
-                skipped_reason="skin-ham10000.pt not found. Temirlan: train YOLOv8n-cls on HAM10000 dataset and drop weights into services/image-ml/models/",
+                skipped_reason="No skin model available. Place yolov8n-cls.pt in services/image-ml/ or train HAM10000 weights.",
                 model_used="", processing_ms=elapsed_ms(),
             )
         preprocessed = preprocess_skin(img_np)
@@ -255,11 +263,12 @@ async def analyze(
             if conf < 0.05:
                 break
             label = HAM10000_CLASSES[idx] if is_ham else names[int(idx)]
-            findings.append(Finding(label=label, confidence=round(float(conf), 3)))
+            findings.append(Finding(label=label, confidence=round(float(conf), 3),
+                                    notes="HAM10000 specialist" if is_ham else "general classifier"))
         return AnalyzeResponse(
             image_type="skin", skipped=False,
             findings=findings,
-            model_used="skin-ham10000" if is_ham else "yolov8n-cls-base",
+            model_used=model_name,
             processing_ms=elapsed_ms(),
         )
 
