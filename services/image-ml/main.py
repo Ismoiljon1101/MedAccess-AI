@@ -89,16 +89,18 @@ def get_malaria_model() -> object | None:
 
 
 def get_skin_model() -> tuple[object | None, str]:
-    """Returns (model, model_name). Falls back to base yolov8n-cls if HAM10000 not trained yet."""
+    """Returns (model, model_name). ONLY loads HAM10000-trained weights.
+    Base ImageNet YOLO is NOT used — it detects ticks/beetles, not skin diseases."""
     if "skin" not in _models:
         ham = _load_yolo(SKIN_MODEL_PATH)
         if ham:
             _models["skin"] = (ham, "skin-ham10000")
         else:
-            # Fallback: base YOLOv8n-cls (ImageNet classes, not medical — but gives the LLM something)
-            base_path = BASE_DIR / "yolov8n-cls.pt"
-            base = _load_yolo(base_path)
-            _models["skin"] = (base, "yolov8n-cls-base") if base else (None, "")
+            # DO NOT fall back to base yolov8n-cls — it's trained on ImageNet
+            # (animals, objects) and gives DANGEROUS results on medical images
+            # (e.g. classifies melanoma as "tick"). Return None so the LLM
+            # handles it with text-only guidance based on patient description.
+            _models["skin"] = (None, "")
     return _models["skin"]  # type: ignore
 
 
