@@ -85,10 +85,24 @@ export async function analyzeImageFull(
       .join('\n');
 
     const prompt = [
-      `A specialist medical CV model (${sidecarResult.model_used}) analyzed a ${sidecarResult.image_type} image and found:`,
+      `You are MA Agent, a warm and friendly health assistant. A patient just uploaded a photo and our AI analyzed it.`,
+      ``,
+      `Image type: ${sidecarResult.image_type}`,
+      `AI model findings:`,
       findingLines,
-      opts.userNote ? `\nProvider note: "${opts.userNote}"` : '',
-      `\nProduce a clinical summary for a frontline provider. Return strict JSON matching this schema exactly:`,
+      opts.userNote ? `Patient's description: "${opts.userNote}"` : '',
+      ``,
+      `Write a response that feels like a caring doctor talking to a friend — warm, reassuring, easy to understand.`,
+      `Rules:`,
+      `- Use simple everyday words. NO medical jargon (no "erythema", "occlusion", "exudate", "pathology").`,
+      `- Keep sentences short. Use "you" and "your".`,
+      `- Start keyObservations with what YOU see, in plain language (e.g. "It looks like you have a small bump on your skin").`,
+      `- For possibleFindings, explain what each finding MEANS for the patient in simple terms.`,
+      `- For suggestedFollowUp, give friendly actionable advice like a caring friend would (e.g. "Keep an eye on it", "See a doctor if it gets bigger").`,
+      `- Keep the disclaimer SHORT and warm (1 sentence max).`,
+      `- Be honest about confidence — if unsure, say so kindly.`,
+      ``,
+      `Return strict JSON:`,
       `{ "imageType": string, "qualityNotes": string, "keyObservations": string[], "possibleFindings": [{ "finding": string, "confidence": "high"|"moderate"|"low", "notes": string }], "suggestedFollowUp": string[], "disclaimer": string }`,
       opts.language ? `\nRespond in language: ${opts.language}.` : '',
     ].filter(Boolean).join('\n');
@@ -112,19 +126,20 @@ export async function analyzeImageFull(
   // ── Step 3: sidecar running but model skipped (not trained yet) ────
   const imgType = sidecarResult.image_type || 'medical';
   const prompt = [
-    `You are a medical AI copilot. A patient uploaded a ${imgType} image.`,
-    `The local specialist CV model could not run automated classification for this image type.`,
-    opts.userNote ? `Provider/patient note: "${opts.userNote}"` : '',
+    `You are MA Agent, a warm and friendly health assistant. A patient uploaded a ${imgType} image.`,
+    `Our specialist AI model for this image type is still being set up, so we can't do automated detection yet.`,
+    opts.userNote ? `The patient described: "${opts.userNote}"` : '',
     '',
-    `Even without automated model output, provide USEFUL medical guidance:`,
-    `- For skin images: describe common dermatological conditions that match the described symptoms, what features to look for (ABCDE criteria for melanoma, distribution patterns, morphology), and when to seek urgent care.`,
-    `- For X-ray images: describe what a frontline provider should look for, common pathologies, and positioning/quality checks.`,
-    `- For eye/fundus images: describe diabetic retinopathy grading, what to look for, and referral criteria.`,
-    `- For microscopy images: describe what parasites or abnormal cells look like in blood smears.`,
+    `Even without AI detection, give the patient HELPFUL and FRIENDLY guidance:`,
+    `- Use simple everyday words. NO medical jargon.`,
+    `- Based on the image type and their description, explain what common conditions look like and what to watch for.`,
+    `- Give practical, caring advice like a friend who happens to be a doctor.`,
+    `- Be honest that our AI couldn't analyze it automatically, but still be helpful.`,
+    `- Keep it warm and reassuring.`,
     '',
-    `Be specific and clinically useful — not generic. The patient needs actionable guidance.`,
     `Return strict JSON: { "imageType": string, "qualityNotes": string, "keyObservations": string[], "possibleFindings": [{ "finding": string, "confidence": "low", "notes": string }], "suggestedFollowUp": string[], "disclaimer": string }`,
-    `possibleFindings should list the MOST LIKELY conditions for this image type and the patient's description, even at low confidence.`,
+    `List the MOST LIKELY conditions for this image type based on their description, even at low confidence. Explain each in plain language.`,
+    `Keep disclaimer to 1 warm sentence.`,
     opts.language ? `Respond in language: ${opts.language}.` : '',
   ].filter(Boolean).join('\n');
 
