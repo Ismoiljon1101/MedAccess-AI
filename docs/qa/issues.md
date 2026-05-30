@@ -31,7 +31,27 @@ Sobirov pulls SEV-3 / SEV-4 with `owner: unassigned`. Otabek and Ismail handle S
 
 ## Open issues
 
-_None filed yet. Mirsaid: start QA pass per `TODO.md` §6 Acceptance Criteria and file findings below._
+## #001 · [SEV-2] FindCare shows "No facilities" outside Uzbekistan
+- **Found on:** Patient app, Chrome, Windows, 2026-05-30
+- **Repro:**
+  1. Open patient app from a location outside Uzbekistan (e.g. Seoul, South Korea)
+  2. Allow location access
+  3. Navigate to Find Care
+  4. Tap "Find Care →" CTA after image analysis (specialty pre-filled as "Pulmonology")
+- **Expected:** Tier 2 Google Maps fallback fires and shows nearby hospitals in the user's actual city
+- **Actual:** "No facilities found nearby" — empty state. GPS shows "Myeonmok-ro, Seoul, South Korea" but no clinics load because all 15 seed facilities are in Uzbekistan and none match the Pulmonology specialty filter
+- **Root cause (two bugs):**
+  1. Specialty pre-filter from CTA (`?specialty=Pulmonology`) is applied to both Tier 1 (in-network) AND Tier 2 (Google Maps). None of our seed facilities have Pulmonology → Tier 1 empty. Tier 2 fires but Google Maps API key is not configured → silent fail.
+  2. Google Maps Places API key (`GOOGLE_MAPS_KEY`) not set in `.env` → Tier 2 always silently fails outside Uzbekistan.
+- **Console errors:** none (Tier 2 failure is caught silently)
+- **Screenshot:** `docs/screenshots/findcare_no_results_seoul.png`
+- **Owner:** Ismail
+- **Status:** assigned
+- **Notes:** Fix options:
+  - (A) When no Tier 1 results AND Tier 2 fails, show "No in-network clinics nearby — search by city instead" with city search pre-focused. Don't leave empty screen.
+  - (B) Soft-apply specialty filter: show all in-network facilities first when specialty filter returns zero, with a note "No {specialty} specialists found — showing all nearby clinics"
+  - (C) Mirsaid: procure Google Maps API key → Tier 2 will automatically show Seoul hospitals
+  - **Immediate fix (no API key needed):** When specialty filter returns 0 results, clear it and reload without specialty filter. Show a banner: "No Pulmonology specialists in our network near you — showing all nearby clinics"
 
 <!--
 Template — copy this for each new bug:

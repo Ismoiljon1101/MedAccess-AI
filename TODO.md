@@ -36,6 +36,7 @@
 | Specialist disease models: **TorchXRayVision DenseNet121-all** X-ray (Phase 2) | ✅ Done — running on :5001 |
 | Specialist disease models: **skin-xception.onnx** (Xception 92%, Phase 3) | 🔴 **BLOCKED** — need ONNX conversion on x86/Mac (see §0.6) |
 | Fix: `pnpm typecheck` errors in `chat.ts` + `sessions.ts` (Mongoose `createdAt`/`updatedAt`) | 🔴 **Bug (Ismail)** |
+| Fix: FindCare shows "No facilities" outside Uzbekistan — specialty filter too strict + no Google Maps key | 🔴 **Bug (Ismail) — see QA #001** |
 | Frontend design pass — both apps look generic | 📋 Todo (Ismail, use `/frontend-design`) |
 | PWA Lighthouse audit ≥ 90 | 📋 Todo (Otabek) |
 | Screenshots + DEMO.md | 📋 Todo (Sobirov) |

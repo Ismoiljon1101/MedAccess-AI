@@ -126,8 +126,9 @@ export default function FindCare() {
   const [facilities,   setFacilities]   = useState<FacilityResult[]>([]);
   const [loading,      setLoading]      = useState(false);
   const [loadError,    setLoadError]    = useState<string | null>(null);
-  const [mapPlaces,    setMapPlaces]    = useState<MapPlace[]>([]);
-  const [mapLoading,   setMapLoading]   = useState(false);
+  const [mapPlaces,       setMapPlaces]       = useState<MapPlace[]>([]);
+  const [mapLoading,      setMapLoading]      = useState(false);
+  const [specialtyFallback, setSpecialtyFallback] = useState<string | null>(null);
   const [expanded,     setExpanded]     = useState<string | null>(null);
 
   // Booking sheet state
@@ -166,13 +167,33 @@ export default function FindCare() {
       const lat  = overrides?.lat  ?? coords?.lat;
       const lng  = overrides?.lng  ?? coords?.lng;
 
-      const results = await searchFacilities({
+      let results = await searchFacilities({
         lat, lng,
         specialty: spec && spec !== 'All' ? spec : undefined,
         type:      typ  !== 'all'         ? typ  : undefined,
         city:      city.trim()            || undefined,
         radius:    500,
       });
+
+      // Soft specialty filter: if no in-network results match the specialty,
+      // fall back to showing ALL nearby in-network clinics with a notice.
+      // Prevents empty screen when user is outside Uzbekistan or specialty
+      // is rare (e.g. Pulmonology has 0 in-network matches).
+      if (results.length === 0 && spec && spec !== 'All') {
+        const fallback = await searchFacilities({
+          lat, lng,
+          type: typ !== 'all' ? typ : undefined,
+          city: city.trim() || undefined,
+          radius: 500,
+        });
+        if (fallback.length > 0) {
+          setSpecialtyFallback(spec); // show notice to user
+          results = fallback;
+        }
+      } else {
+        setSpecialtyFallback(null);
+      }
+
       setFacilities(results);
 
       // Tier 2: always fire when GPS coords available (shows local real-world results)
@@ -496,6 +517,15 @@ export default function FindCare() {
             <p className="text-[11px] text-slate-400">Specialty: <span className="text-white font-medium">{preSpecialty}</span></p>
           )}
           {preSummary && <p className="text-[11px] text-slate-500 truncate mt-0.5">{preSummary}</p>}
+        </div>
+      )}
+
+      {/* ── Specialty fallback notice ───────────────────────────────────── */}
+      {specialtyFallback && (
+        <div className="shrink-0 mx-3 mb-2 rounded-xl border border-warn-500/25 bg-warn-500/8 px-3 py-2">
+          <p className="text-[11px] text-warn-400">
+            No <strong>{specialtyFallback}</strong> specialists in our network nearby — showing all available clinics.
+          </p>
         </div>
       )}
 
