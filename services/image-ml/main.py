@@ -43,8 +43,13 @@ BASE_DIR   = Path(__file__).parent
 MODELS_DIR = BASE_DIR / "models"
 MODELS_DIR.mkdir(exist_ok=True)
 
-MALARIA_MODEL_PATH = MODELS_DIR / "malaria-yolov8s.pt"
-SKIN_MODEL_PATH    = MODELS_DIR / "skin-ham10000.pt"
+MALARIA_MODEL_PATH  = MODELS_DIR / "malaria-yolov8s.pt"
+SKIN_MODEL_PATH     = MODELS_DIR / "skin-ham10000.pt"
+SKIN_ONNX_PATH      = MODELS_DIR / "skin-xception.onnx"  # converted from Skin_Disease_AI (92% acc)
+SKIN_SAVEDMODEL_DIR = MODELS_DIR / "skin-xception"        # TF SavedModel directory
+
+# Skin_Disease_AI 6-class labels (Xception, 92% accuracy, NadavIs56/Skin_Disease_AI)
+SKIN_XCEPTION_CLASSES = ["acne", "carcinoma", "eczema", "keratosis", "millia", "rosacea"]
 
 # HAM10000 7-class skin lesion labels (matches training order)
 HAM10000_CLASSES = [
@@ -88,19 +93,31 @@ def get_malaria_model() -> object | None:
     return _models["malaria"]
 
 
-def get_skin_model() -> tuple[object | None, str]:
-    """Returns (model, model_name). ONLY loads HAM10000-trained weights.
-    Base ImageNet YOLO is NOT used — it detects ticks/beetles, not skin diseases."""
+def get_skin_model() -> tuple[object | None, str, str]:
+    """Returns (model, model_name, model_type).
+    Priority: Xception ONNX (92%) → HAM10000 YOLO → None.
+    NEVER uses base ImageNet YOLO — gives dangerous results on medical images."""
     if "skin" not in _models:
-        ham = _load_yolo(SKIN_MODEL_PATH)
-        if ham:
-            _models["skin"] = (ham, "skin-ham10000")
+        # 1. Try Xception ONNX (Skin_Disease_AI, 92% accuracy, NadavIs56)
+        if SKIN_ONNX_PATH.exists():
+            try:
+                import onnxruntime as ort  # type: ignore
+                sess = ort.InferenceSession(
+                    str(SKIN_ONNX_PATH),
+                    providers=["CPUExecutionProvider"],
+                )
+                _models["skin"] = (sess, "skin-xception-92pct", "onnx")
+                print(f"[models] Skin: Xception ONNX 92% loaded")
+            except Exception as exc:
+                print(f"[models] Xception ONNX load failed: {exc}")
+                _models["skin"] = (None, "", "")
+        # 2. Try HAM10000 YOLO (86-92% with CLAHE)
+        elif SKIN_MODEL_PATH.exists():
+            m = _load_yolo(SKIN_MODEL_PATH)
+            _models["skin"] = (m, "skin-ham10000", "yolo") if m else (None, "", "")
+            if m: print(f"[models] Skin: HAM10000 YOLO loaded")
         else:
-            # DO NOT fall back to base yolov8n-cls — it's trained on ImageNet
-            # (animals, objects) and gives DANGEROUS results on medical images
-            # (e.g. classifies melanoma as "tick"). Return None so the LLM
-            # handles it with text-only guidance based on patient description.
-            _models["skin"] = (None, "")
+            _models["skin"] = (None, "", "")
     return _models["skin"]  # type: ignore
 
 
@@ -195,7 +212,8 @@ class AnalyzeResponse(BaseModel):
 def healthz() -> dict[str, object]:
     loaded = []
     if MALARIA_MODEL_PATH.exists(): loaded.append("malaria-yolov8s")
-    if SKIN_MODEL_PATH.exists():    loaded.append("skin-ham10000")
+    if SKIN_ONNX_PATH.exists():     loaded.append("skin-xception-92pct")
+    elif SKIN_MODEL_PATH.exists():  loaded.append("skin-ham10000")
     # Check if TorchXRayVision is importable (doesn't trigger download)
     try:
         import torchxrayvision  # type: ignore  # noqa: F401
@@ -248,25 +266,61 @@ async def analyze(
 
     # ── Skin lesion ───────────────────────────────────────────────
     if image_type == "skin":
-        model, model_name = get_skin_model()
+        model, model_name, model_type = get_skin_model()
         if model is None:
             return AnalyzeResponse(
                 image_type="skin", skipped=True,
-                skipped_reason="No skin model available. Place yolov8n-cls.pt in services/image-ml/ or train HAM10000 weights.",
+                skipped_reason=(
+                    "No medical skin model loaded. "
+                    "Convert skin-xception.onnx from services/image-ml/models/skin-xception/ "
+                    "or train HAM10000 weights. See TODO.md §0.6."
+                ),
                 model_used="", processing_ms=elapsed_ms(),
             )
-        preprocessed = preprocess_skin(img_np)
-        results = model(preprocessed, verbose=False)  # type: ignore
-        probs = results[0].probs
-        names = results[0].names
-        is_ham = len(names) == 7
+
         findings = []
-        for idx, conf in zip(probs.top5, probs.top5conf.tolist()):
-            if conf < 0.05:
-                break
-            label = HAM10000_CLASSES[idx] if is_ham else names[int(idx)]
-            findings.append(Finding(label=label, confidence=round(float(conf), 3),
-                                    notes="HAM10000 specialist" if is_ham else "general classifier"))
+
+        # ── Xception ONNX path (Skin_Disease_AI, 92% accuracy) ────
+        if model_type == "onnx":
+            import onnxruntime as ort  # type: ignore
+            # Preprocess: resize to 299x299, apply Xception preprocessing [-1, 1]
+            img_rgb = cv2.cvtColor(img_np, cv2.COLOR_BGR2RGB)
+            img_resized = cv2.resize(img_rgb, (299, 299)).astype(np.float32)
+            img_resized = (img_resized / 127.5) - 1.0  # Xception preprocess_input
+            img_batch = np.expand_dims(img_resized, axis=0)  # (1, 299, 299, 3)
+
+            input_name = model.get_inputs()[0].name  # type: ignore
+            outputs = model.run(None, {input_name: img_batch})[0][0]  # type: ignore
+            # outputs shape: (6,) — probabilities per class
+            for idx, conf in enumerate(outputs):
+                conf = float(conf)
+                if conf >= 0.05 and idx < len(SKIN_XCEPTION_CLASSES):
+                    label = SKIN_XCEPTION_CLASSES[idx]
+                    findings.append(Finding(
+                        label=label,
+                        confidence=round(conf, 3),
+                        notes=f"Xception 92% model — {label}",
+                    ))
+            findings.sort(key=lambda f: f.confidence, reverse=True)
+            findings = findings[:5]
+
+        # ── HAM10000 YOLO path ─────────────────────────────────────
+        elif model_type == "yolo":
+            preprocessed = preprocess_skin(img_np)
+            results = model(preprocessed, verbose=False)  # type: ignore
+            probs = results[0].probs
+            names = results[0].names
+            is_ham = len(names) == 7
+            for idx, conf in zip(probs.top5, probs.top5conf.tolist()):
+                if conf < 0.05:
+                    break
+                label = HAM10000_CLASSES[idx] if is_ham else names[int(idx)]
+                findings.append(Finding(
+                    label=label,
+                    confidence=round(float(conf), 3),
+                    notes="HAM10000 dermatology specialist",
+                ))
+
         return AnalyzeResponse(
             image_type="skin", skipped=False,
             findings=findings,
