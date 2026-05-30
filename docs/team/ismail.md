@@ -27,12 +27,36 @@ Anyone else editing these must ping Ismail first:
 
 ## Current sprint priorities (in order)
 
-1. **Image-ml sidecar interface** — define the JSON contract between Node `vision.ts` and Python FastAPI `/analyze`. Specify: input (image bytes + hint), output (`{ findings: [...], confidence, modelUsed, processingMs }`). Hand to Temirlan to implement model layer.
-2. **Vision model upgrade** — set `OPENROUTER_VISION_MODEL=anthropic/claude-sonnet-4-5` in `.env`. Re-run report analysis smoke test. Document accuracy gain.
-3. **Smoke test + typecheck** all three workspaces (`pnpm typecheck`).
-4. **Review** Otabek's PRs (image thumbnail in chat, vision upgrade verification).
-5. **Pair with Temirlan** for first 1-2 sessions on the Python sidecar so you both understand the pipeline.
-6. **Tag `v0.1.0`** when all acceptance criteria green.
+### ✅ Done
+- ✅ Vision pipeline: local models only — no Gemini, no cloud vision
+- ✅ TorchXRayVision DenseNet121 running (X-ray, 18 pathologies, Apache 2.0)
+- ✅ YOLOv8s malaria model running (99.1% mAP50, MIT)
+- ✅ Image analysis → auto-triggers Find Care CTA when findings serious
+- ✅ AI image report attached to referral — doctor sees findings on Patient Queue
+- ✅ Patient-friendly language in all image analysis responses
+- ✅ FindCare GPS race condition fixed (waits for coords before loading)
+- ✅ Care loop wired end-to-end: image → local model → CTA → book → clinic sees AI report
+
+### 🔴 Blockers (do first)
+1. **Skin model ONNX conversion** — on x86 Windows, Mac, or Colab:
+   ```bash
+   pip install tensorflow tf2onnx
+   python services/image-ml/convert_skin_to_onnx.py
+   # Copy output: services/image-ml/models/skin-xception.onnx → ARM machine
+   # Restart sidecar → Xception 92% skin detection live
+   ```
+   **Note:** ARM64 Windows has no TF wheels. Must run on other machine.
+   Mac (M-series) works: `pip install tensorflow-macos tf2onnx`
+
+2. **Fix TypeScript errors** — `pnpm typecheck` has errors in `chat.ts` + `sessions.ts` (Mongoose `createdAt`/`updatedAt` typing).
+
+### 📋 Next up
+3. **Frontend design pass** — both apps look generic. Use `/frontend-design` skill on patient Chat, FindCare, clinic Dashboard.
+4. **`pnpm typecheck` clean** on all workspaces before `v0.1.0` tag.
+5. **Tag `v0.1.0`** when DoD green.
+
+### 🤔 Decision needed
+- **Skin model choice** — see `TODO.md §0.6` and `research/00-overview.md §2b`. Xception 92% (current) vs EfficientNet-B0 95.5% vs Roboflow CC BY 4.0 API. Decide before Temirlan trains.
 
 ## Escalation
 

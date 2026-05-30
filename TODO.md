@@ -21,17 +21,22 @@
 | `apps/patient` (patient PWA, 9 pages, **MA Agent + Find Care booking loop** + **light mode**) | ✅ Done |
 | Patient → clinic referral loop (Connect-to-Care CTA → booking → clinic queue) | ✅ Done |
 | Per-engineer agent files (`CLAUDE.md` + `docs/team/`) | ✅ Done |
-| Python image-ml sidecar (scaffold + contract) | ✅ Scaffold done · specialist models pending |
+| Python image-ml sidecar (scaffold + contract) | ✅ Done — running on :5001 |
 | **Research folder** (`research/`) — Pareto disease + model + dataset survey | ✅ **Complete** ([`research/00-overview.md`](./research/00-overview.md)) |
 | Cheapest LLM switch — Qwen 3.x (qwen3.5-plus / qwen3.6-flash) | ✅ Done (Ismail) |
-| Patient image-quality guidance modal + checklist | ✅ Done (Otabek) — `imageQuality.ts` + `ImageCaptureFlow.tsx` |
-| Vision model upgrade (Sonnet 4.5) | ❌ **Cancelled** — going free-Chinese instead |
+| Patient image-quality guidance modal + checklist | ✅ Done (Otabek) |
+| Vision pipeline — local models only, no cloud vision, no Gemini | ✅ Done (Ismail) |
+| Image analysis → auto-triggers Find Care CTA + AI report in referral | ✅ Done (Ismail) |
+| Patient-friendly language in image analysis responses | ✅ Done (Ismail) |
+| FindCare GPS race condition fix | ✅ Done (Ismail) |
+| Vision model upgrade (Sonnet 4.5) | ❌ **Cancelled** — local models instead |
 | QA pass across both portals | 🚧 In progress (Mirsaid) |
-| Image thumbnails in chat | 📋 Todo (Otabek) |
-| Specialist disease models: **YOLOv8n-Malaria** (Phase 1, MIT) | ✅ Done — `models/malaria-yolov8s.pt` running on :5001 |
-| Specialist disease models: **TorchXRayVision DenseNet121-all** pneumonia (Phase 2) | ✅ Done — auto-downloads, running on :5001 |
-| Specialist disease models: **skin lesion classifier** (Phase 3) | 🔴 **BLOCKED — no medical weights** — see §0.6 below |
-| Fix: FindCare GPS — loads Tashkent seed data then GPS fires but page doesn't reload with local results | 🔴 **Bug (Ismail)** |
+| Image thumbnails in chat | ✅ Done (Otabek) |
+| Specialist disease models: **YOLOv8s-Malaria** (Phase 1, MIT) | ✅ Done — running on :5001 |
+| Specialist disease models: **TorchXRayVision DenseNet121-all** X-ray (Phase 2) | ✅ Done — running on :5001 |
+| Specialist disease models: **skin-xception.onnx** (Xception 92%, Phase 3) | 🔴 **BLOCKED** — need ONNX conversion on x86/Mac (see §0.6) |
+| Fix: `pnpm typecheck` errors in `chat.ts` + `sessions.ts` (Mongoose `createdAt`/`updatedAt`) | 🔴 **Bug (Ismail)** |
+| Frontend design pass — both apps look generic | 📋 Todo (Ismail, use `/frontend-design`) |
 | PWA Lighthouse audit ≥ 90 | 📋 Todo (Otabek) |
 | Screenshots + DEMO.md | 📋 Todo (Sobirov) |
 | Tag `v0.1.0` + submit | 📋 Todo (Ismail) |

@@ -54,11 +54,35 @@ For day-1 demo, ship just the skin lesion model (cleanest dataset, most photogen
 
 ## Current sprint priorities
 
-1. **`services/image-ml/main.py` skeleton** is already scaffolded. Read [`services/image-ml/README.md`](../../services/image-ml/README.md) and run `pip install -r requirements.txt && uvicorn main:app --reload --port 5001`. Confirm `/healthz` returns OK.
-2. **Implement `/analyze` skin path** — accept image bytes, run HAM10000 YOLOv8, return top-3 lesion classes with confidence.
-3. **Eval harness** — `services/image-ml/eval/` with held-out HAM10000 test split; report accuracy / sensitivity / specificity per class. Commit results to `services/image-ml/eval/results.md`.
-4. **Pair with Ismail** for one session to walk through the Node↔Python contract. Get him comfortable running both.
-5. **Docker** — `services/image-ml/Dockerfile` so Mirsaid can deploy it without Python expertise.
+### ✅ Done
+- ✅ Sidecar running on `:5001`, `/healthz` returns OK
+- ✅ X-ray: TorchXRayVision DenseNet121-all (18 pathologies, Apache 2.0, auto-downloads)
+- ✅ Malaria: YOLOv8s loaded (`models/malaria-yolov8s.pt`, MIT)
+- ✅ Node↔Python contract locked — `vision.ts` wires everything
+
+### 🔴 Blocked on Ismail
+- **Skin ONNX** — waiting on Ismail to run `convert_skin_to_onnx.py` on x86/Mac.
+  Once `models/skin-xception.onnx` exists, sidecar auto-loads Xception 92%. No code change.
+
+### 📋 Your next tasks
+1. **Verify skin ONNX** once file arrives — restart sidecar, test with dermoscopy image.
+2. **Eval harness** — `services/image-ml/eval/skin_eval.py` on HAM10000 test split → commit `eval/results_skin.md`.
+3. **Phase 2 pneumonia** — coordinate with Otabek on X-ray alignment UI (parallax correction overlay reduces accuracy loss 15-25%).
+4. **Docker** — verify `docker build` works clean for Mirsaid to deploy.
+
+### Skin model options (decision owned by Ismail — see `TODO.md §0.6`)
+| Model | Accuracy | Status |
+|---|---|---|
+| `models/skin-xception.onnx` | 92% | Ready when ONNX converted on x86/Mac |
+| `models/skin-ham10000.pt` | 86-92% | Train with `train_skin.py` (needs Kaggle token) |
+| EfficientNet-B0 | 95.5% | Needs weight conversion (post-v0.1) |
+
+### How to start
+```bash
+cd services/image-ml
+pip install -r requirements.txt
+python main.py   # :5001 with reload
+```
 
 ## Working style notes
 
