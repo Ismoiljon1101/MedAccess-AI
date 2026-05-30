@@ -60,3 +60,12 @@ This is slower than just "do the task." That's intentional — you're learning.
 The agent will **always** ask you to explain your fix in plain English first. It will **always** ask you to run `pnpm typecheck` before committing. This is not gatekeeping — it's the muscle memory you're building. Push through it; in 3 months you won't need it.
 
 If you ever feel the agent is being too restrictive: take it up with Ismail at standup, not by switching CLAUDE.md identities.
+
+## Agent skills available (limited scope)
+
+| Task | Skill | How to use |
+|---|---|---|
+| Verify a fix works | `/verify` | After fixing a SEV-3/4 bug, run `/verify` to confirm it's actually fixed |
+| Observe how testing works | `/webapp-testing` | Watch the agent run Playwright tests — good for learning what automated QA looks like |
+
+**You do NOT use:** `/frontend-design`, `/vite`, `/fastapi`, `/mongodb`, `/code-review`. These touch code patterns beyond your current scope. Ask Otabek or Ismail if you need something from them.

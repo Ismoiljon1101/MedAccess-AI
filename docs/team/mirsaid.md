@@ -62,3 +62,12 @@ When you (Mirsaid) confirm identity, the agent will only help with:
 - Looking up environment variable purposes / values
 
 It will **refuse** to write or edit code on your behalf. That keeps the lane clean: engineers code, you find what's broken.
+
+## Agent skills available (QA-focused)
+
+| Task | Skill | How to use |
+|---|---|---|
+| Automated QA testing | `/webapp-testing` | "Test the patient chat flow" — agent runs Playwright, takes screenshots, reports pass/fail |
+| Verify a reported fix | `/verify` | "Verify that bug #007 is fixed" — agent runs the app and checks the fix works |
+
+**Workflow for QA pass:** Start each feature test with `/webapp-testing` to automate the mechanical parts (page loads, button clicks, console errors). Then do your manual testing for things automation misses (visual polish, UX feel, edge cases). File bugs from both.

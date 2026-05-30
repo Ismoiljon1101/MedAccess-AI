@@ -44,6 +44,19 @@ You're the top of the chain. You don't escalate — you answer. If you're uncert
 - Commits use the standard Conventional Commits format.
 - Author: `ismoiljon1101 / ismoiljonedu@gmail.com`. No Co-Authored-By.
 
+## Agent skills available
+
+All skills are available to you. Key workflows:
+
+- **Building/reviewing React UI** → `/frontend-design` for new pages, `/vercel-react-best-practices` for perf review
+- **Vite config / build issues** → `/vite`
+- **PWA manifest / service worker** → `/pwa-development`
+- **Python sidecar work** → `/fastapi` for `services/image-ml/` patterns
+- **MongoDB schema design** → `/mongodb`
+- **Reviewing a PR** → `/code-review` (use `high` or `max` for architectural changes)
+- **Testing a feature visually** → `/webapp-testing` (Playwright-based) or `/verify`
+- **Finding new skills** → `/find-skills`
+
 ## How to ask the agent
 
 When you (Ismail) start a session, the agent will say "Are you Ismail?" — confirm. Then you can give high-level direction ("design the image-ml interface", "review this PR") and the agent will not gate you on architectural edits. You have full repo access.

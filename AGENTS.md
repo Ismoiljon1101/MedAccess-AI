@@ -15,3 +15,16 @@
 5. Read [`TODO.md`](./TODO.md) for current sprint state.
 
 If the user types `who are you` or `whoami` early in the chat, that's your cue to introduce yourself as "MedAccess AI repo agent — which engineer am I helping?" and wait.
+
+---
+
+## Agent Skills
+
+Globally installed skills are documented in [`CLAUDE.md`](./CLAUDE.md) §5. Key ones for this stack:
+
+- **Frontend:** `/frontend-design`, `/vercel-react-best-practices`, `/vite`, `/pwa-development`
+- **Backend:** `/fastapi`, `/mongodb`
+- **Testing:** `/webapp-testing`, `/verify`, `/vitest`
+- **Discovery:** `/find-skills`
+
+Per-role skill access is defined in each `docs/team/*.md` file. Not all skills are available to all roles.

@@ -79,7 +79,64 @@ Pure UI work, copy edits, single-component CSS, bug fixes in pages that don't to
 
 ---
 
-## 5 · If the user has not loaded a role yet
+## 5 · Agent Skills (globally installed)
+
+The following skills are installed globally and available to **every team member** via slash commands. Use the right skill for the task — they carry domain-specific best practices.
+
+### Frontend skills
+
+| Skill | Trigger | What it does |
+|---|---|---|
+| `/frontend-design` | Building UI components, pages, styling | Production-grade React UI with high design quality. Avoids generic AI aesthetics. |
+| `/vercel-react-best-practices` | Writing/reviewing React code | React 18 performance patterns from Vercel Engineering — memo, Suspense, code splitting, hydration. |
+| `/vite` | Vite config, plugins, build issues | Vite build tool patterns, plugin API, SSR config, Rolldown migration. |
+| `/pwa-development` | PWA manifest, service worker, install | PWA best practices — manifest, workbox, offline caching, install prompts. |
+| `/webapp-testing` | Testing UI with Playwright | Automated browser testing — screenshots, console logs, interaction testing. |
+
+### Backend skills
+
+| Skill | Trigger | What it does |
+|---|---|---|
+| `/fastapi` | Python sidecar (`services/image-ml/`) | FastAPI best practices — Pydantic models, dependency injection, async patterns. |
+| `/mongodb` | Database models, queries | MongoDB/Mongoose patterns — schema design, indexing, aggregation pipelines. |
+
+### Cross-cutting skills
+
+| Skill | Trigger | What it does |
+|---|---|---|
+| `/find-skills` | "Is there a skill for X?" | Discover and install new skills from the open ecosystem. |
+| `/code-review` | PR review, diff review | Correctness bugs + efficiency findings at configurable depth. |
+| `/webapp-testing` | Verify a change works in browser | Playwright-based automated testing of running apps. |
+| `/verify` | Confirm a fix works | Run the app and observe behavior to validate changes. |
+| `/vitest` | Unit/integration tests | Vitest patterns — test setup, mocking, coverage. |
+
+### Skill workflow by task type
+
+```
+UI component / page          → /frontend-design + /vercel-react-best-practices
+Vite / build / bundle issue  → /vite
+PWA score / manifest / SW    → /pwa-development
+API endpoint / Express route → (no skill needed — follow schemas.ts contract)
+Python sidecar / FastAPI     → /fastapi
+MongoDB model / query        → /mongodb
+Test a feature visually      → /webapp-testing or /verify
+Review a PR                  → /code-review
+Find a new skill             → /find-skills
+```
+
+### Per-role skill access
+
+| Role | Primary skills | Notes |
+|---|---|---|
+| **Ismail** | All skills | Full access, owns architecture decisions |
+| **Otabek** | `/frontend-design`, `/vercel-react-best-practices`, `/vite`, `/pwa-development`, `/webapp-testing` | Frontend focus |
+| **Temirlan** | `/fastapi`, `/mongodb` | Python sidecar focus |
+| **Mirsaid** | `/webapp-testing`, `/verify` | QA workflows |
+| **Sobirov** | `/webapp-testing` (read-only observation), `/verify` | Learning — observe, don't configure |
+
+---
+
+## 6 · If the user has not loaded a role yet
 
 If you don't yet know who you're helping, the only acceptable actions are:
 - Ask the identity-check question from §1.

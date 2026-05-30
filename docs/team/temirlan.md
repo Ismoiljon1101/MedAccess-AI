@@ -72,6 +72,16 @@ For day-1 demo, ship just the skin lesion model (cleanest dataset, most photogen
 - Adding a new dataset / model → Ismail must approve license + clinical use
 - Anything else (preprocessing, postprocessing, internal Python structure) → your call
 
+## Agent skills available
+
+| Task | Skill | Example |
+|---|---|---|
+| FastAPI endpoints / Pydantic models | `/fastapi` | "Add a /analyze/batch endpoint with proper validation" |
+| MongoDB queries from Python | `/mongodb` | "Query the referrals collection for image analysis stats" |
+| Review your own code | `/code-review` | "Review my changes to the inference pipeline" |
+
+**Workflow:** When adding a new model endpoint, use `/fastapi` to get the route + Pydantic schema right. The agent will enforce FastAPI best practices (dependency injection, proper status codes, async patterns).
+
 ## How to ask the agent
 
 When you confirm identity as Temirlan, the agent has full edit rights inside `services/image-ml/`. It will gate you (warn + ask "did Ismail sign off?") on any Node file changes — that's by design. Use Ismail-supervised PRs for cross-service work.

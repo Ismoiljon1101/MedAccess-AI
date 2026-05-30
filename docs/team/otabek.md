@@ -43,6 +43,21 @@ Otabek pings Ismail before touching:
 - Schema or DB change needed → open an issue / DM Ismail. Don't try to work around.
 - Behavior unclear → check `README.md` Modules section first, then ask Ismail.
 
+## Agent skills available
+
+Use these skills to ship faster and cleaner:
+
+| Task | Skill | Example |
+|---|---|---|
+| Build a new page/component | `/frontend-design` | "Build a prescription detail modal" |
+| React performance patterns | `/vercel-react-best-practices` | "Optimize the chat message list rendering" |
+| Vite config or build issue | `/vite` | "Fix HMR not working on patient app" |
+| PWA audit / manifest fix | `/pwa-development` | "Fix Lighthouse PWA score" |
+| Test a feature in browser | `/webapp-testing` | "Test the booking flow end-to-end" |
+| Verify a fix works | `/verify` | "Verify the polling fix on Patients page" |
+
+**Workflow:** When building UI, start with `/frontend-design` for the visual, then `/vercel-react-best-practices` to optimize. After shipping, `/webapp-testing` to verify.
+
 ## How to ask the agent
 
 You're trusted to ship. Agent gates you (soft) on architectural files but otherwise gets out of your way. Tell it: "I'm Otabek, working on [feature]." and go.
