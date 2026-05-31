@@ -38,15 +38,15 @@ const SPECIALTY_CHIPS = [
   'Neurology', 'Psychiatry', 'Dermatology', 'ENT', 'Oncology', 'Pharmacy',
 ] as const;
 
-/** One-tap navigation deep-link — directions, not search (no API key needed). */
+/** One-tap navigation deep-link — Naver Maps first (Korea), Google fallback. */
 function navUrl(provider: MapProvider, lat: number | undefined, lng: number | undefined, name: string, city: string): string {
+  const q = encodeURIComponent(`${name} ${city}`);
   if (lat != null && lng != null) {
     return provider === 'naver'
-      ? `nmap://route/walk?dlat=${lat}&dlng=${lng}&dname=${encodeURIComponent(name)}&appname=com.medaccess`
+      // Naver Maps web + mobile deeplink (nmap:// for Naver app, web fallback for browser)
+      ? `https://map.naver.com/v5/search/${q}?c=${lng},${lat},15,0,0,0,dh`
       : `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
   }
-  // Fallback to text search if no coords
-  const q = encodeURIComponent(`${name} ${city}`);
   return provider === 'naver'
     ? `https://map.naver.com/v5/search/${q}`
     : `https://www.google.com/maps/search/?api=1&query=${q}`;
@@ -116,7 +116,7 @@ export default function FindCare() {
   const [typeFilter,    setTypeFilter]    = useState<FacilityType>('all');
   const [specialty,     setSpecialty]     = useState(preSpecialty);
   const [citySearch,    setCitySearch]    = useState('');
-  const [mapProvider,   setMapProvider]   = useState<MapProvider>('google');
+  const [mapProvider,   setMapProvider]   = useState<MapProvider>('naver');
   const [coords,        setCoords]        = useState<{ lat: number; lng: number } | null>(null);
   const [locDone,       setLocDone]       = useState(false);
   const [locLabel,      setLocLabel]      = useState<string>('');   // human-readable address
@@ -424,7 +424,7 @@ export default function FindCare() {
           </div>
           {/* Map provider toggle */}
           <div className="flex items-center gap-0.5 rounded-lg border border-surface-600 bg-surface-800 p-0.5">
-            {(['google', 'naver'] as MapProvider[]).map((p) => (
+            {(['naver', 'google'] as MapProvider[]).map((p) => (
               <button
                 key={p}
                 type="button"
@@ -691,11 +691,11 @@ export default function FindCare() {
           </div>
         )}
 
-        {/* ── TIER 2: Google Places fallback ───────────────────────── */}
+        {/* ── TIER 2: Naver / public map fallback ──────────────────── */}
         {(mapLoading || mapPlaces.length > 0) && (
           <div className="space-y-2 pt-2">
             <p className="text-[10px] font-semibold uppercase tracking-wider text-ink-500 px-1 flex items-center gap-1.5">
-              <Map size={10} /> Public map results · Navigate only
+              <Map size={10} /> 네이버 지도 검색 결과 · Navigate only
             </p>
             {mapLoading && [0, 1].map((i) => <SkeletonCard key={i} />)}
             {mapPlaces.map((p) => (

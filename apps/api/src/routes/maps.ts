@@ -37,9 +37,29 @@ function naverNavUrl(lat: number, lng: number, name: string): string {
 }
 
 // ── Naver Local Search ────────────────────────────────────────────────────────
-// Maps our generic type → Korean search keyword for Naver Local Search API.
+// Maps type + specialty keyword → Korean for Naver Local Search.
+const SPECIALTY_KO: Record<string, string> = {
+  'Cardiology': '심장내과',
+  'Neurology': '신경과',
+  'Dermatology': '피부과',
+  'Pulmonology': '호흡기내과',
+  'Pediatrics': '소아과',
+  'Orthopedics': '정형외과',
+  'Psychiatry': '정신건강의학과',
+  'Ophthalmology': '안과',
+  'ENT': '이비인후과',
+  'Oncology': '종양내과',
+  'Obstetrics & Gynecology': '산부인과',
+  'Family Medicine': '가정의학과',
+  'Emergency Medicine': '응급의학과',
+  'General Practice': '일반의',
+  'Internal Medicine': '내과',
+};
+
 function naverTypeQuery(type: string, keyword: string): string {
-  const base = keyword || ({ hospital: '병원', clinic: '의원', pharmacy: '약국' }[type] ?? '병원');
+  // Translate specialty keyword to Korean if available
+  const ko = keyword ? (SPECIALTY_KO[keyword] ?? keyword) : null;
+  const base = ko || ({ hospital: '병원', clinic: '의원', pharmacy: '약국' }[type] ?? '병원');
   return base;
 }
 
