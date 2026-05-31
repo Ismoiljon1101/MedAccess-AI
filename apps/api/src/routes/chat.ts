@@ -205,7 +205,9 @@ router.get('/session/:id', async (req, res, next) => {
           s = {
             id: req.params.id,
             messages: doc.messages || [],
-            updatedAt: doc.updatedAt?.getTime() || Date.now(),
+            // reason: Mongoose FlattenMaps doesn't expose timestamps — cast to any
+            createdAt: (doc as any).createdAt?.getTime?.() || Date.now(),
+            updatedAt: (doc as any).updatedAt?.getTime?.() || Date.now(),
           };
         }
       } catch {

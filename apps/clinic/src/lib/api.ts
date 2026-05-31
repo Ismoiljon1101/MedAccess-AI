@@ -228,6 +228,12 @@ export interface ReferralRecord {
   preferredTime?: string;
   status: 'pending' | 'confirmed' | 'cancelled';
   createdAt: string;
+  imageAnalysis?: {
+    imageType: string;
+    findings: Array<{ finding: string; confidence: string; notes: string }>;
+    suggestedFollowUp: string[];
+    model: string;
+  };
 }
 
 export async function getReferrals(): Promise<ReferralRecord[]> {

@@ -251,10 +251,24 @@ router.get('/', (req, res) => {
   const city      = ((req.query.city      as string) || '').toLowerCase().trim();
   const radius    = req.query.radius   ? parseFloat(req.query.radius   as string) : 100; // default 100 km
 
-  let facilities = SEED_FACILITIES.map((f) => {
-    const distKm = lat && lng ? haversine(lat, lng, f.lat, f.lng) : null;
-    const doctors = SEED_DOCTORS.filter((d) => d.facilityId === f.id);
-    return { ...f, distanceKm: distKm ? Number(distKm.toFixed(2)) : null, doctors };
+  // Registered (self-enrolled) facilities first, then seed data
+  const allFacilitySources = [
+    ...registeredFacilities.map((f) => ({
+      ...f,
+      specialties: f.specialties,
+      doctors: f.doctors,
+    })),
+    ...SEED_FACILITIES.map((f) => ({
+      ...f,
+      doctors: SEED_DOCTORS.filter((d) => d.facilityId === f.id),
+    })),
+  ];
+
+  let facilities = allFacilitySources.map((f) => {
+    const distKm = lat && lng && f.lat != null && f.lng != null
+      ? haversine(lat, lng, f.lat, f.lng)
+      : null;
+    return { ...f, distanceKm: distKm != null ? Number(distKm.toFixed(2)) : null };
   });
 
   // Filter by type
@@ -342,6 +356,94 @@ router.get('/:id/slots', (req, res) => {
     availableSlots: available.length,
   });
 });
+
+// ── In-memory registered facilities (DB fallback) ────────────────────────────
+// Registered by clinics via POST /api/facilities/register.
+// When MongoDB is connected, these live in the DB instead.
+interface RegisteredFacility {
+  id: string;
+  name: string;
+  type: 'hospital' | 'clinic' | 'pharmacy';
+  address: string;
+  city: string;
+  country: string;
+  lat?: number;
+  lng?: number;
+  phone?: string;
+  openingHours: string;
+  specialties: string[];
+  verified: false;
+  source: 'registered';
+  registeredAt: string;
+  contactName: string;
+  contactRole: string;
+  doctors: Array<{ id: string; name: string; specialty: string; consultationMinutes: number; languages: string[] }>;
+}
+const registeredFacilities: RegisteredFacility[] = [];
+
+// ── POST /api/facilities/register ────────────────────────────────────────────
+// Any clinic can self-register. Shows up in search marked as "in-network".
+// Verified flag starts false — admin can verify later.
+router.post('/register', (req, res) => {
+  const {
+    name, type, address, city, country,
+    lat, lng, phone, openingHours, specialties,
+    contactName, contactRole,
+    doctorName, doctorSpecialty,
+  } = req.body as Record<string, string>;
+
+  if (!name?.trim() || !city?.trim() || !contactName?.trim()) {
+    res.status(400).json({ error: 'name, city, and contactName are required' });
+    return;
+  }
+
+  const facilityId = `reg_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+  const doctorId   = `dr_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+
+  const facility: RegisteredFacility = {
+    id:           facilityId,
+    name:         name.trim(),
+    type:         (['hospital', 'clinic', 'pharmacy'].includes(type) ? type : 'clinic') as any,
+    address:      address?.trim() || '',
+    city:         city.trim(),
+    country:      country?.trim() || 'KR',
+    lat:          lat ? parseFloat(lat) : undefined,
+    lng:          lng ? parseFloat(lng) : undefined,
+    phone:        phone?.trim() || undefined,
+    openingHours: openingHours?.trim() || 'Mon–Fri 09:00–18:00',
+    specialties:  specialties ? specialties.split(',').map((s) => s.trim()).filter(Boolean) : [],
+    verified:     false,
+    source:       'registered',
+    registeredAt: new Date().toISOString(),
+    contactName:  contactName.trim(),
+    contactRole:  contactRole?.trim() || 'Doctor',
+    doctors: doctorName?.trim() ? [{
+      id:                  doctorId,
+      name:                doctorName.trim(),
+      specialty:           doctorSpecialty?.trim() || 'General Practice',
+      consultationMinutes: 30,
+      languages:           ['en'],
+    }] : [],
+  };
+
+  registeredFacilities.push(facility);
+  console.log(`[facilities] Registered: ${facility.name} (${facility.city}) — id=${facilityId}`);
+
+  res.status(201).json({
+    message:    `${facility.name} registered successfully. You will appear in patient search once verified.`,
+    facilityId,
+    facility,
+  });
+});
+
+// ── GET /api/facilities/registered ───────────────────────────────────────────
+router.get('/registered', (_req, res) => {
+  res.json({ facilities: registeredFacilities, total: registeredFacilities.length });
+});
+
+// Merge registered facilities into the main GET / search
+// (registered ones sort first — source='registered' before 'osm'/'manual')
+export function getRegisteredFacilities() { return registeredFacilities; }
 
 // ── Shared in-memory booked slots ─────────────────────────────────────────────
 // Key: `${doctorId}_${date}` → Set of startTime strings that are booked

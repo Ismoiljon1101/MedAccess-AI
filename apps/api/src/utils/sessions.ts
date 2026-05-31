@@ -46,8 +46,9 @@ export function getSession(id: string | undefined): Session | null {
           const cached: Session = {
             id,
             messages: doc.messages || [],
-            createdAt: doc.createdAt?.getTime() || now(),
-            updatedAt: doc.updatedAt?.getTime() || now(),
+            // reason: Mongoose FlattenMaps doesn't expose timestamps without explicit generic — cast to any
+            createdAt: (doc as any).createdAt?.getTime?.() || now(),
+            updatedAt: (doc as any).updatedAt?.getTime?.() || now(),
           };
           store.set(id, cached);
         }

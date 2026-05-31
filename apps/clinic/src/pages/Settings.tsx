@@ -1,6 +1,9 @@
-import { Moon, Sun, LogOut } from 'lucide-react';
+import { useState } from 'react';
+import { Moon, Sun, LogOut, Building2, CheckCircle, Loader2 } from 'lucide-react';
 import { useAuthStore } from '@/store/auth';
 import { useAppStore } from '@/store/app';
+
+const BASE = import.meta.env.DEV ? 'http://localhost:4000' : '';
 
 const LANGUAGES = [
   { code: 'auto', label: 'Auto-detect' },
@@ -37,6 +40,70 @@ function Row({ label, sub, children }: { label: string; sub?: string; children: 
 export default function Settings() {
   const { language, setLanguage, theme, setTheme } = useAppStore();
   const { user, logout } = useAuthStore();
+
+  // ── Clinic registration ────────────────────────────────────────────────────
+  const [regName,         setRegName]         = useState(user?.clinicName || '');
+  const [regType,         setRegType]         = useState('clinic');
+  const [regAddress,      setRegAddress]      = useState('');
+  const [regCity,         setRegCity]         = useState('');
+  const [regCountry,      setRegCountry]      = useState('KR');
+  const [regPhone,        setRegPhone]        = useState('');
+  const [regSpecialties,  setRegSpecialties]  = useState(user?.specialty || '');
+  const [regHours,        setRegHours]        = useState('Mon–Fri 09:00–18:00');
+  const [regLat,          setRegLat]          = useState('');
+  const [regLng,          setRegLng]          = useState('');
+  const [regSubmitting,   setRegSubmitting]   = useState(false);
+  const [regDone,         setRegDone]         = useState<string | null>(null);
+  const [regError,        setRegError]        = useState('');
+  const [showRegForm,     setShowRegForm]     = useState(false);
+
+  async function handleRegister() {
+    if (!regName.trim() || !regCity.trim()) {
+      setRegError('Clinic name and city are required.');
+      return;
+    }
+    setRegSubmitting(true);
+    setRegError('');
+    try {
+      const body = new URLSearchParams({
+        name:          regName.trim(),
+        type:          regType,
+        address:       regAddress.trim(),
+        city:          regCity.trim(),
+        country:       regCountry.trim(),
+        phone:         regPhone.trim(),
+        openingHours:  regHours.trim(),
+        specialties:   regSpecialties.trim(),
+        contactName:   user?.name || '',
+        contactRole:   user?.role || 'doctor',
+        doctorName:    user?.role === 'doctor' ? (user?.name || '') : '',
+        doctorSpecialty: user?.specialty || '',
+        ...(regLat ? { lat: regLat } : {}),
+        ...(regLng ? { lng: regLng } : {}),
+      });
+      const res = await fetch(`${BASE}/api/facilities/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: body.toString(),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Registration failed');
+      setRegDone(data.message);
+      setShowRegForm(false);
+    } catch (err: any) {
+      setRegError(err.message || 'Registration failed');
+    } finally {
+      setRegSubmitting(false);
+    }
+  }
+
+  // Auto-fill GPS
+  function fillGPS() {
+    navigator.geolocation?.getCurrentPosition((pos) => {
+      setRegLat(String(pos.coords.latitude.toFixed(6)));
+      setRegLng(String(pos.coords.longitude.toFixed(6)));
+    });
+  }
 
   return (
     <div className="p-6 max-w-2xl mx-auto space-y-6">
@@ -105,6 +172,103 @@ export default function Settings() {
             <LogOut size={14} /> Sign out of portal
           </button>
         </div>
+      </Section>
+
+      {/* ── Clinic Registration ─────────────────────────────────────────── */}
+      <Section title="Register Your Clinic">
+        <p className="text-[11px] text-ink-400 leading-relaxed">
+          Register your clinic or hospital to appear in the MedAccess patient app (Find Care).
+          Patients near you will see your clinic first and can book appointments directly.
+        </p>
+
+        {regDone ? (
+          <div className="flex items-start gap-2.5 rounded-xl border border-ok-500/30 bg-ok-500/10 px-3 py-3">
+            <CheckCircle size={15} className="text-ok-400 shrink-0 mt-0.5" />
+            <p className="text-xs text-ok-300">{regDone}</p>
+          </div>
+        ) : !showRegForm ? (
+          <button
+            type="button"
+            onClick={() => setShowRegForm(true)}
+            className="flex items-center gap-2 text-sm font-medium text-accent-400 hover:text-accent-300 transition"
+          >
+            <Building2 size={15} /> Register on MedAccess →
+          </button>
+        ) : (
+          <div className="space-y-3 pt-1">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="label">Clinic / Hospital name *</label>
+                <input className="input" value={regName} onChange={(e) => setRegName(e.target.value)} placeholder="Seoul General Hospital" />
+              </div>
+              <div>
+                <label className="label">Type</label>
+                <select className="input" value={regType} onChange={(e) => setRegType(e.target.value)}>
+                  <option value="clinic">Clinic</option>
+                  <option value="hospital">Hospital</option>
+                  <option value="pharmacy">Pharmacy</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="label">City *</label>
+                <input className="input" value={regCity} onChange={(e) => setRegCity(e.target.value)} placeholder="Seoul" />
+              </div>
+              <div>
+                <label className="label">Country</label>
+                <input className="input" value={regCountry} onChange={(e) => setRegCountry(e.target.value)} placeholder="KR" />
+              </div>
+            </div>
+
+            <div>
+              <label className="label">Address</label>
+              <input className="input" value={regAddress} onChange={(e) => setRegAddress(e.target.value)} placeholder="123 Gangnam-daero, Gangnam-gu" />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="label">Phone</label>
+                <input className="input" value={regPhone} onChange={(e) => setRegPhone(e.target.value)} placeholder="+82-2-1234-5678" />
+              </div>
+              <div>
+                <label className="label">Opening hours</label>
+                <input className="input" value={regHours} onChange={(e) => setRegHours(e.target.value)} placeholder="Mon–Fri 09:00–18:00" />
+              </div>
+            </div>
+
+            <div>
+              <label className="label">Specialties (comma-separated)</label>
+              <input className="input" value={regSpecialties} onChange={(e) => setRegSpecialties(e.target.value)} placeholder="Dermatology, Internal Medicine, Pediatrics" />
+            </div>
+
+            <div>
+              <label className="label">Location (GPS) — used for distance sorting</label>
+              <div className="flex gap-2">
+                <input className="input flex-1" value={regLat} onChange={(e) => setRegLat(e.target.value)} placeholder="Latitude (e.g. 37.5665)" />
+                <input className="input flex-1" value={regLng} onChange={(e) => setRegLng(e.target.value)} placeholder="Longitude (e.g. 126.9780)" />
+                <button type="button" onClick={fillGPS} className="btn shrink-0 text-xs">Use GPS</button>
+              </div>
+            </div>
+
+            {regError && <p className="text-xs text-red-400">{regError}</p>}
+
+            <div className="flex gap-2 pt-1">
+              <button
+                type="button"
+                onClick={handleRegister}
+                disabled={regSubmitting}
+                className="btn-primary flex items-center gap-2"
+              >
+                {regSubmitting ? <Loader2 size={13} className="animate-spin" /> : <CheckCircle size={13} />}
+                {regSubmitting ? 'Registering…' : 'Register clinic'}
+              </button>
+              <button type="button" onClick={() => setShowRegForm(false)} className="btn text-xs">Cancel</button>
+            </div>
+            <p className="text-[10px] text-ink-600">Your clinic will appear in patient search immediately. Verification badge granted after manual review.</p>
+          </div>
+        )}
       </Section>
 
       <Section title="About">
