@@ -207,6 +207,41 @@ router.post('/doctor', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+// ── GET /api/register/clinics ─────────────────────────────────────────────────
+// Public — doctors use this to pick a clinic when registering.
+// Returns all registered clinics (pending + approved) so doctors can choose.
+router.get('/clinics', async (_req, res, next) => {
+  try {
+    if (dbReady()) {
+      const clinics = await Facility.find({ source: 'manual' })
+        .select('_id name city type specialties active')
+        .sort({ name: 1 })
+        .lean();
+      return res.json({
+        clinics: clinics.map((c) => ({
+          id:         String(c._id),
+          name:       c.name,
+          city:       c.city,
+          type:       c.type,
+          specialties: c.specialties,
+          status:     c.active ? 'approved' : 'pending',
+        })),
+      });
+    }
+    // In-memory fallback
+    res.json({
+      clinics: inMemoryClinics.map((c) => ({
+        id:         c.id,
+        name:       c.name,
+        city:       c.city,
+        type:       c.type,
+        specialties: c.specialties,
+        status:     c.status,
+      })),
+    });
+  } catch (err) { next(err); }
+});
+
 // ── GET /api/register/pending ─────────────────────────────────────────────────
 // Admin only — list all pending registrations.
 router.get('/pending', async (_req, res, next) => {

@@ -1,9 +1,11 @@
-import { useState } from 'react';
-import { Stethoscope, Pill, ShieldCheck, ArrowRight, Building2, Loader2 } from 'lucide-react';
-
-const BASE = import.meta.env.DEV ? 'http://localhost:4000' : '';
+import { useState, useEffect } from 'react';
+import { Stethoscope, Pill, ShieldCheck, ArrowRight, Building2, Loader2, Search } from 'lucide-react';
 import { useAuthStore, type Role, type AuthUser } from '@/store/auth';
 import { MEDICAL_SPECIALTIES } from '@medaccess/shared';
+
+const BASE = import.meta.env.DEV ? 'http://localhost:4000' : '';
+
+interface ClinicOption { id: string; name: string; city: string; type: string; status: string; }
 
 interface RoleCard {
   role: Role;
@@ -67,7 +69,24 @@ export default function Login() {
   const [registered, setRegistered] = useState<string | null>(null);
   const [error, setError] = useState('');
 
+  // Clinic picker state
+  const [clinics, setClinics] = useState<ClinicOption[]>([]);
+  const [clinicsLoading, setClinicsLoading] = useState(false);
+  const [clinicSearch, setClinicSearch] = useState('');
+  const [registerNewClinic, setRegisterNewClinic] = useState(false);
+
   const card = ROLES.find((r) => r.role === selected);
+
+  // Fetch registered clinics when doctor toggles registration
+  useEffect(() => {
+    if (!registerDoctor || clinics.length > 0) return;
+    setClinicsLoading(true);
+    fetch(`${BASE}/api/register/clinics`)
+      .then((r) => r.json())
+      .then((d) => setClinics(d.clinics ?? []))
+      .catch(() => {})
+      .finally(() => setClinicsLoading(false));
+  }, [registerDoctor]);
 
   async function handleSubmit() {
     if (!name.trim()) { setError('Please enter your name.'); return; }
@@ -240,10 +259,91 @@ export default function Login() {
                   </label>
                   {registerDoctor && (
                     <div className="mt-3 space-y-3">
+
+                      {/* Clinic picker */}
                       <div>
-                        <label className="label">Facility / Clinic ID <span className="text-ink-500">(from clinic Settings → Register Your Clinic)</span></label>
-                        <input className="input" placeholder="e.g. 684abc123..." value={facilityId} onChange={(e) => setFacilityId(e.target.value)} />
+                        <label className="label">Your clinic</label>
+                        {clinicsLoading && (
+                          <div className="flex items-center gap-2 text-xs text-ink-400 py-2">
+                            <Loader2 size={12} className="animate-spin" /> Loading registered clinics…
+                          </div>
+                        )}
+
+                        {!clinicsLoading && !registerNewClinic && (
+                          <>
+                            {clinics.length > 0 ? (
+                              <>
+                                {/* Search filter */}
+                                <div className="relative mb-1.5">
+                                  <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-ink-500" />
+                                  <input
+                                    className="input pl-7 text-xs"
+                                    placeholder="Search clinics…"
+                                    value={clinicSearch}
+                                    onChange={(e) => setClinicSearch(e.target.value)}
+                                  />
+                                </div>
+                                {/* Clinic list */}
+                                <div className="max-h-44 overflow-y-auto space-y-1 rounded-xl border border-ink-700 bg-ink-900 p-1">
+                                  {clinics
+                                    .filter((c) =>
+                                      !clinicSearch ||
+                                      c.name.toLowerCase().includes(clinicSearch.toLowerCase()) ||
+                                      c.city.toLowerCase().includes(clinicSearch.toLowerCase()),
+                                    )
+                                    .map((c) => (
+                                      <button
+                                        key={c.id}
+                                        type="button"
+                                        onClick={() => { setFacilityId(c.id); setClinicName(c.name); }}
+                                        className={`w-full text-left rounded-lg px-3 py-2 text-xs transition ${
+                                          facilityId === c.id
+                                            ? 'bg-accent-500/20 border border-accent-500/40 text-white'
+                                            : 'hover:bg-ink-800 text-ink-300'
+                                        }`}
+                                      >
+                                        <span className="font-medium">{c.name}</span>
+                                        <span className="ml-2 text-ink-500">{c.city} · {c.type}</span>
+                                        {c.status === 'pending' && (
+                                          <span className="ml-2 text-warn-400 text-[10px]">(pending approval)</span>
+                                        )}
+                                      </button>
+                                    ))}
+                                </div>
+                              </>
+                            ) : (
+                              <p className="text-xs text-ink-500 py-1">No clinics registered yet.</p>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => setRegisterNewClinic(true)}
+                              className="text-xs text-accent-400 hover:text-accent-300 mt-1"
+                            >
+                              + Register a new clinic instead
+                            </button>
+                          </>
+                        )}
+
+                        {!clinicsLoading && registerNewClinic && (
+                          <div className="text-xs text-ink-400 p-3 rounded-xl border border-ink-700 bg-ink-900">
+                            Register the clinic first via <strong className="text-white">Settings → Register Your Clinic</strong> inside the portal, then come back here and select it.
+                            <button
+                              type="button"
+                              onClick={() => setRegisterNewClinic(false)}
+                              className="block mt-2 text-accent-400 hover:text-accent-300"
+                            >
+                              ← Back to clinic list
+                            </button>
+                          </div>
+                        )}
                       </div>
+
+                      {facilityId && (
+                        <p className="text-[11px] text-ok-400">
+                          ✓ Selected: {clinicName || facilityId}
+                        </p>
+                      )}
+
                       <div className="grid grid-cols-2 gap-3">
                         <div>
                           <label className="label">License No.</label>
@@ -254,7 +354,7 @@ export default function Login() {
                           <input className="input" type="email" placeholder="dr@hospital.com" value={email} onChange={(e) => setEmail(e.target.value)} />
                         </div>
                       </div>
-                      <p className="text-[11px] text-ink-500">Your profile will be pending admin review before appearing in patient search.</p>
+                      <p className="text-[11px] text-ink-500">Pending admin review before appearing in patient search.</p>
                     </div>
                   )}
                 </div>
