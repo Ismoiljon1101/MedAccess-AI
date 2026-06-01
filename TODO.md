@@ -9,6 +9,38 @@
 
 ---
 
+## 🚨 CRITICAL — ISMAIL MUST DO BEFORE ANYTHING ELSE
+
+**AI broke the facility/registration flow. Ismail must personally review and rewrite.**
+
+### What the AI did wrong
+- Deleted ALL seed data (15 Uzbekistan facilities, 30 doctors) → Find Care now shows **nothing** until a clinic registers + admin approves
+- Built registration system on top of empty state → demo is broken for submission
+- Created `routes/register.ts` with a flow that was never discussed with Ismail
+- Rewrote `routes/facilities.ts` to query MongoDB without checking if it conflicts with existing `Clinic.ts` / `Facility.ts` / `Doctor.ts` model design
+
+### Ismail must do
+
+1. **Read every model** in `packages/db/src/models/` — understand the ER:
+   - `Clinic.ts` vs `Facility.ts` — two different models, unclear which one Find Care should use
+   - `Doctor.ts` — linked to `Facility` by string ID, but `Clinic` has `facilityId` as ObjectId ref
+   - `User.ts`, `Role.ts`, `Permission.ts` — exist but unused in portal
+   - `Appointment.ts` + `TimeSlot.ts` — booking models, check if they conflict with `routes/appointments.ts`
+
+2. **Draw the correct ER diagram** yourself. The AI never validated the model relationships before writing routes.
+
+3. **Decide**: does Find Care query `Facility` or `Clinic`? Right now `routes/facilities.ts` queries `Facility`. But `Clinic` has `enrolled` + `offeredSpecialties`. Which is the source of truth?
+
+4. **Fix the demo**: either restore seed data OR auto-seed on startup OR auto-approve registrations in dev mode. App must show something in Find Care for the demo.
+
+5. **Review `routes/register.ts`** — the registration flow the AI wrote. Approve or rewrite it.
+
+6. **Validate services**: check `apps/api/src/services/` — `vision.ts`, `llm.ts`, `rag.ts` — the AI rewrote `vision.ts` significantly.
+
+**Do NOT let any agent touch `packages/db/` or `apps/api/src/routes/` until this review is done.**
+
+---
+
 ## 0 · Status Dashboard
 
 | Phase | Status |
