@@ -5,7 +5,7 @@ import { chat, chatStream } from '../services/llm.js';
 import { formatContext, ragStatus, retrieve, toCitations } from '../services/rag.js';
 import { appendMessage, ensureSession, getSession, newSessionId, replaceMessages } from '../utils/sessions.js';
 import { HttpError } from '../middleware/error.js';
-import { getRegisteredFacilities, type Doctor } from './facilities.js';
+import { getAllActiveDoctors } from './facilities.js';
 
 const router: Router = Router();
 
@@ -33,31 +33,23 @@ function detectSpecialty(messages: Array<{ role: string; content: string }>): st
   return 'General Practice';
 }
 
-// Pulls doctors from the registered facility registry. Returns [] when no
-// clinic has registered yet — agent then points patient to Find Care (Naver).
-type DoctorWithFacility = Doctor & { facilityName: string };
-
-function getMatchedDoctors(specialty: string): DoctorWithFacility[] {
-  const all: DoctorWithFacility[] = getRegisteredFacilities().flatMap((f) =>
-    f.doctors.map((d) => ({ ...d, facilityName: f.name })),
-  );
-  const matched = all.filter((d) => d.specialty === specialty || d.specialty.includes(specialty));
-  if (matched.length === 0) {
-    return all
-      .filter((d) => d.specialty === 'General Practice' || d.specialty === 'Family Medicine')
-      .slice(0, 3);
-  }
-  return matched.slice(0, 3);
+// Async — pulls active doctors from MongoDB (or in-memory approved list).
+// Returns [] when no clinic is registered; agent points patient to Find Care.
+async function getMatchedDoctors(specialty: string) {
+  const all = await getAllActiveDoctors(specialty);
+  if (all.length > 0) return all.slice(0, 3);
+  // Fallback to General Practice if specialty not found
+  return (await getAllActiveDoctors()).slice(0, 3);
 }
 
-function enrichWithFacilityNames(doctors: DoctorWithFacility[]) {
+function enrichWithFacilityNames(doctors: any[]) {
   return doctors.map((d) => ({
-    id: d.id,
+    id: String(d._id ?? d.id),
     name: d.name,
     specialty: d.specialty,
-    facilityId: d.facilityId,
-    facilityName: d.facilityName || d.facilityId,
-    languages: d.languages,
+    facilityId: String(d.facilityId),
+    facilityName: String(d.facilityId), // clinic name resolved by frontend
+    languages: d.languages ?? [],
   }));
 }
 
@@ -78,7 +70,7 @@ router.post('/', async (req, res, next) => {
 
     const s = getSession(sessionId);
     const specialty = detectSpecialty(s!.messages);
-    const matchedDocs = getMatchedDoctors(specialty);
+    const matchedDocs = await getMatchedDoctors(specialty);
     const enrolledDoctors = enrichWithFacilityNames(matchedDocs);
 
     const system = interviewSystemPrompt({ context, language: parsed.language, enrolledDoctors });
@@ -137,7 +129,7 @@ router.post('/stream', async (req, res, next) => {
 
     const s = getSession(sessionId);
     const specialty = detectSpecialty(s!.messages);
-    const matchedDocs = getMatchedDoctors(specialty);
+    const matchedDocs = await getMatchedDoctors(specialty);
     const enrolledDoctors = enrichWithFacilityNames(matchedDocs);
 
     const system = interviewSystemPrompt({ context, language: parsed.language, enrolledDoctors });

@@ -81,7 +81,7 @@ export default function Settings() {
         ...(regLat ? { lat: regLat } : {}),
         ...(regLng ? { lng: regLng } : {}),
       });
-      const res = await fetch(`${BASE}/api/facilities/register`, {
+      const res = await fetch(`${BASE}/api/register/clinic`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: body.toString(),

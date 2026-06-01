@@ -8,7 +8,7 @@
 import { Router } from 'express';
 import { dbReady, Appointment, TimeSlot, Referral } from '@medaccess/db';
 import { HttpError } from '../middleware/error.js';
-import { inMemoryBookedSlots, findFacility, findDoctor } from './facilities.js';
+import { inMemoryBookedSlots, findFacilityById, findDoctorById } from './facilities.js';
 import { inMemoryReferrals } from './clinics.js';
 
 const router = Router();
@@ -55,12 +55,12 @@ router.post('/', async (req, res, next) => {
     if (!startTime)           return next(new HttpError(400, 'startTime is required (HH:MM)'));
 
     // Verify doctor exists in the registered facility registry
-    const doctor = findDoctor(facilityId, doctorId);
+    const doctor = await findDoctorById(facilityId, doctorId);
     if (!doctor) return next(new HttpError(404, 'Doctor not found at this facility'));
 
     // Resolve facility name for referral cross-post
-    const facility = findFacility(facilityId);
-    const facilityName = facility?.name ?? facilityId;
+    const facility = await findFacilityById(facilityId);
+    const facilityName = (facility as any)?.name ?? facilityId;
 
     // Check slot availability (in-memory)
     const slotKey = `${doctorId}_${date}`;

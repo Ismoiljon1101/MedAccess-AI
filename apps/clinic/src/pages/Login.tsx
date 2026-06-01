@@ -1,5 +1,7 @@
 import { useState } from 'react';
-import { Stethoscope, Pill, ShieldCheck, ArrowRight, Building2 } from 'lucide-react';
+import { Stethoscope, Pill, ShieldCheck, ArrowRight, Building2, Loader2 } from 'lucide-react';
+
+const BASE = import.meta.env.DEV ? 'http://localhost:4000' : '';
 import { useAuthStore, type Role, type AuthUser } from '@/store/auth';
 import { MEDICAL_SPECIALTIES } from '@medaccess/shared';
 
@@ -57,13 +59,54 @@ export default function Login() {
   const [name, setName] = useState('');
   const [specialty, setSpecialty] = useState('');
   const [clinicName, setClinicName] = useState('');
+  const [facilityId, setFacilityId] = useState('');
+  const [licenseNo, setLicenseNo] = useState('');
+  const [email, setEmail] = useState('');
+  const [registerDoctor, setRegisterDoctor] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [registered, setRegistered] = useState<string | null>(null);
   const [error, setError] = useState('');
 
   const card = ROLES.find((r) => r.role === selected);
 
-  function handleSubmit() {
+  async function handleSubmit() {
     if (!name.trim()) { setError('Please enter your name.'); return; }
     if (!selected) return;
+
+    // Doctor can optionally register themselves in the system
+    if (selected === 'doctor' && registerDoctor) {
+      if (!specialty.trim()) { setError('Please select your specialty.'); return; }
+      if (!facilityId.trim()) { setError('Please enter your Facility/Clinic ID.'); return; }
+      setSubmitting(true);
+      setError('');
+      try {
+        const body = new URLSearchParams({
+          name: name.trim(),
+          specialty: specialty.trim(),
+          facilityId: facilityId.trim(),
+          facilityName: clinicName.trim() || facilityId.trim(),
+          licenseNo: licenseNo.trim(),
+          email: email.trim(),
+          languages: 'en',
+          consultationMinutes: '30',
+        });
+        const res = await fetch(`${BASE}/api/register/doctor`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: body.toString(),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Registration failed');
+        setRegistered(data.message);
+        setSubmitting(false);
+        // Still log in locally so they can use the portal while pending approval
+      } catch (err: any) {
+        setError(err.message);
+        setSubmitting(false);
+        return;
+      }
+    }
+
     const user: AuthUser = {
       name: name.trim(),
       role: selected,
@@ -183,14 +226,54 @@ export default function Login() {
                 />
               </div>
 
+              {/* Doctor registration toggle */}
+              {selected === 'doctor' && (
+                <div className="border-t border-ink-700/40 pt-3">
+                  <label className="flex items-center gap-2 cursor-pointer text-sm text-ink-300">
+                    <input
+                      type="checkbox"
+                      className="h-4 w-4 rounded"
+                      checked={registerDoctor}
+                      onChange={(e) => setRegisterDoctor(e.target.checked)}
+                    />
+                    Register myself so patients can find & book me
+                  </label>
+                  {registerDoctor && (
+                    <div className="mt-3 space-y-3">
+                      <div>
+                        <label className="label">Facility / Clinic ID <span className="text-ink-500">(from clinic Settings → Register Your Clinic)</span></label>
+                        <input className="input" placeholder="e.g. 684abc123..." value={facilityId} onChange={(e) => setFacilityId(e.target.value)} />
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="label">License No.</label>
+                          <input className="input" placeholder="KR-12345" value={licenseNo} onChange={(e) => setLicenseNo(e.target.value)} />
+                        </div>
+                        <div>
+                          <label className="label">Email</label>
+                          <input className="input" type="email" placeholder="dr@hospital.com" value={email} onChange={(e) => setEmail(e.target.value)} />
+                        </div>
+                      </div>
+                      <p className="text-[11px] text-ink-500">Your profile will be pending admin review before appearing in patient search.</p>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {registered && (
+                <p className="text-xs text-ok-400 border border-ok-500/30 bg-ok-500/10 rounded-xl px-3 py-2">{registered}</p>
+              )}
+
               {error && <p className="text-xs text-red-400">{error}</p>}
 
               <button
                 type="button"
                 onClick={handleSubmit}
+                disabled={submitting}
                 className="btn-primary w-full justify-center mt-2"
               >
-                Enter portal <ArrowRight size={14} />
+                {submitting ? <Loader2 size={14} className="animate-spin" /> : <ArrowRight size={14} />}
+                {submitting ? 'Registering…' : 'Enter portal'}
               </button>
             </div>
           </div>

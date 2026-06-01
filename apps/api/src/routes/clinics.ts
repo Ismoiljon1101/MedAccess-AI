@@ -93,16 +93,18 @@ router.get('/:id/doctors', async (req, res, next) => {
       });
     }
 
-    // In-memory fallback: pull doctors from the registered facility registry
-    const { findFacility } = await import('./facilities.js');
-    const doctors = (findFacility(clinicId)?.doctors ?? []).map((d) => ({
-      id:                  d.id,
-      name:                d.name,
-      specialty:           d.specialty,
-      consultationMinutes: d.consultationMinutes,
-      languages:           d.languages,
-      bio:                 d.bio,
-    }));
+    // In-memory fallback: pull approved doctors for this clinic
+    const { inMemoryDoctors } = await import('./register.js');
+    const doctors = inMemoryDoctors
+      .filter((d) => d.facilityId === clinicId && d.status === 'approved')
+      .map((d) => ({
+        id:                  d.id,
+        name:                d.name,
+        specialty:           d.specialty,
+        consultationMinutes: d.consultationMinutes,
+        languages:           d.languages,
+        bio:                 d.bio,
+      }));
     return res.json({ clinicId, doctors });
 
   } catch (err) {
