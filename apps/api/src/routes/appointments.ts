@@ -8,7 +8,7 @@
 import { Router } from 'express';
 import { dbReady, Appointment, TimeSlot, Referral } from '@medaccess/db';
 import { HttpError } from '../middleware/error.js';
-import { inMemoryBookedSlots, SEED_DOCTORS, SEED_FACILITIES } from './facilities.js';
+import { inMemoryBookedSlots, findFacility, findDoctor } from './facilities.js';
 import { inMemoryReferrals } from './clinics.js';
 
 const router = Router();
@@ -54,12 +54,12 @@ router.post('/', async (req, res, next) => {
     if (!date)                return next(new HttpError(400, 'date is required (YYYY-MM-DD)'));
     if (!startTime)           return next(new HttpError(400, 'startTime is required (HH:MM)'));
 
-    // Verify doctor exists in seed data (or DB in future)
-    const doctor = SEED_DOCTORS.find((d) => d.id === doctorId && d.facilityId === facilityId);
+    // Verify doctor exists in the registered facility registry
+    const doctor = findDoctor(facilityId, doctorId);
     if (!doctor) return next(new HttpError(404, 'Doctor not found at this facility'));
 
     // Resolve facility name for referral cross-post
-    const facility = SEED_FACILITIES.find((f) => f.id === facilityId);
+    const facility = findFacility(facilityId);
     const facilityName = facility?.name ?? facilityId;
 
     // Check slot availability (in-memory)

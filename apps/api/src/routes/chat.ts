@@ -5,7 +5,7 @@ import { chat, chatStream } from '../services/llm.js';
 import { formatContext, ragStatus, retrieve, toCitations } from '../services/rag.js';
 import { appendMessage, ensureSession, getSession, newSessionId, replaceMessages } from '../utils/sessions.js';
 import { HttpError } from '../middleware/error.js';
-import { SEED_DOCTORS, SEED_FACILITIES } from './facilities.js';
+import { getRegisteredFacilities, type Doctor } from './facilities.js';
 
 const router: Router = Router();
 
@@ -33,28 +33,32 @@ function detectSpecialty(messages: Array<{ role: string; content: string }>): st
   return 'General Practice';
 }
 
-function getMatchedDoctors(specialty: string) {
-  const matched = SEED_DOCTORS.filter((d) => d.specialty === specialty || d.specialty.includes(specialty));
+// Pulls doctors from the registered facility registry. Returns [] when no
+// clinic has registered yet — agent then points patient to Find Care (Naver).
+type DoctorWithFacility = Doctor & { facilityName: string };
+
+function getMatchedDoctors(specialty: string): DoctorWithFacility[] {
+  const all: DoctorWithFacility[] = getRegisteredFacilities().flatMap((f) =>
+    f.doctors.map((d) => ({ ...d, facilityName: f.name })),
+  );
+  const matched = all.filter((d) => d.specialty === specialty || d.specialty.includes(specialty));
   if (matched.length === 0) {
-    // Fallback to General Practice doctors
-    return SEED_DOCTORS.filter((d) => d.specialty === 'General Practice' || d.specialty === 'Family Medicine')
+    return all
+      .filter((d) => d.specialty === 'General Practice' || d.specialty === 'Family Medicine')
       .slice(0, 3);
   }
   return matched.slice(0, 3);
 }
 
-function enrichWithFacilityNames(doctors: typeof SEED_DOCTORS) {
-  return doctors.map((d) => {
-    const facility = SEED_FACILITIES.find((f) => f.id === d.facilityId);
-    return {
-      id: d.id,
-      name: d.name,
-      specialty: d.specialty,
-      facilityId: d.facilityId,
-      facilityName: facility?.name || d.facilityId,
-      languages: d.languages,
-    };
-  });
+function enrichWithFacilityNames(doctors: DoctorWithFacility[]) {
+  return doctors.map((d) => ({
+    id: d.id,
+    name: d.name,
+    specialty: d.specialty,
+    facilityId: d.facilityId,
+    facilityName: d.facilityName || d.facilityId,
+    languages: d.languages,
+  }));
 }
 
 router.post('/', async (req, res, next) => {
