@@ -371,7 +371,7 @@ Patient needs care (from MA Agent CTA or Find Care tab)
 - ✅ `FindCare.tsx`: Tier 1 enrolled clinics first, Tier 2 map results below with "Navigate" deep links
 - ✅ Doctor picker in booking sheet (filter by MA Agent specialty)
 - ✅ One-tap navigation deep links (Google + Naver, pick by locale)
-- [ ] Map view toggle (list ↔ embedded map) — optional polish, defer to v0.2
+- ✅ ~~Map view toggle (list ↔ embedded map)~~ — done in `be0a07e` (Otabek, OpenStreetMap iframe, no API key needed)
 
 **Mirsaid (ops):**
 - [ ] Procure **Google Maps Platform API key** (Places + Directions), set a **hard quota cap** to protect budget. Hand to Ismail.
