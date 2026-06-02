@@ -12,7 +12,7 @@ import { useSearchParams } from 'react-router-dom';
 import {
   MapPin, Phone, Clock, ChevronRight, ChevronDown, Navigation,
   Loader2, CheckCircle, X, Stethoscope, Pill, Building2,
-  Calendar, User, Map, ShieldCheck,
+  Calendar, User, Map, ShieldCheck, List,
 } from 'lucide-react';
 import {
   searchFacilities, getFacilitySlots, bookAppointment,
@@ -24,6 +24,35 @@ import { useAppStore } from '@/store/app';
 // ── Helpers ───────────────────────────────────────────────────────────────────
 type FacilityType = 'all' | 'hospital' | 'clinic' | 'pharmacy';
 type MapProvider  = 'google' | 'naver';
+type ViewMode     = 'list' | 'map';
+
+/**
+ * Build an OpenStreetMap embed URL with a bounding box that fits all pins
+ * plus a marker for the user (or the first facility) at the centre.
+ * No API key required — OSM is free.
+ */
+function buildOsmEmbedUrl(
+  pins: Array<{ lat: number; lng: number }>,
+  centre: { lat: number; lng: number },
+): string {
+  if (pins.length === 0) {
+    // Fall back to a single-marker view around the centre (~0.04° box ≈ 4 km)
+    const pad = 0.04;
+    const bbox = [centre.lng - pad, centre.lat - pad, centre.lng + pad, centre.lat + pad].join(',');
+    return `https://www.openstreetmap.org/export/embed.html?bbox=${bbox}&layer=mapnik&marker=${centre.lat}%2C${centre.lng}`;
+  }
+  const lats = pins.map((p) => p.lat).concat(centre.lat);
+  const lngs = pins.map((p) => p.lng).concat(centre.lng);
+  const minLat = Math.min(...lats);
+  const maxLat = Math.max(...lats);
+  const minLng = Math.min(...lngs);
+  const maxLng = Math.max(...lngs);
+  // Add 10% padding so pins aren't on the edge of the viewport
+  const padLat = Math.max((maxLat - minLat) * 0.15, 0.01);
+  const padLng = Math.max((maxLng - minLng) * 0.15, 0.01);
+  const bbox = [minLng - padLng, minLat - padLat, maxLng + padLng, maxLat + padLat].join(',');
+  return `https://www.openstreetmap.org/export/embed.html?bbox=${bbox}&layer=mapnik&marker=${centre.lat}%2C${centre.lng}`;
+}
 
 const TYPE_TABS: { id: FacilityType; label: string; icon: React.ReactNode }[] = [
   { id: 'all',      label: 'All',       icon: <Building2 size={12} /> },
@@ -117,6 +146,7 @@ export default function FindCare() {
   const [specialty,     setSpecialty]     = useState(preSpecialty);
   const [citySearch,    setCitySearch]    = useState('');
   const [mapProvider,   setMapProvider]   = useState<MapProvider>('naver');
+  const [viewMode,      setViewMode]      = useState<ViewMode>('list');
   const [coords,        setCoords]        = useState<{ lat: number; lng: number } | null>(null);
   const [locDone,       setLocDone]       = useState(false);
   const [locLabel,      setLocLabel]      = useState<string>('');   // human-readable address
@@ -422,22 +452,56 @@ export default function FindCare() {
             <h2 className="text-base font-semibold text-white">Find Care</h2>
             <p className="text-xs text-slate-500 mt-0.5">Hospitals · Clinics · Pharmacies</p>
           </div>
-          {/* Map provider toggle */}
-          <div className="flex items-center gap-0.5 rounded-lg border border-surface-600 bg-surface-800 p-0.5">
-            {(['naver', 'google'] as MapProvider[]).map((p) => (
+          <div className="flex items-center gap-1.5">
+            {/* List ↔ Map view toggle */}
+            <div className="flex items-center gap-0.5 rounded-lg border border-surface-600 bg-surface-800 p-0.5">
               <button
-                key={p}
                 type="button"
-                onClick={() => setMapProvider(p)}
+                onClick={() => setViewMode('list')}
+                aria-label="List view"
+                aria-pressed={viewMode === 'list'}
                 className={`flex items-center gap-1 rounded-md px-2 py-1 text-[10px] font-medium transition ${
-                  mapProvider === p
+                  viewMode === 'list'
                     ? 'bg-brand-600/20 text-brand-400 border border-brand-500/40'
                     : 'text-slate-500 hover:text-slate-300'
                 }`}
               >
-                <Map size={10} /> {p === 'google' ? 'Google' : 'Naver'}
+                <List size={10} /> List
               </button>
-            ))}
+              <button
+                type="button"
+                onClick={() => setViewMode('map')}
+                aria-label="Map view"
+                aria-pressed={viewMode === 'map'}
+                className={`flex items-center gap-1 rounded-md px-2 py-1 text-[10px] font-medium transition ${
+                  viewMode === 'map'
+                    ? 'bg-brand-600/20 text-brand-400 border border-brand-500/40'
+                    : 'text-slate-500 hover:text-slate-300'
+                }`}
+              >
+                <Map size={10} /> Map
+              </button>
+            </div>
+
+            {/* Map provider toggle */}
+            <div className="flex items-center gap-0.5 rounded-lg border border-surface-600 bg-surface-800 p-0.5">
+              {(['naver', 'google'] as MapProvider[]).map((p) => (
+                <button
+                  key={p}
+                  type="button"
+                  onClick={() => setMapProvider(p)}
+                  aria-label={`Use ${p === 'google' ? 'Google' : 'Naver'} Maps for directions`}
+                  aria-pressed={mapProvider === p}
+                  className={`flex items-center gap-1 rounded-md px-2 py-1 text-[10px] font-medium transition ${
+                    mapProvider === p
+                      ? 'bg-brand-600/20 text-brand-400 border border-brand-500/40'
+                      : 'text-slate-500 hover:text-slate-300'
+                  }`}
+                >
+                  {p === 'google' ? 'Google' : 'Naver'}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
 
@@ -541,6 +605,32 @@ export default function FindCare() {
             <p className="text-[10px] text-slate-500 mt-0.5">Status: pending · The clinic will confirm.</p>
           </div>
           <button type="button" onClick={() => setBookedAppt(null)} aria-label="Dismiss booking confirmation" className="ml-auto text-slate-600 hover:text-slate-400"><X size={14} /></button>
+        </div>
+      )}
+
+      {/* ── Map view (OSM iframe + horizontal facility strip) ───────────── */}
+      {viewMode === 'map' && !loading && (facilities.length > 0 || mapPlaces.length > 0) && (
+        <div className="shrink-0 mx-3 mb-2 rounded-xl overflow-hidden border border-surface-700">
+          <iframe
+            key={`${facilities.length}-${mapPlaces.length}-${coords?.lat ?? 0}`}
+            title="Facilities map"
+            src={buildOsmEmbedUrl(
+              [
+                ...facilities.map((f) => ({ lat: f.lat, lng: f.lng })),
+                ...mapPlaces.map((p) => ({ lat: p.lat, lng: p.lng })),
+              ].filter((p) => typeof p.lat === 'number' && typeof p.lng === 'number'),
+              coords ?? { lat: 41.3111, lng: 69.2797 }, // Tashkent fallback
+            )}
+            className="w-full h-56 bg-surface-800"
+            loading="lazy"
+            referrerPolicy="no-referrer-when-downgrade"
+          />
+          <div className="bg-surface-800/80 px-3 py-1.5 flex items-center justify-between text-[10px] text-slate-500">
+            <span className="flex items-center gap-1">
+              <Map size={10} /> {facilities.length + mapPlaces.length} place{facilities.length + mapPlaces.length === 1 ? '' : 's'} on map
+            </span>
+            <span>© OpenStreetMap</span>
+          </div>
         </div>
       )}
 
