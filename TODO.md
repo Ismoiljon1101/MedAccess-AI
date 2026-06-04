@@ -9,35 +9,17 @@
 
 ---
 
-## 🚨 CRITICAL — ISMAIL MUST DO BEFORE ANYTHING ELSE
+## ✅ Architecture redesign complete (2026-06-04)
 
-**AI broke the facility/registration flow. Ismail must personally review and rewrite.**
+Ismail reviewed and rewrote the entire architecture. All concerns resolved:
 
-### What the AI did wrong
-- Deleted ALL seed data (15 Uzbekistan facilities, 30 doctors) → Find Care now shows **nothing** until a clinic registers + admin approves
-- Built registration system on top of empty state → demo is broken for submission
-- Created `routes/register.ts` with a flow that was never discussed with Ismail
-- Rewrote `routes/facilities.ts` to query MongoDB without checking if it conflicts with existing `Clinic.ts` / `Facility.ts` / `Doctor.ts` model design
-
-### Ismail must do
-
-1. **Read every model** in `packages/db/src/models/` — understand the ER:
-   - `Clinic.ts` vs `Facility.ts` — two different models, unclear which one Find Care should use
-   - `Doctor.ts` — linked to `Facility` by string ID, but `Clinic` has `facilityId` as ObjectId ref
-   - `User.ts`, `Role.ts`, `Permission.ts` — exist but unused in portal
-   - `Appointment.ts` + `TimeSlot.ts` — booking models, check if they conflict with `routes/appointments.ts`
-
-2. **Draw the correct ER diagram** yourself. The AI never validated the model relationships before writing routes.
-
-3. **Decide**: does Find Care query `Facility` or `Clinic`? Right now `routes/facilities.ts` queries `Facility`. But `Clinic` has `enrolled` + `offeredSpecialties`. Which is the source of truth?
-
-4. **Fix the demo**: either restore seed data OR auto-seed on startup OR auto-approve registrations in dev mode. App must show something in Find Care for the demo.
-
-5. **Review `routes/register.ts`** — the registration flow the AI wrote. Approve or rewrite it.
-
-6. **Validate services**: check `apps/api/src/services/` — `vision.ts`, `llm.ts`, `rag.ts` — the AI rewrote `vision.ts` significantly.
-
-**Do NOT let any agent touch `packages/db/` or `apps/api/src/routes/` until this review is done.**
+- **ER model**: 10 unused models deleted (Clinic, Referral, User, Role, Permission, Medication, Allergy, Condition, Encounter, Vitals). Single source of truth: `Facility` (not Clinic). All refs are ObjectId.
+- **Agent booking**: chat → `booking_proposal` SSE → patient confirms → `POST /api/appointments/confirm` → Appointment in DB with full `agentAnalysis` refs.
+- **MVC**: 4 domain services (patient, facility, appointment, agent-booking). Thin controllers. `clinics.ts` + `register.ts` deleted.
+- **Patient identity**: phone-based (no auth). `POST /api/patients` on Welcome. `X-Patient-Phone` header on all requests.
+- **Registration**: open (no approval). Clinic + doctor register immediately active.
+- **Market**: Korea only. Naver Maps default. No seed data. No Uzbekistan.
+- **Skin model**: **EfficientNet-B0 (95.5%)** — locked. Owner: Temirlan.
 
 ---
 
@@ -47,66 +29,42 @@
 |---|---|
 | Monorepo scaffold + tooling | ✅ Done |
 | `packages/shared` (schemas, prompts, 31 RAG docs) | ✅ Done |
-| `packages/db` (MongoDB models incl. Referral) | ✅ Done |
-| `apps/api` (Express, all routes + voice + clinics + referrals) | ✅ Done |
-| `apps/clinic` (provider UI + **Patients queue** + all 4 modules routed + **light mode**) | ✅ Done |
-| `apps/patient` (patient PWA, 9 pages, **MA Agent + Find Care booking loop** + **light mode**) | ✅ Done |
-| Patient → clinic referral loop (Connect-to-Care CTA → booking → clinic queue) | ✅ Done |
+| `packages/db` — MVC schema redesign (12 models, 10 deleted) | ✅ Done (Ismail, 2026-06-04) |
+| `apps/api` — MVC service layer + thin controllers + agent booking | ✅ Done (Ismail, 2026-06-04) |
+| `apps/clinic` (provider UI + Patients queue + all 4 modules) | ✅ Done |
+| `apps/patient` (PWA, phone identity, agent booking UI, Korea defaults) | ✅ Done |
+| Agent booking loop: chat → proposal SSE → confirm → clinic sees | ✅ Done (Ismail, 2026-06-04) |
+| FindCare: My Appointments (server-linked) + manual search | ✅ Done (Ismail, 2026-06-04) |
+| Clinic queue reads `Appointment` (with `agentAnalysis` populated) | ✅ Done (Ismail, 2026-06-04) |
 | Per-engineer agent files (`CLAUDE.md` + `docs/team/`) | ✅ Done |
 | Python image-ml sidecar (scaffold + contract) | ✅ Done — running on :5001 |
-| **Research folder** (`research/`) — Pareto disease + model + dataset survey | ✅ **Complete** ([`research/00-overview.md`](./research/00-overview.md)) |
-| Cheapest LLM switch — Qwen 3.x (qwen3.5-plus / qwen3.6-flash) | ✅ Done (Ismail) |
+| Research folder (`research/`) | ✅ Done |
+| Cheapest LLM switch — Qwen 3.x | ✅ Done (Ismail) |
 | Patient image-quality guidance modal + checklist | ✅ Done (Otabek) |
-| Vision pipeline — local models only, no cloud vision, no Gemini | ✅ Done (Ismail) |
-| Image analysis → auto-triggers Find Care CTA + AI report in referral | ✅ Done (Ismail) |
-| Patient-friendly language in image analysis responses | ✅ Done (Ismail) |
-| FindCare GPS race condition fix | ✅ Done (Ismail) |
-| Vision model upgrade (Sonnet 4.5) | ❌ **Cancelled** — local models instead |
-| QA pass across both portals | 🚧 In progress (Mirsaid) |
+| Vision pipeline — local models only, no cloud vision | ✅ Done (Ismail) |
+| Image analysis → agent-triggered booking | ✅ Done (Ismail) |
+| FindCare GPS + OSM map view + list/map toggle | ✅ Done (Otabek) |
+| Korea/Naver defaults — no Uzbekistan seed data | ✅ Done (Ismail, 2026-06-04) |
 | Image thumbnails in chat | ✅ Done (Otabek) |
 | Specialist disease models: **YOLOv8s-Malaria** (Phase 1, MIT) | ✅ Done — running on :5001 |
 | Specialist disease models: **TorchXRayVision DenseNet121-all** X-ray (Phase 2) | ✅ Done — running on :5001 |
-| Specialist disease models: **skin-xception.onnx** (Xception 92%, Phase 3) | 🔴 **BLOCKED** — need ONNX conversion on x86/Mac (see §0.6) |
-| Fix: `pnpm typecheck` errors in `chat.ts` + `sessions.ts` (Mongoose `createdAt`/`updatedAt`) | 🔴 **Bug (Ismail)** |
-| Fix: FindCare shows "No facilities" outside Uzbekistan — specialty filter too strict + no Google Maps key | 🔴 **Bug (Ismail) — see QA #001** |
-| Frontend design pass — both apps look generic | 📋 Todo (Ismail, use `/frontend-design`) |
+| Specialist disease models: **EfficientNet-B0** skin (Phase 3, 95.5%) | 🔴 **BLOCKED** — Temirlan needs x86/Mac for ONNX conversion |
+| `pnpm typecheck` clean across all workspaces | ✅ Done (Ismail, 2026-06-04) |
+| Frontend design pass — both apps | 📋 Todo (Ismail, use `/frontend-design`) |
 | PWA Lighthouse audit ≥ 90 | 📋 Todo (Otabek) |
 | Screenshots + DEMO.md | 📋 Todo (Sobirov) |
 | Tag `v0.1.0` + submit | 📋 Todo (Ismail) |
 
 ---
 
-## 0.6 · Skin Disease Model — Options (UNBLOCKED, needs decision)
+## 0.6 · Skin Disease Model — LOCKED
 
-**Problem:** `YOLOv8n-cls / HAM10000` (86.2% acc) was the original plan but:
-1. No pre-trained weights exist publicly — must train from scratch on HAM10000 dataset (~30 min on CPU)
-2. HAM10000 license is **CC BY-NC 4.0** — non-commercial only
-3. Better alternatives exist with higher accuracy and permissive licensing
+**Decision (Ismail, 2026-06-04): EfficientNet-B0 (95.5%)**
 
-**Newly found alternatives (Ismail to decide):**
-
-| Model | Architecture | Accuracy | License | Ready to use? | Repo |
-|---|---|---|---|---|---|
-| **Skin_Disease_AI** | Xception (CNN) | **92%** | Open | Clone + convert weights | [NadavIs56/Skin_Disease_AI](https://github.com/NadavIs56/Skin_Disease_AI) |
-| **Skin-Disease-Detection** | EfficientNet-B0 | **95.5%** | Open | Clone + convert weights | [MahimaKhatri/Skin-Disease-Detection](https://github.com/MahimaKhatri/Skin-Disease-Detection) |
-| **YOLO11 Skin Disease** | YOLO11 | — | Open | Download weights | [pyresearch/Skin-Diseases-Detection-System](https://github.com/pyresearch/Skin-Diseases-Detection-System) |
-| **Roboflow skin-disease-ia** | CNN | — | **CC BY 4.0 ✅** | API or download | [universe.roboflow.com](https://universe.roboflow.com/health-ai-detection/skin-disease-ia-detection) |
-
-**Better datasets (if training):**
-
-| Dataset | Images | Notes |
-|---|---|---|
-| **ISIC Archive** | 85,000+ | Melanoma, BCC, SCC, benign — gold standard |
-| **Fitzpatrick 17K** | 16,577 | Diverse skin tones — reduces AI bias on darker skin |
-| **HAM10000** | 10,015 | 7 classes — original plan, CC BY-NC |
-| **DermaMNIST** | 10,015 | Lightweight, fast experiments |
-
-**Recommendation:**
-1. **Fastest path:** `Skin_Disease_AI` (Xception, 92%) or `YOLO11` — clone repo, extract weights, drop in `services/image-ml/models/skin-ham10000.pt`
-2. **Best accuracy:** EfficientNet-B0 (95.5%) — needs PyTorch weight conversion to YOLO format
-3. **Best license:** Roboflow CC BY 4.0 — commercial safe, API available immediately
-
-**Owner: Temirlan** (model integration) + **Ismail** (license decision)
+- Repo: [MahimaKhatri/Skin-Disease-Detection](https://github.com/MahimaKhatri/Skin-Disease-Detection)
+- Task: clone repo → extract weights → convert to ONNX (`tf2onnx` or `torch.onnx.export`) → drop in `services/image-ml/models/` → wire into `/analyze` endpoint with `hint=skin`
+- **Owner: Temirlan** — must run on x86/Mac (ARM64 Windows has no TF wheels)
+- Status: 🔴 BLOCKED on ONNX conversion machine
 
 ---
 
@@ -125,7 +83,7 @@ See [`research/00-overview.md`](./research/00-overview.md) for the executive sum
 |---|---|---|---|---|
 | 1 | Malaria | YOLOv8n-Malaria (NIH smear) | MIT ✅ | Ship first |
 | 2 | Pneumonia | TorchXRayVision DenseNet121 | Apache 2.0 ✅ | Needs alignment UI |
-| 3 | Skin lesions | YOLOv8n-cls (HAM10000) | CC BY-NC ⚠️ | Pilot/demo only |
+| 3 | Skin lesions | **EfficientNet-B0** (95.5%) | Open ✅ | 🔴 ONNX conversion pending (Temirlan) |
 | 4 | Retinopathy | ResNet50-DR | Non-commercial ⚠️ | Non-profit only |
 | 5 | Scabies | MobileNetV2-ScabAI | Non-commercial ⚠️ | ❌ Deferred (dataset too small) |
 
@@ -261,14 +219,15 @@ git push origin fix/your-fix-name
 ## 3 · Per-Engineer Current Sprint (May 28 → Jun 9)
 
 ### Ismail
-1. ✅ **Switch all LLM defaults to cheapest Chinese models** — `qwen3.5-plus-20260420` (chat/vision), `qwen3.6-flash` (fast/triage). All slugs verified on OpenRouter. `defaultFastModel()` added to `llm.ts`.
-2. ✅ **Lead Pareto research** — [`research/00-overview.md`](./research/00-overview.md) complete. Unblocked Temirlan.
-3. ✅ **Node ↔ Python image-ml HTTP contract** — defined in `vision.ts` (`MLFinding`, `MLAnalyzeResponse`), mirrored in `services/image-ml/main.py`. Contract stable.
-4. ✅ **Wire `vision.ts` → `services/image-ml`** — `analyzeImageFull()` runs LLM + sidecar in parallel, merges specialist findings. Feature-flagged by `IMAGE_ML_URL`.
-5. 📋 Pair with Temirlan for first session on the Python sidecar (in-person / call).
-6. 📋 Review every PR touching `apps/api/`, `packages/shared/`, `packages/db/`.
-7. ✅ `pnpm typecheck` clean on all workspaces.
-8. 📋 Tag `v0.1.0` when DoD (§6) green.
+1. ✅ Switch LLM defaults to Qwen 3.x
+2. ✅ Lead Pareto research + unblock Temirlan
+3. ✅ Node ↔ Python image-ml HTTP contract
+4. ✅ Wire vision.ts → services/image-ml
+5. ✅ **Full architecture redesign** (2026-06-04) — MVC services, agent booking, Korea defaults, phone identity, schema cleanup
+6. ✅ `pnpm typecheck` clean across all 5 workspaces
+7. 📋 **Frontend design pass** — use `/frontend-design` on Chat, FindCare, Clinic Patients
+8. 📋 **End-to-end verification** — full loop test before v0.1.0
+9. 📋 Tag `v0.1.0` when DoD green
 
 ### Mirsaid
 1. OpenRouter credit ≥ $20 in account.
