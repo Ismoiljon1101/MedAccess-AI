@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+﻿import { useState, useRef } from 'react';
 import { Loader2, Mic, MicOff, AlertTriangle, Phone } from 'lucide-react';
 import { checkEmergency, transcribeAudio, type EmergencyCheckResult } from '@/lib/api';
 import { useAppStore } from '@/store/app';
@@ -6,7 +6,7 @@ import { useAppStore } from '@/store/app';
 const LEVEL_CONFIG = {
   RED:    { label: 'LIFE-THREATENING',    bg: 'bg-red-600',    border: 'border-red-500',    text: 'text-white',       sub: 'Call emergency services NOW — do not wait.' },
   ORANGE: { label: 'VERY URGENT',         bg: 'bg-orange-500', border: 'border-orange-400', text: 'text-white',       sub: 'Go to an emergency room immediately.' },
-  YELLOW: { label: 'URGENT',              bg: 'bg-yellow-400', border: 'border-yellow-300', text: 'text-slate-900',   sub: 'See a doctor today, within a few hours.' },
+  YELLOW: { label: 'URGENT',              bg: 'bg-yellow-400', border: 'border-yellow-300', text: 'text-ink-950',     sub: 'See a doctor today, within a few hours.' },
   GREEN:  { label: 'NOT AN EMERGENCY',    bg: 'bg-green-500',  border: 'border-green-400',  text: 'text-white',       sub: 'You can see a doctor or clinic at a normal appointment.' },
   BLUE:   { label: 'MINOR / SELF-CARE',   bg: 'bg-blue-500',   border: 'border-blue-400',   text: 'text-white',       sub: 'Rest and monitor your symptoms at home.' },
 } as const;
@@ -62,7 +62,7 @@ export default function EmergencyCheck() {
     <div className="px-4 py-5 space-y-5 max-w-2xl mx-auto">
       <div>
         <h1 className="text-xl font-semibold text-white">Is this an emergency?</h1>
-        <p className="mt-1 text-sm text-slate-400">
+        <p className="mt-1 text-sm text-ink-400">
           Describe what's happening — patient's age, main complaint, and how long it's been going on.
         </p>
       </div>
@@ -70,7 +70,7 @@ export default function EmergencyCheck() {
       {/* 112 CTA — always visible */}
       <div className="card card-pad border-danger-500/40 bg-danger-500/5 flex items-center gap-3">
         <Phone size={16} className="shrink-0 text-danger-400" />
-        <p className="text-sm text-slate-300">
+        <p className="text-sm text-ink-200">
           If someone is <strong className="text-white">unconscious, not breathing, or in immediate danger</strong>
           {' '}— call <strong className="text-danger-400">112 / 911 / 999</strong> now, don't use this app.
         </p>
@@ -92,7 +92,7 @@ export default function EmergencyCheck() {
             className={`absolute right-2 top-2 rounded-lg p-2 transition ${
               recording
                 ? 'bg-danger-500/20 text-danger-400'
-                : 'bg-surface-700 text-slate-400 hover:text-slate-200'
+                : 'bg-ink-700 text-ink-400 hover:text-ink-200'
             }`}
           >
             {recording ? <MicOff size={16} /> : <Mic size={16} />}
@@ -128,19 +128,19 @@ export default function EmergencyCheck() {
               {meta.label}
             </div>
             <p className="mt-2 text-sm font-medium text-white">{result.label}</p>
-            <p className="mt-1 text-sm text-slate-300">{meta.sub}</p>
+            <p className="mt-1 text-sm text-ink-200">{meta.sub}</p>
             {result.targetTime && (
-              <p className="mt-2 text-xs text-slate-400">Target time to care: <strong className="text-white">{result.targetTime}</strong></p>
+              <p className="mt-2 text-xs text-ink-400">Target time to care: <strong className="text-white">{result.targetTime}</strong></p>
             )}
           </div>
 
           {/* Actions */}
           {result.actions.length > 0 && (
             <div className="card card-pad space-y-2">
-              <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">Do this now</p>
+              <p className="text-xs font-semibold uppercase tracking-wider text-ink-400">Do this now</p>
               <ul className="space-y-1.5">
                 {result.actions.map((a, i) => (
-                  <li key={i} className="flex gap-2 text-sm text-slate-300">
+                  <li key={i} className="flex gap-2 text-sm text-ink-200">
                     <span className="shrink-0 font-bold text-brand-400">{i + 1}.</span> {a}
                   </li>
                 ))}
@@ -154,7 +154,7 @@ export default function EmergencyCheck() {
               <p className="text-xs font-semibold uppercase tracking-wider text-warn-400">If any of these happen — call emergency immediately</p>
               <ul className="space-y-1.5">
                 {result.warningSigns.map((w, i) => (
-                  <li key={i} className="flex gap-2 text-sm text-slate-300">
+                  <li key={i} className="flex gap-2 text-sm text-ink-200">
                     <span className="shrink-0 text-warn-400">!</span> {w}
                   </li>
                 ))}

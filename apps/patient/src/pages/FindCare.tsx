@@ -1,4 +1,4 @@
-/**
+﻿/**
  * FindCare — find hospitals/clinics/pharmacies near you and book a time slot.
  *
  * Flow:
@@ -462,15 +462,15 @@ export default function FindCare() {
     <div className="flex flex-col h-full overflow-hidden">
 
       {/* ── Header ─────────────────────────────────────────────────────── */}
-      <div className="shrink-0 px-4 pt-4 pb-3 border-b border-surface-700">
+      <div className="shrink-0 px-4 pt-4 pb-3 border-b border-ink-700">
         <div className="flex items-center justify-between gap-2 mb-3">
           <div>
             <h2 className="text-base font-semibold text-white">Find Care</h2>
-            <p className="text-xs text-slate-500 mt-0.5">Hospitals · Clinics · Pharmacies</p>
+            <p className="text-xs text-ink-500 mt-0.5">Hospitals · Clinics · Pharmacies</p>
           </div>
           <div className="flex items-center gap-1.5">
             {/* List ↔ Map view toggle */}
-            <div className="flex items-center gap-0.5 rounded-lg border border-surface-600 bg-surface-800 p-0.5">
+            <div className="flex items-center gap-0.5 rounded-lg border border-ink-600 bg-ink-800 p-0.5">
               <button
                 type="button"
                 onClick={() => setViewMode('list')}
@@ -479,7 +479,7 @@ export default function FindCare() {
                 className={`flex items-center gap-1 rounded-md px-2 py-1 text-[10px] font-medium transition ${
                   viewMode === 'list'
                     ? 'bg-brand-600/20 text-brand-400 border border-brand-500/40'
-                    : 'text-slate-500 hover:text-slate-300'
+                    : 'text-ink-500 hover:text-ink-200'
                 }`}
               >
                 <List size={10} /> List
@@ -492,7 +492,7 @@ export default function FindCare() {
                 className={`flex items-center gap-1 rounded-md px-2 py-1 text-[10px] font-medium transition ${
                   viewMode === 'map'
                     ? 'bg-brand-600/20 text-brand-400 border border-brand-500/40'
-                    : 'text-slate-500 hover:text-slate-300'
+                    : 'text-ink-500 hover:text-ink-200'
                 }`}
               >
                 <Map size={10} /> Map
@@ -500,7 +500,7 @@ export default function FindCare() {
             </div>
 
             {/* Map provider toggle */}
-            <div className="flex items-center gap-0.5 rounded-lg border border-surface-600 bg-surface-800 p-0.5">
+            <div className="flex items-center gap-0.5 rounded-lg border border-ink-600 bg-ink-800 p-0.5">
               {(['naver', 'google'] as MapProvider[]).map((p) => (
                 <button
                   key={p}
@@ -511,7 +511,7 @@ export default function FindCare() {
                   className={`flex items-center gap-1 rounded-md px-2 py-1 text-[10px] font-medium transition ${
                     mapProvider === p
                       ? 'bg-brand-600/20 text-brand-400 border border-brand-500/40'
-                      : 'text-slate-500 hover:text-slate-300'
+                      : 'text-ink-500 hover:text-ink-200'
                   }`}
                 >
                   {p === 'google' ? 'Google' : 'Naver'}
@@ -541,7 +541,7 @@ export default function FindCare() {
             className={`flex items-center gap-1 rounded-full px-3 py-1 text-[11px] font-medium border transition ${
               typeFilter === t.id
                 ? 'border-brand-500 bg-brand-600/20 text-brand-400'
-                : 'border-surface-600 bg-surface-800 text-slate-500'
+                : 'border-ink-600 bg-ink-800 text-ink-500'
             }`}
           >
             {t.icon} {t.label}
@@ -559,7 +559,7 @@ export default function FindCare() {
             className={`shrink-0 rounded-full px-2.5 py-0.5 text-[10px] font-medium border transition ${
               specialty === s
                 ? 'border-brand-500/80 bg-brand-600/20 text-brand-400'
-                : 'border-surface-600/60 bg-surface-800/60 text-slate-500'
+                : 'border-ink-600/60 bg-ink-800/60 text-ink-500'
             }`}
           >
             {s}
@@ -571,20 +571,20 @@ export default function FindCare() {
       {locRequesting ? (
         <div className="shrink-0 mx-3 mb-2 rounded-xl border border-brand-500/25 bg-brand-500/8 px-3 py-2 flex items-center gap-2">
           <Loader2 size={13} className="text-brand-400 shrink-0 animate-spin" />
-          <p className="text-[11px] text-slate-400 flex-1">Detecting your location…</p>
+          <p className="text-[11px] text-ink-400 flex-1">Detecting your location…</p>
         </div>
       ) : locDone && coords ? (
         <div className="shrink-0 mx-3 mb-2 rounded-xl border border-ok-500/25 bg-ok-500/8 px-3 py-2 flex items-center gap-2">
           <Navigation size={13} className="text-ok-400 shrink-0" />
-          <p className="text-[11px] text-slate-300 flex-1 truncate">
+          <p className="text-[11px] text-ink-200 flex-1 truncate">
             {locLabel || `${coords.lat.toFixed(4)}, ${coords.lng.toFixed(4)}`}
           </p>
-          <button type="button" onClick={requestLocation} className="text-[10px] text-slate-500 hover:text-slate-300 shrink-0">Refresh</button>
+          <button type="button" onClick={requestLocation} className="text-[10px] text-ink-500 hover:text-ink-200 shrink-0">Refresh</button>
         </div>
       ) : !locDone ? (
         <div className="shrink-0 mx-3 mb-2 rounded-xl border border-brand-500/25 bg-brand-500/8 px-3 py-2 flex items-center gap-2">
           <Navigation size={13} className="text-brand-400 shrink-0" />
-          <p className="text-[11px] text-slate-400 flex-1">Enable location for distance sorting</p>
+          <p className="text-[11px] text-ink-400 flex-1">Enable location for distance sorting</p>
           <button type="button" onClick={requestLocation} className="text-[11px] font-semibold text-brand-400">Allow</button>
         </div>
       ) : null}
@@ -594,9 +594,9 @@ export default function FindCare() {
         <div className="shrink-0 mx-3 mb-2 rounded-xl border border-ok-500/20 bg-ok-500/8 px-3 py-2">
           <p className="text-[10px] text-ok-400 font-semibold mb-0.5">MA Agent recommendation</p>
           {preSpecialty !== 'All' && (
-            <p className="text-[11px] text-slate-400">Specialty: <span className="text-white font-medium">{preSpecialty}</span></p>
+            <p className="text-[11px] text-ink-400">Specialty: <span className="text-white font-medium">{preSpecialty}</span></p>
           )}
-          {preSummary && <p className="text-[11px] text-slate-500 truncate mt-0.5">{preSummary}</p>}
+          {preSummary && <p className="text-[11px] text-ink-500 truncate mt-0.5">{preSummary}</p>}
         </div>
       )}
 
@@ -615,12 +615,12 @@ export default function FindCare() {
           <CheckCircle size={16} className="text-ok-400 shrink-0 mt-0.5" />
           <div>
             <p className="text-sm font-semibold text-ok-400">Appointment booked!</p>
-            <p className="text-[11px] text-slate-400 mt-0.5">
+            <p className="text-[11px] text-ink-400 mt-0.5">
               {bookedAppt.doctorName} · {bookedAppt.date} · {bookedAppt.startTime}–{bookedAppt.endTime}
             </p>
-            <p className="text-[10px] text-slate-500 mt-0.5">Status: pending · The clinic will confirm.</p>
+            <p className="text-[10px] text-ink-500 mt-0.5">Status: pending · The clinic will confirm.</p>
           </div>
-          <button type="button" onClick={() => setBookedAppt(null)} aria-label="Dismiss booking confirmation" className="ml-auto text-slate-600 hover:text-slate-400"><X size={14} /></button>
+          <button type="button" onClick={() => setBookedAppt(null)} aria-label="Dismiss booking confirmation" className="ml-auto text-ink-600 hover:text-ink-400"><X size={14} /></button>
         </div>
       )}
 
@@ -696,7 +696,7 @@ export default function FindCare() {
 
       {/* ── Map view (OSM iframe + horizontal facility strip) ───────────── */}
       {viewMode === 'map' && !loading && (facilities.length > 0 || mapPlaces.length > 0) && (
-        <div className="shrink-0 mx-3 mb-2 rounded-xl overflow-hidden border border-surface-700">
+        <div className="shrink-0 mx-3 mb-2 rounded-xl overflow-hidden border border-ink-700">
           <iframe
             key={`${facilities.length}-${mapPlaces.length}-${coords?.lat ?? 0}`}
             title="Facilities map"
@@ -707,11 +707,11 @@ export default function FindCare() {
               ].filter((p) => typeof p.lat === 'number' && typeof p.lng === 'number'),
               coords ?? { lat: 37.5665, lng: 126.9780 }, // Seoul fallback
             )}
-            className="w-full h-56 bg-surface-800"
+            className="w-full h-56 bg-ink-800"
             loading="lazy"
             referrerPolicy="no-referrer-when-downgrade"
           />
-          <div className="bg-surface-800/80 px-3 py-1.5 flex items-center justify-between text-[10px] text-slate-500">
+          <div className="bg-ink-800/80 px-3 py-1.5 flex items-center justify-between text-[10px] text-ink-500">
             <span className="flex items-center gap-1">
               <Map size={10} /> {facilities.length + mapPlaces.length} place{facilities.length + mapPlaces.length === 1 ? '' : 's'} on map
             </span>
@@ -767,7 +767,7 @@ export default function FindCare() {
             {/* Facility header */}
             <button
               type="button"
-              className="w-full p-4 flex items-start gap-3 text-left hover:bg-surface-700/30 transition-colors"
+              className="w-full p-4 flex items-start gap-3 text-left hover:bg-ink-700/30 transition-colors"
               onClick={() => setExpanded(expanded === f.id ? null : f.id)}
             >
               {/* Type icon */}
@@ -788,20 +788,20 @@ export default function FindCare() {
                   <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${typeBadgeClass(f.type)}`}>
                     {f.type}
                   </span>
-                  <span className="flex items-center gap-0.5 text-[11px] text-slate-500">
+                  <span className="flex items-center gap-0.5 text-[11px] text-ink-500">
                     <MapPin size={10} /> {f.city}
                     {f.distanceKm != null && ` · ${f.distanceKm} km`}
                   </span>
-                  <span className="flex items-center gap-0.5 text-[11px] text-slate-500">
+                  <span className="flex items-center gap-0.5 text-[11px] text-ink-500">
                     <Clock size={10} /> {f.openingHours}
                   </span>
                 </div>
                 <div className="flex flex-wrap gap-1 mt-1.5">
                   {f.specialties.slice(0, 4).map((s) => (
-                    <span key={s} className="rounded-full bg-surface-700 px-2 py-0.5 text-[10px] text-slate-400">{s}</span>
+                    <span key={s} className="rounded-full bg-ink-700 px-2 py-0.5 text-[10px] text-ink-400">{s}</span>
                   ))}
                   {f.specialties.length > 4 && (
-                    <span className="rounded-full bg-surface-700 px-2 py-0.5 text-[10px] text-slate-500">+{f.specialties.length - 4}</span>
+                    <span className="rounded-full bg-ink-700 px-2 py-0.5 text-[10px] text-ink-500">+{f.specialties.length - 4}</span>
                   )}
                 </div>
               </div>
@@ -811,7 +811,7 @@ export default function FindCare() {
                   <a
                     href={`tel:${f.phone}`}
                     onClick={(e) => e.stopPropagation()}
-                    className="flex h-7 w-7 items-center justify-center rounded-lg bg-surface-700 text-slate-400 hover:text-white transition"
+                    className="flex h-7 w-7 items-center justify-center rounded-lg bg-ink-700 text-ink-400 hover:text-white transition"
                   >
                     <Phone size={13} />
                   </a>
@@ -828,28 +828,28 @@ export default function FindCare() {
                 </a>
                 <ChevronDown
                   size={15}
-                  className={`text-slate-500 transition-transform duration-200 mt-0.5 ${expanded === f.id ? 'rotate-180' : ''}`}
+                  className={`text-ink-500 transition-transform duration-200 mt-0.5 ${expanded === f.id ? 'rotate-180' : ''}`}
                 />
               </div>
             </button>
 
             {/* Doctor list (expanded) */}
             {expanded === f.id && (
-              <div className="border-t border-surface-700 divide-y divide-surface-700/60">
+              <div className="border-t border-ink-700 divide-y divide-ink-700/60">
                 {f.doctors.length === 0 && (
-                  <p className="px-4 py-3 text-xs text-slate-500">No staff listed.</p>
+                  <p className="px-4 py-3 text-xs text-ink-500">No staff listed.</p>
                 )}
                 {f.doctors.map((doc) => (
                   <div key={doc.id} className="flex items-center gap-3 px-4 py-3">
-                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-surface-700 text-slate-400 text-xs font-bold">
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-ink-700 text-ink-400 text-xs font-bold">
                       {doc.name.split(' ').slice(-1)[0]?.[0] ?? '?'}
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-white truncate">{doc.name}</p>
-                      <p className="text-[11px] text-slate-500 mt-0.5">
+                      <p className="text-[11px] text-ink-500 mt-0.5">
                         {doc.specialty} · {doc.consultationMinutes} min · {doc.languages.join(', ')}
                       </p>
-                      {doc.bio && <p className="text-[10px] text-slate-600 mt-0.5 truncate">{doc.bio}</p>}
+                      {doc.bio && <p className="text-[10px] text-ink-600 mt-0.5 truncate">{doc.bio}</p>}
                     </div>
                     <button
                       type="button"
@@ -919,18 +919,18 @@ export default function FindCare() {
           onClick={() => setBookDoctor(null)}
         >
           <div
-            className="w-full max-h-[90vh] rounded-t-2xl bg-surface-900 border-t border-surface-700 flex flex-col overflow-hidden"
+            className="w-full max-h-[90vh] rounded-t-2xl bg-ink-900 border-t border-ink-700 flex flex-col overflow-hidden"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Sheet header */}
-            <div className="shrink-0 flex items-center justify-between px-5 pt-5 pb-3 border-b border-surface-700">
+            <div className="shrink-0 flex items-center justify-between px-5 pt-5 pb-3 border-b border-ink-700">
               <div>
                 <p className="text-sm font-semibold text-white">{bookDoctor.doctor.name}</p>
-                <p className="text-xs text-slate-500 mt-0.5">
+                <p className="text-xs text-ink-500 mt-0.5">
                   {bookDoctor.doctor.specialty} · {bookDoctor.facility.name}
                 </p>
               </div>
-              <button type="button" onClick={() => setBookDoctor(null)} aria-label="Close booking sheet" className="text-slate-500 hover:text-white">
+              <button type="button" onClick={() => setBookDoctor(null)} aria-label="Close booking sheet" className="text-ink-500 hover:text-white">
                 <X size={18} />
               </button>
             </div>
@@ -939,7 +939,7 @@ export default function FindCare() {
 
               {/* Date selector */}
               <div>
-                <p className="text-xs font-semibold text-slate-400 mb-2 flex items-center gap-1.5">
+                <p className="text-xs font-semibold text-ink-400 mb-2 flex items-center gap-1.5">
                   <Calendar size={12} /> Select date
                 </p>
                 <div className="flex gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
@@ -951,7 +951,7 @@ export default function FindCare() {
                       className={`shrink-0 flex flex-col items-center rounded-xl border px-3 py-2 text-center transition ${
                         selectedDate === d.date
                           ? 'border-brand-500 bg-brand-600/20 text-brand-400'
-                          : 'border-surface-600 bg-surface-800 text-slate-400 hover:border-surface-500'
+                          : 'border-ink-600 bg-ink-800 text-ink-400 hover:border-ink-500'
                       }`}
                     >
                       <span className="text-[10px] font-medium uppercase">{d.day}</span>
@@ -964,17 +964,17 @@ export default function FindCare() {
 
               {/* Slot selector */}
               <div>
-                <p className="text-xs font-semibold text-slate-400 mb-2 flex items-center gap-1.5">
+                <p className="text-xs font-semibold text-ink-400 mb-2 flex items-center gap-1.5">
                   <Clock size={12} /> Available slots
-                  <span className="ml-1 text-[10px] text-slate-600">({bookDoctor.doctor.consultationMinutes} min)</span>
+                  <span className="ml-1 text-[10px] text-ink-600">({bookDoctor.doctor.consultationMinutes} min)</span>
                 </p>
                 {slotsLoading && (
-                  <div className="flex items-center gap-2 text-xs text-slate-500 py-2">
+                  <div className="flex items-center gap-2 text-xs text-ink-500 py-2">
                     <Loader2 size={13} className="animate-spin" /> Loading slots…
                   </div>
                 )}
                 {!slotsLoading && slots.length === 0 && (
-                  <p className="text-xs text-slate-500 py-2">No available slots on this day.</p>
+                  <p className="text-xs text-ink-500 py-2">No available slots on this day.</p>
                 )}
                 {!slotsLoading && slots.length > 0 && (
                   <div className="grid grid-cols-4 gap-1.5">
@@ -986,7 +986,7 @@ export default function FindCare() {
                         className={`rounded-xl border px-2 py-2 text-[11px] font-medium text-center transition ${
                           selectedSlot?.startTime === s.startTime
                             ? 'border-brand-500 bg-brand-600/20 text-brand-400'
-                            : 'border-surface-600 bg-surface-800 text-slate-400 hover:border-surface-500'
+                            : 'border-ink-600 bg-ink-800 text-ink-400 hover:border-ink-500'
                         }`}
                       >
                         {s.startTime}
@@ -998,8 +998,8 @@ export default function FindCare() {
 
               {/* Patient form — only shown after slot selected */}
               {selectedSlot && (
-                <div className="space-y-3 pt-1 border-t border-surface-700">
-                  <p className="text-xs font-semibold text-slate-400 flex items-center gap-1.5">
+                <div className="space-y-3 pt-1 border-t border-ink-700">
+                  <p className="text-xs font-semibold text-ink-400 flex items-center gap-1.5">
                     <User size={12} /> Your details
                   </p>
 

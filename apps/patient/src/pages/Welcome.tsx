@@ -1,6 +1,6 @@
 /**
- * Welcome — onboarding screen.
- * Collects name + phone (server identity), language, city.
+ * Welcome — first-time onboarding screen.
+ * Collects name + phone (server identity key), language, city.
  * Creates Patient record in MongoDB via POST /api/patients.
  */
 import { useState } from 'react';
@@ -9,18 +9,9 @@ import { useAppStore } from '@/store/app';
 import { createPatient } from '@/lib/api';
 
 const LANGUAGES = [
-  { code: 'Korean',    label: '한국어' },
-  { code: 'English',   label: 'English' },
-  { code: 'Japanese',  label: '日本語' },
-  { code: 'Chinese',   label: '中文' },
-  { code: 'Spanish',   label: 'Español' },
-  { code: 'French',    label: 'Français' },
-  { code: 'Arabic',    label: 'العربية' },
-  { code: 'Hindi',     label: 'हिन्दी' },
-  { code: 'Russian',   label: 'Русский' },
-  { code: 'Turkish',   label: 'Türkçe' },
-  { code: 'Vietnamese',label: 'Tiếng Việt' },
-  { code: 'Indonesian',label: 'Bahasa Indonesia' },
+  'English', 'Spanish', 'French', 'Portuguese', 'Arabic',
+  'Hindi', 'Korean', 'Japanese', 'Chinese', 'Russian',
+  'Turkish', 'Indonesian',
 ];
 
 type Step = 'hero' | 'setup';
@@ -30,7 +21,7 @@ export default function Welcome() {
   const [step, setStep] = useState<Step>('hero');
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
-  const [lang, setLang] = useState('Korean');
+  const [lang, setLang] = useState('English');
   const [city, setCity] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -39,8 +30,8 @@ export default function Welcome() {
     const trimmedName  = name.trim();
     const trimmedPhone = phone.trim().replace(/\s/g, '');
 
-    if (!trimmedName)  { setError('이름을 입력해 주세요 · Please enter your name');  return; }
-    if (!trimmedPhone) { setError('전화번호를 입력해 주세요 · Phone number is required'); return; }
+    if (!trimmedName) { setError('Please enter your name'); return; }
+    if (!trimmedPhone) { setError('Phone number is required to link your records'); return; }
     setError(null);
     setLoading(true);
 
@@ -83,10 +74,8 @@ export default function Welcome() {
   if (step === 'hero') {
     return (
       <div className="welcome-hero">
-        {/* Medical grid background */}
         <div className="welcome-grid" aria-hidden="true" />
 
-        {/* Glow orbs */}
         <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
           <div className="absolute -top-32 -left-32 h-[480px] w-[480px] rounded-full bg-brand-500/12 blur-[110px]" />
           <div className="absolute top-24 right-[-60px] h-[320px] w-[320px] rounded-full bg-violet-600/8 blur-[90px]" />
@@ -94,8 +83,6 @@ export default function Welcome() {
         </div>
 
         <div className="relative z-10 flex flex-col items-center gap-8 w-full max-w-sm px-6 pt-16 pb-8">
-
-          {/* Logo mark */}
           <div className="animate-fade-up flex flex-col items-center gap-5">
             <div className="relative">
               <div className="welcome-logo-ring" />
@@ -109,17 +96,16 @@ export default function Welcome() {
             </div>
             <div className="text-center">
               <h1 className="welcome-title">MedAccess AI</h1>
-              <p className="welcome-subtitle">AI 건강 도우미 · Your AI Health Companion</p>
+              <p className="welcome-subtitle">Your AI Health Companion</p>
             </div>
           </div>
 
-          {/* Features */}
           <div className="animate-fade-up-delay-1 flex flex-col gap-2.5 w-full">
             {[
-              { icon: Stethoscope, label: 'AI 증상 분석 · Symptom analysis', color: 'text-brand-400' },
-              { icon: Mic,         label: '음성 모드 · Voice mode',           color: 'text-violet-400' },
-              { icon: Globe2,      label: '다국어 지원 · 12+ languages',       color: 'text-ok-400'  },
-              { icon: Shield,      label: '개인정보 보호 · Privacy first',      color: 'text-warn-400' },
+              { icon: Stethoscope, label: 'AI symptom analysis & triage',  color: 'text-brand-400' },
+              { icon: Mic,         label: 'Voice mode — speak, don\'t type', color: 'text-violet-400' },
+              { icon: Globe2,      label: '12+ languages supported',          color: 'text-ok-400'  },
+              { icon: Shield,      label: 'Private — your data, your control', color: 'text-warn-400' },
             ].map(({ icon: Icon, label, color }) => (
               <div key={label} className="welcome-feature-pill">
                 <Icon size={16} className={`${color} shrink-0`} strokeWidth={1.8} />
@@ -128,20 +114,20 @@ export default function Welcome() {
             ))}
           </div>
 
-          {/* CTA */}
           <div className="animate-fade-up-delay-2 flex flex-col gap-3 w-full">
             <button type="button" onClick={() => setStep('setup')} className="btn-primary-hero">
-              시작하기 · Get Started <ArrowRight size={18} />
+              Get Started <ArrowRight size={18} />
             </button>
             <button type="button" onClick={handleSkip} className="btn-ghost-hero">
-              건너뛰기 · Skip (anonymous)
+              Use anonymously (no record linking)
             </button>
           </div>
         </div>
 
         <p className="relative z-10 mb-6 text-[11px] text-ink-500 text-center max-w-xs px-4">
-          교육 목적 · Not a substitute for a doctor<br />
-          긴급: <a href="tel:119" className="text-danger-400 font-medium">119</a> · <a href="tel:1339" className="text-danger-400 font-medium">1339</a> (의료상담)
+          Educational only · Not a substitute for a doctor<br />
+          Emergency: <a href="tel:119" className="text-danger-400 font-medium">119</a>
+          {' · '}<a href="tel:112" className="text-danger-400 font-medium">112</a>
         </p>
       </div>
     );
@@ -155,25 +141,20 @@ export default function Welcome() {
       </div>
 
       <div className="relative z-10 w-full max-w-sm px-6 space-y-5">
-
-        {/* Back + title */}
         <div className="animate-fade-up pt-12">
           <button type="button" onClick={() => setStep('hero')} className="text-xs text-ink-400 hover:text-ink-200 transition mb-4 flex items-center gap-1">
-            ← 뒤로 · Back
+            ← Back
           </button>
-          <h2 className="text-2xl font-bold text-white tracking-tight">빠른 설정</h2>
-          <p className="text-sm text-ink-400 mt-0.5">Quick setup · 10초면 완료</p>
+          <h2 className="text-2xl font-bold text-white tracking-tight">Quick setup</h2>
+          <p className="text-sm text-ink-400 mt-0.5">Takes 10 seconds</p>
         </div>
 
-        {/* Form card */}
         <div className="animate-fade-up-delay-1 welcome-form-card">
-
-          {/* Name */}
           <div>
-            <label className="label">이름 · Name</label>
+            <label className="label">Your name</label>
             <input
               className="input"
-              placeholder="홍길동"
+              placeholder="e.g. Dilnoza"
               value={name}
               onChange={(e) => setName(e.target.value)}
               autoFocus
@@ -181,44 +162,41 @@ export default function Welcome() {
             />
           </div>
 
-          {/* Phone */}
           <div>
             <label className="label flex items-center gap-1.5">
-              <Phone size={11} /> 전화번호 · Phone number <span className="text-danger-400">*</span>
+              <Phone size={11} /> Phone number <span className="text-danger-400">*</span>
             </label>
             <input
               className="input"
               type="tel"
-              placeholder="010-0000-0000"
+              placeholder="+82 10 0000 0000"
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
               autoComplete="tel"
             />
-            <p className="text-[11px] text-ink-500 mt-1.5">진료 기록 연동에 사용됩니다 · Links your medical history</p>
+            <p className="text-[11px] text-ink-500 mt-1.5">Used to link your records across visits</p>
           </div>
 
-          {/* Language */}
           <div>
-            <label className="label flex items-center gap-1.5"><Globe2 size={11} /> 언어 · Language</label>
+            <label className="label flex items-center gap-1.5"><Globe2 size={11} /> Language</label>
             <select className="input" value={lang} onChange={(e) => setLang(e.target.value)}>
-              {LANGUAGES.map(({ code, label }) => (
-                <option key={code} value={code}>{label} ({code})</option>
+              {LANGUAGES.map((l) => (
+                <option key={l} value={l}>{l}</option>
               ))}
             </select>
+            <p className="text-[11px] text-ink-500 mt-1.5">AI will respond in this language</p>
           </div>
 
-          {/* City */}
           <div>
-            <label className="label">도시 · City <span className="text-ink-500 font-normal">(선택 · optional)</span></label>
+            <label className="label">City <span className="text-ink-500 font-normal">(optional)</span></label>
             <input
               className="input"
-              placeholder="서울"
+              placeholder="Your city"
               value={city}
               onChange={(e) => setCity(e.target.value)}
             />
           </div>
 
-          {/* Error */}
           {error && (
             <div className="flex items-center gap-2 rounded-xl border border-danger-500/30 bg-danger-500/10 px-3 py-2">
               <AlertCircle size={14} className="text-danger-400 shrink-0" />
@@ -227,7 +205,6 @@ export default function Welcome() {
           )}
         </div>
 
-        {/* Actions */}
         <div className="animate-fade-up-delay-2 space-y-3 pb-8">
           <button
             type="button"
@@ -235,21 +212,18 @@ export default function Welcome() {
             disabled={loading}
             className="btn-primary-hero"
           >
-            {loading ? (
-              <><Loader2 size={18} className="animate-spin" /> 저장 중…</>
-            ) : (
-              <>MedAccess AI 시작 <ChevronRight size={18} /></>
-            )}
+            {loading
+              ? <><Loader2 size={18} className="animate-spin" /> Setting up…</>
+              : <>Enter MedAccess AI <ChevronRight size={18} /></>}
           </button>
           <button type="button" onClick={handleSkip} className="btn-ghost-hero">
-            건너뛰기 · Continue anonymously
+            Use anonymously
           </button>
 
           <div className="flex items-start gap-2 rounded-2xl border border-ink-700/40 bg-ink-900/40 px-4 py-3">
             <Shield size={13} className="text-brand-400 shrink-0 mt-0.5" />
             <p className="text-[11px] text-ink-400 leading-relaxed">
-              전화번호는 진료 기록 연동에만 사용됩니다. 비밀번호 없음.
-              Phone used only to link your records. No password, no account.
+              Your phone number is used only to link your medical records across visits. No password, no account.
             </p>
           </div>
         </div>

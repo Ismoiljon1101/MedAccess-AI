@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&family=DM+Serif+Display:ital@0;1&display=swap');
+﻿@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&family=DM+Serif+Display:ital@0;1&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -384,12 +384,12 @@ html.text-size-lg .chat-bubble { font-size: 1rem; }
 
 /* ── Light mode: override hardcoded white/slate text ────────────────────── */
 [data-theme="light"] .text-white  { color: var(--ink-100) !important; }
-[data-theme="light"] .text-slate-100,
-[data-theme="light"] .text-slate-200 { color: #1e293b !important; }
-[data-theme="light"] .text-slate-300 { color: #334155 !important; }
-[data-theme="light"] .text-slate-400 { color: #4b5563 !important; }
-[data-theme="light"] .text-slate-500 { color: #6b7280 !important; }
-[data-theme="light"] .text-slate-600 { color: #9ca3af !important; }
+[data-theme="light"] .text-ink-100,
+[data-theme="light"] .text-ink-200 { color: #1e293b !important; }
+[data-theme="light"] .text-ink-200 { color: #334155 !important; }
+[data-theme="light"] .text-ink-400 { color: #4b5563 !important; }
+[data-theme="light"] .text-ink-500 { color: #6b7280 !important; }
+[data-theme="light"] .text-ink-600 { color: #9ca3af !important; }
 
 /* Glass overlays (VoiceMode uses white/N) */
 [data-theme="light"] .bg-white\/8   { background: rgba(0,0,0,0.05) !important; }

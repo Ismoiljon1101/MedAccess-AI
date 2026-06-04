@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
+﻿import { useState, useRef, useEffect, useCallback } from 'react';
 import { Send, Phone, Plus, Headphones, BookText, Image as ImageIcon, MapPin, X, Mic, MicOff, Brain, CalendarCheck, Building2, Loader2, CheckCircle } from 'lucide-react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
@@ -38,7 +38,7 @@ const GREETING: Message = {
   id: 'greeting',
   role: 'assistant',
   content:
-    "안녕하세요! I'm MA Agent — your MedAccess AI health companion. Tell me what's bothering you today and I'll help you understand what might be going on. You can type, speak, or upload a medical image.",
+    "Hi, I'm MA Agent — your MedAccess AI health companion. Tell me what's bothering you today and I'll help you understand what might be going on. You can type, speak, or upload a medical image.",
 };
 
 export default function Chat() {
@@ -478,14 +478,14 @@ export default function Chat() {
       )}
       {/* ── Top bar: New chat button (only when session active) ───── */}
       {(sessionId || resumeId) && (
-        <div className="flex items-center justify-between px-3 py-2 border-b border-surface-700 shrink-0">
-          <span className="text-xs text-slate-500 truncate">
+        <div className="flex items-center justify-between px-3 py-2 border-b border-ink-700 shrink-0">
+          <span className="text-xs text-ink-500 truncate">
             {previewRef.current || 'Active session'}
           </span>
           <button
             type="button"
             onClick={startNewChat}
-            className="flex items-center gap-1 rounded-lg border border-surface-600 bg-surface-700 px-2.5 py-1.5 text-xs font-medium text-slate-300 hover:border-brand-500/50 transition"
+            className="flex items-center gap-1 rounded-lg border border-ink-600 bg-ink-700 px-2.5 py-1.5 text-xs font-medium text-ink-200 hover:border-brand-500/50 transition"
           >
             <Plus size={13} /> New chat
           </button>
@@ -525,7 +525,7 @@ export default function Chat() {
                         loading="lazy"
                       />
                       {msg.imageName && (
-                        <p className="mt-1 text-[10px] text-slate-400 truncate max-w-[200px]">
+                        <p className="mt-1 text-[10px] text-ink-400 truncate max-w-[200px]">
                           {msg.imageName}
                         </p>
                       )}
@@ -551,11 +551,11 @@ export default function Chat() {
                         ol:     ({ children }) => <ol className="mb-1.5 ml-3 space-y-0.5 list-decimal">{children}</ol>,
                         li:     ({ children }) => <li className="leading-relaxed">{children}</li>,
                         strong: ({ children }) => <strong className="font-semibold text-white">{children}</strong>,
-                        em:     ({ children }) => <em className="italic text-slate-300">{children}</em>,
+                        em:     ({ children }) => <em className="italic text-ink-200">{children}</em>,
                         h3:     ({ children }) => <h3 className="font-semibold text-white mt-2 mb-1">{children}</h3>,
-                        h4:     ({ children }) => <h4 className="font-medium text-slate-200 mt-1.5 mb-0.5">{children}</h4>,
-                        code:   ({ children }) => <code className="rounded bg-surface-700 px-1 py-0.5 text-[11px] font-mono text-brand-300">{children}</code>,
-                        hr:     () => <hr className="my-2 border-surface-600" />,
+                        h4:     ({ children }) => <h4 className="font-medium text-ink-200 mt-1.5 mb-0.5">{children}</h4>,
+                        code:   ({ children }) => <code className="rounded bg-ink-700 px-1 py-0.5 text-[11px] font-mono text-brand-300">{children}</code>,
+                        hr:     () => <hr className="my-2 border-ink-600" />,
                       }}
                     >
                       {msg.content}
@@ -565,7 +565,7 @@ export default function Chat() {
               </div>
               {msg.role === 'assistant' && !msg.streaming && msg.citations?.length ? (
                 <div className="ml-[68px] mt-1 flex flex-wrap items-center gap-1.5">
-                  <span className="inline-flex items-center gap-1 text-[10px] uppercase tracking-wider text-slate-500">
+                  <span className="inline-flex items-center gap-1 text-[10px] uppercase tracking-wider text-ink-500">
                     <BookText size={10} /> sources
                   </span>
                   {msg.citations.map((c) => (
@@ -590,9 +590,9 @@ export default function Chat() {
         <div className="shrink-0 mx-3 mb-1 rounded-xl border border-brand-500/30 bg-brand-500/10 px-3 py-2.5 flex items-center gap-2">
           <div className="flex-1 min-w-0">
             <p className="text-xs font-semibold text-brand-300">{pendingBooking.doctorName}</p>
-            <p className="text-[11px] text-slate-400">{pendingBooking.specialty}</p>
+            <p className="text-[11px] text-ink-400">{pendingBooking.specialty}</p>
             {pendingBooking.reason && (
-              <p className="text-[10px] text-slate-500 mt-0.5 italic">{pendingBooking.reason}</p>
+              <p className="text-[10px] text-ink-500 mt-0.5 italic">{pendingBooking.reason}</p>
             )}
           </div>
           <button
@@ -615,7 +615,7 @@ export default function Chat() {
             type="button"
             onClick={() => setPendingBooking(null)}
             aria-label="Dismiss"
-            className="shrink-0 rounded-full p-1 text-slate-500 hover:text-slate-200 hover:bg-surface-700/60 transition"
+            className="shrink-0 rounded-full p-1 text-ink-500 hover:text-ink-200 hover:bg-ink-700/60 transition"
           >
             <X size={14} />
           </button>
@@ -740,7 +740,7 @@ export default function Chat() {
           <MapPin size={16} className="text-brand-400 shrink-0" />
           <div className="flex-1 min-w-0">
             <p className="text-xs font-semibold text-brand-300">Ready to see a {ctaSpec.specialty} provider?</p>
-            <p className="text-[11px] text-slate-400 truncate">Find clinics and book an appointment near you</p>
+            <p className="text-[11px] text-ink-400 truncate">Find clinics and book an appointment near you</p>
           </div>
           <button
             type="button"
@@ -773,7 +773,7 @@ export default function Chat() {
             onClick={() => setCtaSpec(null)}
             aria-label="Dismiss recommendation"
             title="Dismiss"
-            className="shrink-0 rounded-full p-1 text-slate-500 hover:text-slate-200 hover:bg-surface-700/60 transition"
+            className="shrink-0 rounded-full p-1 text-ink-500 hover:text-ink-200 hover:bg-ink-700/60 transition"
           >
             <X size={14} />
           </button>
@@ -783,7 +783,7 @@ export default function Chat() {
       {/* ── Emergency pill ───────────────────────────────────────── */}
       <div className="flex items-center justify-center gap-1.5 py-1.5 text-[10px] shrink-0">
         <Phone size={11} className="text-danger-400 shrink-0" />
-        <span className="text-slate-500">Life-threatening?</span>
+        <span className="text-ink-500">Life-threatening?</span>
         <a href="tel:112" className="font-semibold text-danger-400">112 / 911 / 999</a>
       </div>
 

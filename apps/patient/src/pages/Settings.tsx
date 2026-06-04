@@ -1,4 +1,4 @@
-import { Globe2, Type, Volume2, Trash2, Info, ChevronRight, LogOut, User, Sun, Moon } from 'lucide-react';
+﻿import { Globe2, Type, Volume2, Trash2, Info, ChevronRight, LogOut, User, Sun, Moon } from 'lucide-react';
 import { useAppStore } from '@/store/app';
 import { useNavigate } from 'react-router-dom';
 
@@ -18,12 +18,12 @@ function Row({
 }) {
   return (
     <div className="flex items-center gap-3 px-4 py-3.5">
-      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-surface-700 text-slate-400">
+      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-ink-700 text-ink-400">
         {icon}
       </div>
       <div className="flex-1 min-w-0">
         <p className="text-sm font-medium text-white">{label}</p>
-        {sublabel && <p className="text-xs text-slate-500 mt-0.5">{sublabel}</p>}
+        {sublabel && <p className="text-xs text-ink-500 mt-0.5">{sublabel}</p>}
       </div>
       {children}
     </div>
@@ -33,8 +33,8 @@ function Row({
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div className="space-y-1">
-      <p className="px-4 text-[11px] font-semibold uppercase tracking-widest text-slate-500">{title}</p>
-      <div className="card divide-y divide-surface-700">{children}</div>
+      <p className="px-4 text-[11px] font-semibold uppercase tracking-widest text-ink-500">{title}</p>
+      <div className="card divide-y divide-ink-700">{children}</div>
     </div>
   );
 }
@@ -60,12 +60,12 @@ export default function Settings() {
       <Section title="Language & Display">
         <Row icon={<Globe2 size={18} />} label="Response language" sublabel="AI answers in this language">
           <select
-            className="rounded-lg border border-surface-600 bg-surface-700 px-3 py-1.5 text-sm text-slate-100 outline-none cursor-pointer"
+            className="rounded-lg border border-ink-600 bg-ink-700 px-3 py-1.5 text-sm text-ink-100 outline-none cursor-pointer"
             value={language}
             onChange={(e) => setLanguage(e.target.value)}
           >
             {LANGUAGES.map((l) => (
-              <option key={l} value={l} className="bg-surface-800">{l}</option>
+              <option key={l} value={l} className="bg-ink-800">{l}</option>
             ))}
           </select>
         </Row>
@@ -77,7 +77,7 @@ export default function Settings() {
             aria-checked={theme === 'light'}
             onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
             className={`relative h-6 w-11 rounded-full transition-colors ${
-              theme === 'light' ? 'bg-amber-400' : 'bg-surface-600'
+              theme === 'light' ? 'bg-amber-400' : 'bg-ink-600'
             }`}
           >
             <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform ${
@@ -87,7 +87,7 @@ export default function Settings() {
         </Row>
 
         <Row icon={<Type size={18} />} label="Text size" sublabel="Adjust chat bubble text">
-          <div className="flex rounded-lg border border-surface-600 overflow-hidden text-xs font-medium">
+          <div className="flex rounded-lg border border-ink-600 overflow-hidden text-xs font-medium">
             {(['sm', 'md', 'lg'] as const).map((s) => (
               <button
                 key={s}
@@ -96,7 +96,7 @@ export default function Settings() {
                 className={`px-3 py-1.5 transition ${
                   fontSize === s
                     ? 'bg-brand-600 text-white'
-                    : 'bg-surface-700 text-slate-400 hover:bg-surface-600'
+                    : 'bg-ink-700 text-ink-400 hover:bg-ink-600'
                 }`}
               >
                 {s.toUpperCase()}
@@ -119,7 +119,7 @@ export default function Settings() {
             aria-checked={voiceAutoPlay}
             onClick={() => setVoiceAutoPlay(!voiceAutoPlay)}
             className={`relative h-6 w-11 rounded-full transition-colors ${
-              voiceAutoPlay ? 'bg-brand-600' : 'bg-surface-600'
+              voiceAutoPlay ? 'bg-brand-600' : 'bg-ink-600'
             }`}
           >
             <span
@@ -149,27 +149,27 @@ export default function Settings() {
         </Row>
 
         <div
-          className="flex items-center gap-3 px-4 py-3.5 cursor-pointer hover:bg-surface-700/50 transition"
-          onClick={() => navigate('/history')}
+          className="flex items-center gap-3 px-4 py-3.5 cursor-pointer hover:bg-ink-700/50 transition"
+          onClick={() => navigate('/records')}
         >
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-surface-700 text-slate-400">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-ink-700 text-ink-400">
             <Info size={18} />
           </div>
           <div className="flex-1">
             <p className="text-sm font-medium text-white">View all conversations</p>
-            <p className="text-xs text-slate-500 mt-0.5">Browse and resume past chats</p>
+            <p className="text-xs text-ink-500 mt-0.5">Browse and resume past chats</p>
           </div>
-          <ChevronRight size={16} className="text-slate-600" />
+          <ChevronRight size={16} className="text-ink-600" />
         </div>
       </Section>
 
       {/* ── Profile ───────────────────────────────────────────── */}
       <Section title="Profile">
         <div
-          className="flex items-center gap-3 px-4 py-3.5 cursor-pointer hover:bg-surface-700/50 transition"
+          className="flex items-center gap-3 px-4 py-3.5 cursor-pointer hover:bg-ink-700/50 transition"
           onClick={() => navigate('/profile')}
         >
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-surface-700 text-slate-400">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-ink-700 text-ink-400">
             <User size={18} />
           </div>
           <div className="flex-1">
@@ -178,9 +178,9 @@ export default function Settings() {
                 ? patientProfile.fullName
                 : 'My Profile'}
             </p>
-            <p className="text-xs text-slate-500 mt-0.5">Edit name, health info, emergency contact</p>
+            <p className="text-xs text-ink-500 mt-0.5">Edit name, health info, emergency contact</p>
           </div>
-          <ChevronRight size={16} className="text-slate-600" />
+          <ChevronRight size={16} className="text-ink-600" />
         </div>
 
         <Row
@@ -207,9 +207,9 @@ export default function Settings() {
       {/* ── About ─────────────────────────────────────────────── */}
       <Section title="About">
         <Row icon={<Info size={18} />} label="MedAccess AI" sublabel="Patient portal v0.1.0">
-          <span className="text-xs text-slate-500">Beta</span>
+          <span className="text-xs text-ink-500">Beta</span>
         </Row>
-        <div className="px-4 py-4 text-[11px] text-slate-500 leading-relaxed">
+        <div className="px-4 py-4 text-[11px] text-ink-500 leading-relaxed">
           MedAccess AI is an educational tool and does not provide medical diagnosis.
           Always consult a licensed clinician for medical decisions.
         </div>

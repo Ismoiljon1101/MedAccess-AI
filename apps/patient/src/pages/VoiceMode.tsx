@@ -1,4 +1,4 @@
-/**
+﻿/**
  * VoiceMode — hands-free, continuous voice conversation with MA Agent.
  *
  * Flow:
@@ -56,7 +56,7 @@ function Waveform({ active, color = 'brand' }: { active: boolean; color?: string
         <div
           key={i}
           className={`w-[3px] rounded-full transition-all duration-150 ${
-            active ? `bg-${color}-400` : 'bg-slate-700'
+            active ? `bg-${color}-400` : 'bg-ink-700'
           }`}
           style={
             active
@@ -343,14 +343,14 @@ function VoiceUI({
           type="button"
           onClick={onEnd}
           aria-label="Exit voice mode"
-          className="flex h-9 w-9 items-center justify-center rounded-full bg-white/8 text-slate-400 hover:text-white transition"
+          className="flex h-9 w-9 items-center justify-center rounded-full bg-white/8 text-ink-400 hover:text-white transition"
         >
           <X size={18} />
         </button>
 
         <div className="text-center">
-          <p className="text-xs font-semibold tracking-widest uppercase text-slate-400">MA Agent · Voice</p>
-          <p className="text-[10px] text-slate-600 mt-0.5">
+          <p className="text-xs font-semibold tracking-widest uppercase text-ink-400">MA Agent · Voice</p>
+          <p className="text-[10px] text-ink-600 mt-0.5">
             {isListening ? 'Speak now…' : isSpeaking ? 'Tap mic to interrupt' : isBusy ? 'Processing…' : 'Listening starts automatically'}
           </p>
         </div>
@@ -362,7 +362,7 @@ function VoiceUI({
             if (!muted) window.speechSynthesis?.cancel();
           }}
           aria-label={muted ? 'Unmute audio' : 'Mute audio'}
-          className="flex h-9 w-9 items-center justify-center rounded-full bg-white/8 text-slate-400 hover:text-white transition"
+          className="flex h-9 w-9 items-center justify-center rounded-full bg-white/8 text-ink-400 hover:text-white transition"
         >
           {muted ? <VolumeX size={17} /> : <Volume2 size={17} className="text-brand-400" />}
         </button>
@@ -388,9 +388,9 @@ function VoiceUI({
         <div className="text-center space-y-1">
           <p className={`text-base font-semibold tracking-wide transition-colors ${
             isListening ? 'text-brand-400' :
-            isBusy      ? 'text-slate-400' :
+            isBusy      ? 'text-ink-400' :
             isSpeaking  ? 'text-ok-400'    :
-                          'text-slate-500'
+                          'text-ink-500'
           }`}>
             {isListening ? 'Listening…'     :
              isBusy      ? 'Thinking…'      :
@@ -398,12 +398,12 @@ function VoiceUI({
                            'Ready'}
           </p>
           {isBusy && (
-            <div className="flex items-center justify-center gap-1.5 text-xs text-slate-600">
+            <div className="flex items-center justify-center gap-1.5 text-xs text-ink-600">
               <Loader2 size={12} className="animate-spin" /> Powered by OpenRouter
             </div>
           )}
           {voiceState === 'idle' && !isBusy && (
-            <p className="text-[11px] text-slate-600">Listening restarts automatically</p>
+            <p className="text-[11px] text-ink-600">Listening restarts automatically</p>
           )}
         </div>
 
@@ -418,7 +418,7 @@ function VoiceUI({
           </div>
         )}
         {aiText && (
-          <div className="w-full max-w-sm rounded-2xl bg-white/5 border border-white/10 px-4 py-2.5 text-sm text-slate-200 text-center leading-relaxed">
+          <div className="w-full max-w-sm rounded-2xl bg-white/5 border border-white/10 px-4 py-2.5 text-sm text-ink-200 text-center leading-relaxed">
             {aiText.length > 140 ? `${aiText.slice(0, 140)}…` : aiText}
           </div>
         )}
@@ -442,7 +442,7 @@ function VoiceUI({
         >
           {isListening ? <MicOff size={30} /> : <Mic size={30} />}
         </button>
-        <p className="text-xs text-slate-600">
+        <p className="text-xs text-ink-600">
           {isListening ? 'Pause to send'   :
            isSpeaking  ? 'Tap to interrupt':
            isBusy      ? 'Please wait…'    :
@@ -490,7 +490,7 @@ export default function VoiceMode() {
         <button
           type="button"
           onClick={() => setShowPicker((p) => !p)}
-          className="flex items-center gap-1.5 rounded-full border border-white/15 bg-white/8 backdrop-blur px-4 py-1.5 text-[11px] font-medium text-slate-400 hover:text-slate-200 transition"
+          className="flex items-center gap-1.5 rounded-full border border-white/15 bg-white/8 backdrop-blur px-4 py-1.5 text-[11px] font-medium text-ink-400 hover:text-ink-200 transition"
         >
           {VOICE_MODELS.find((m) => m.id === selectedModel)?.label}
           <ChevronDown size={11} />
@@ -503,7 +503,7 @@ export default function VoiceMode() {
                 type="button"
                 onClick={() => { setSelectedModel(m.id); setShowPicker(false); }}
                 className={`w-full px-4 py-3 text-left text-xs transition hover:bg-white/5 ${
-                  selectedModel === m.id ? 'text-brand-400' : 'text-slate-300'
+                  selectedModel === m.id ? 'text-brand-400' : 'text-ink-200'
                 }`}
               >
                 {m.label}

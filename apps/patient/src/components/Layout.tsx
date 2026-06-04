@@ -1,18 +1,17 @@
 import { type ReactNode, useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import {
-  MessageCircle, Activity, Heart, History,
-  Settings, MapPin, FolderOpen, User,
+  MessageCircle, MapPin, ClipboardList, SlidersHorizontal,
+  Heart, User, Phone,
 } from 'lucide-react';
 import { useAppStore } from '@/store/app';
 import { getHealth } from '@/lib/api';
 
 const TABS = [
-  { to: '/',          label: 'Chat',      Icon: MessageCircle, exact: true },
-  { to: '/find-care', label: 'Find Care', Icon: MapPin,        exact: false },
-  { to: '/emergency', label: 'Emergency', Icon: Activity,      exact: false },
-  { to: '/records',   label: 'Records',   Icon: FolderOpen,    exact: false },
-  { to: '/settings',  label: 'Settings',  Icon: Settings,      exact: false },
+  { to: '/',          label: 'Chat',      Icon: MessageCircle,    exact: true  },
+  { to: '/find-care', label: 'Find Care', Icon: MapPin,           exact: false },
+  { to: '/records',   label: 'Records',   Icon: ClipboardList,    exact: false },
+  { to: '/settings',  label: 'Settings',  Icon: SlidersHorizontal,exact: false },
 ];
 
 export default function Layout({ children }: { children: ReactNode }) {
@@ -29,7 +28,6 @@ export default function Layout({ children }: { children: ReactNode }) {
     document.documentElement.classList.add(`text-size-${fontSize}`);
   }, [fontSize]);
 
-  // Initials avatar from profile name
   const initials = patientProfile?.fullName?.trim()
     ? patientProfile.fullName.trim().split(' ').map((w) => w[0]).slice(0, 2).join('').toUpperCase()
     : null;
@@ -50,7 +48,7 @@ export default function Layout({ children }: { children: ReactNode }) {
         </Link>
 
         <div className="flex items-center gap-2 shrink-0">
-          {/* Online status dot */}
+          {/* Online status */}
           <div
             title={online === null ? 'Connecting…' : online ? 'Connected' : 'Offline'}
             className={`h-1.5 w-1.5 rounded-full transition-colors ${
@@ -58,18 +56,21 @@ export default function Layout({ children }: { children: ReactNode }) {
             }`}
           />
 
-          {/* History */}
+          {/* Emergency quick-dial — always visible */}
           <Link
-            to="/history"
-            title="Chat History"
+            to="/emergency"
+            title="Emergency triage"
+            aria-label="Emergency assessment"
             className={`flex items-center justify-center rounded-lg p-1.5 transition-colors ${
-              location.pathname === '/history' ? 'text-brand-400' : 'text-ink-400 hover:text-ink-100'
+              location.pathname === '/emergency'
+                ? 'text-danger-400 bg-danger-500/15'
+                : 'text-danger-400/70 hover:text-danger-400 hover:bg-danger-500/10'
             }`}
           >
-            <History size={17} />
+            <Phone size={16} />
           </Link>
 
-          {/* Profile avatar / link */}
+          {/* Profile avatar */}
           <Link
             to="/profile"
             title="My Profile"
@@ -96,21 +97,16 @@ export default function Layout({ children }: { children: ReactNode }) {
       <nav className="app-bottom-nav">
         {TABS.map(({ to, label, Icon, exact }) => {
           const active = exact
-            ? location.pathname === to || location.pathname === '/symptoms'
-            : location.pathname === to;
+            ? location.pathname === to
+            : location.pathname.startsWith(to);
           return (
             <Link
               key={to}
               to={to}
               className={`app-tab ${active ? 'app-tab-active' : 'app-tab-inactive'}`}
             >
-              <div className={`relative p-1.5 rounded-xl transition-all ${
-                active ? 'bg-brand-500/15' : ''
-              }`}>
+              <div className={`p-1.5 rounded-xl transition-all ${active ? 'bg-brand-500/15' : ''}`}>
                 <Icon size={18} strokeWidth={active ? 2.2 : 1.6} />
-                {active && (
-                  <span className="absolute inset-0 rounded-xl bg-brand-500/10 animate-ping opacity-30" />
-                )}
               </div>
               <span>{label}</span>
             </Link>

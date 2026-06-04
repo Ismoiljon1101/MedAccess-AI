@@ -78,7 +78,7 @@ interface AppState {
 export const useAppStore = create<AppState>()(
   persist(
     (set) => ({
-      language:      'Korean',
+      language:      'English',
       theme:         'dark',
       fontSize:      'md',
       voiceAutoPlay: false,

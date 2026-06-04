@@ -1,7 +1,8 @@
-import { useState } from 'react';
+﻿import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { User, Save, ChevronLeft, Phone, Mail, AlertCircle, Heart } from 'lucide-react';
+import { User, Save, ChevronLeft, Phone, Mail, AlertCircle, Heart, Cloud, HardDrive } from 'lucide-react';
 import { useAppStore, type PatientProfile } from '@/store/app';
+import { updateMyPatient } from '@/lib/api';
 import { BLOOD_TYPES } from '@medaccess/shared';
 
 const BLOOD_TYPE_OPTIONS = ['', ...BLOOD_TYPES] as const;
@@ -26,14 +27,14 @@ export default function Profile() {
   const [emergencyContactPhone, setEmergencyContactPhone] = useState(p?.emergencyContactPhone || '');
   const [saved, setSaved] = useState(false);
 
-  function handleSave() {
+  async function handleSave() {
     const profile: PatientProfile = {
       fullName:               fullName.trim(),
       phone:                  phone.trim()                 || undefined,
       email:                  email.trim()                 || undefined,
       dob:                    dob                          || undefined,
       sex:                    (sex as PatientProfile['sex']) || undefined,
-      bloodType:              bloodType                    || undefined,
+      bloodType:              (bloodType as PatientProfile['bloodType']) || undefined,
       city:                   city.trim()                  || undefined,
       country:                country.trim()               || undefined,
       knownAllergies:         knownAllergies.trim()        || undefined,
@@ -42,7 +43,34 @@ export default function Profile() {
       emergencyContactName:   emergencyContactName.trim()  || undefined,
       emergencyContactPhone:  emergencyContactPhone.trim() || undefined,
     };
+
+    // Always save locally first
     setPatientProfile(profile);
+
+    // Sync to server if phone identity is established
+    const phoneKey = phone.trim();
+    if (phoneKey) {
+      updateMyPatient(phoneKey, {
+        fullName:          profile.fullName,
+        email:             profile.email,
+        dateOfBirth:       profile.dob,
+        sex:               profile.sex,
+        bloodType:         profile.bloodType as any,
+        city:              profile.city,
+        country:           profile.country,
+        knownAllergies:    profile.knownAllergies ? [profile.knownAllergies] : [],
+        chronicConditions: profile.chronicConditions ? [profile.chronicConditions] : [],
+        currentMedications: profile.currentMedications ? [profile.currentMedications] : [],
+        emergencyContact:  profile.emergencyContactName
+          ? {
+              name:         profile.emergencyContactName,
+              phone:        profile.emergencyContactPhone ?? '',
+              relationship: 'Emergency contact',
+            }
+          : undefined,
+      }).catch(() => { /* non-fatal — local save is the source of truth */ });
+    }
+
     setSaved(true);
     setTimeout(() => setSaved(false), 2500);
   }
@@ -50,7 +78,7 @@ export default function Profile() {
   function Section({ title, children }: { title: string; children: React.ReactNode }) {
     return (
       <div className="space-y-3">
-        <p className="text-[11px] font-semibold uppercase tracking-widest text-slate-500">{title}</p>
+        <p className="text-[11px] font-semibold uppercase tracking-widest text-ink-500">{title}</p>
         <div className="space-y-3">{children}</div>
       </div>
     );
@@ -68,17 +96,21 @@ export default function Profile() {
   return (
     <div className="flex flex-col h-full overflow-hidden">
       {/* Header */}
-      <div className="shrink-0 px-4 pt-4 pb-3 border-b border-surface-700 flex items-center gap-3">
+      <div className="shrink-0 px-4 pt-4 pb-3 border-b border-ink-700 flex items-center gap-3">
         <button
           type="button"
           onClick={() => navigate(-1)}
-          className="flex h-8 w-8 items-center justify-center rounded-xl bg-surface-700 text-slate-400 hover:text-white transition"
+          className="flex h-8 w-8 items-center justify-center rounded-xl bg-ink-700 text-ink-400 hover:text-white transition"
         >
           <ChevronLeft size={16} />
         </button>
         <div className="flex-1 min-w-0">
           <h2 className="text-base font-semibold text-white">My Profile</h2>
-          <p className="text-xs text-slate-500 mt-0.5">Saved locally · Pre-fills booking forms</p>
+          <p className="text-xs text-ink-500 mt-0.5 flex items-center gap-1.5">
+            {patientProfile?.phone
+              ? <><Cloud size={10} className="text-ok-400" /> Synced to server</>
+              : <><HardDrive size={10} /> Local only</>}
+          </p>
         </div>
         <button
           type="button"
@@ -95,12 +127,12 @@ export default function Profile() {
       </div>
 
       {/* Avatar */}
-      <div className="shrink-0 flex flex-col items-center py-5 border-b border-surface-700">
+      <div className="shrink-0 flex flex-col items-center py-5 border-b border-ink-700">
         <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-brand-500/30 to-brand-700/30 border border-brand-500/30 text-2xl font-bold text-brand-400">
           {fullName.trim() ? fullName.trim()[0].toUpperCase() : <User size={28} />}
         </div>
         {fullName && <p className="mt-2 text-sm font-semibold text-white">{fullName}</p>}
-        <p className="text-xs text-slate-500 mt-0.5">Patient</p>
+        <p className="text-xs text-ink-500 mt-0.5">Patient</p>
       </div>
 
       {/* Form */}
@@ -132,17 +164,17 @@ export default function Profile() {
               </select>
             </Field>
             <Field label="Country">
-              <input className="input" placeholder="UZ" value={country} onChange={(e) => setCountry(e.target.value)} />
+              <input className="input" placeholder="KR" value={country} onChange={(e) => setCountry(e.target.value)} />
             </Field>
           </div>
           <Field label="City">
-            <input className="input" placeholder="Seoul" value={city} onChange={(e) => setCity(e.target.value)} />
+            <input className="input" placeholder="Your city" value={city} onChange={(e) => setCity(e.target.value)} />
           </Field>
         </Section>
 
         <Section title="Contact">
           <Field label={<span className="flex items-center gap-1"><Phone size={11} /> Phone</span>}>
-            <input className="input" type="tel" placeholder="+998 90 000 0000" value={phone} onChange={(e) => setPhone(e.target.value)} />
+            <input className="input" type="tel" placeholder="+82 10 0000 0000" value={phone} onChange={(e) => setPhone(e.target.value)} />
           </Field>
           <Field label={<span className="flex items-center gap-1"><Mail size={11} /> Email</span>}>
             <input className="input" type="email" placeholder="you@example.com" value={email} onChange={(e) => setEmail(e.target.value)} />
@@ -150,7 +182,7 @@ export default function Profile() {
         </Section>
 
         <Section title="Medical history">
-          <p className="text-[11px] text-slate-500">Shared with doctor when you book an appointment.</p>
+          <p className="text-[11px] text-ink-500">Shared with doctor when you book an appointment.</p>
           <Field label={<span className="flex items-center gap-1"><AlertCircle size={11} /> Known allergies</span>}>
             <textarea
               className="input resize-none"
@@ -186,16 +218,14 @@ export default function Profile() {
               <input className="input" placeholder="Contact name" value={emergencyContactName} onChange={(e) => setEmergencyContactName(e.target.value)} />
             </Field>
             <Field label="Phone">
-              <input className="input" type="tel" placeholder="+998…" value={emergencyContactPhone} onChange={(e) => setEmergencyContactPhone(e.target.value)} />
+              <input className="input" type="tel" placeholder="+82 10…" value={emergencyContactPhone} onChange={(e) => setEmergencyContactPhone(e.target.value)} />
             </Field>
           </div>
         </Section>
 
-        <div className="rounded-xl border border-surface-700 bg-surface-800 px-4 py-3">
-          <p className="text-[11px] text-slate-500 leading-relaxed">
-            <span className="text-slate-400 font-medium">Privacy:</span> All profile data is stored locally in your browser.
-            Nothing is sent to any server unless you book an appointment — at that point your name, phone, age,
-            and sex are included in the booking request.
+        <div className="rounded-xl border border-ink-700 bg-ink-800 px-4 py-3">
+          <p className="text-[11px] text-ink-500 leading-relaxed">
+            <span className="text-ink-400 font-medium">Privacy:</span> Profile data is saved locally and, when your phone number is set, synced to our server so your medical history is available to doctors you book with. No passwords, no accounts.
           </p>
         </div>
 

@@ -1,11 +1,9 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useEffect } from 'react';
 import Layout from '@/components/Layout';
 import Welcome from '@/pages/Welcome';
 import Chat from '@/pages/Chat';
 import EmergencyCheck from '@/pages/EmergencyCheck';
-import Reports from '@/pages/Reports';
-import History from '@/pages/History';
 import Settings from '@/pages/Settings';
 import VoiceMode from '@/pages/VoiceMode';
 import FindCare from '@/pages/FindCare';
@@ -16,12 +14,10 @@ import { useAppStore } from '@/store/app';
 function AppRoutes() {
   const { patientProfile, theme } = useAppStore();
 
-  // Sync theme to <html data-theme="...">
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
   }, [theme]);
 
-  // First-time user → show beautiful onboarding
   if (!patientProfile) {
     return <Welcome />;
   }
@@ -34,12 +30,12 @@ function AppRoutes() {
         <Route path="/find-care" element={<FindCare />} />
         <Route path="/records"   element={<MyRecords />} />
         <Route path="/profile"   element={<Profile />} />
-        <Route path="/reports"   element={<Reports />} />
-        <Route path="/history"   element={<History />} />
         <Route path="/settings"  element={<Settings />} />
         <Route path="/voice"     element={<VoiceMode />} />
-        {/* Legacy */}
-        <Route path="/symptoms"  element={<Chat />} />
+        {/* Legacy redirects */}
+        <Route path="/symptoms"  element={<Navigate to="/" replace />} />
+        <Route path="/history"   element={<Navigate to="/records" replace />} />
+        <Route path="/reports"   element={<Navigate to="/" replace />} />
       </Routes>
     </Layout>
   );
