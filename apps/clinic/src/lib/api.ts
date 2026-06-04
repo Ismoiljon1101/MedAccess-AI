@@ -213,46 +213,115 @@ export async function getTranscribeStatus(): Promise<{ available: boolean; provi
   return res.json();
 }
 
-// ── Referrals (patient queue) ─────────────────────────────────────────
+// ── Appointments (patient queue) ─────────────────────────────────────
 
-export interface ReferralRecord {
+export interface PatientInfo {
   _id: string;
-  sessionId: string;
-  patientName: string;
-  patientPhone?: string;
-  clinicId: string;
-  clinicName: string;
+  fullName: string;
+  phone?: string;
+  email?: string;
+  sex?: string;
+  dateOfBirth?: string;
+  knownAllergies?: string[];
+  chronicConditions?: string[];
+  currentMedications?: string[];
+  emergencyContact?: { name: string; phone: string; relationship: string };
+}
+
+export interface AgentAnalysis {
+  symptomsId?: {
+    urgency: string;
+    differentials: Array<{ condition: string; likelihood: string; probabilityPct: number }>;
+    recommendedNextSteps: string[];
+  };
+  triageId?: {
+    level: string;
+    levelLabel: string;
+    targetTimeToCare: string;
+    actions: string[];
+    warningSigns: string[];
+  };
+  imageReportId?: {
+    imageType: string;
+    findings: Array<{ finding: string; confidence: string; notes: string }>;
+    suggestedFollowUp: string[];
+  };
+}
+
+export interface AppointmentRecord {
+  _id: string;
+  patientId?: PatientInfo;
+  doctorId?: { _id: string; name: string; specialty: string };
+  facilityId?: { _id: string; name: string; city?: string; address?: string; phone?: string };
   specialty: string;
   urgency: string;
-  summary: string;
-  preferredTime?: string;
-  status: 'pending' | 'confirmed' | 'cancelled';
+  agentSummary?: string;
+  agentAnalysis?: AgentAnalysis;
+  sessionId?: string;
+  scheduledDate: string;
+  scheduledTime: string;
+  scheduledEndTime?: string;
+  status: 'pending' | 'confirmed' | 'cancelled' | 'completed';
+  doctorNotes?: string;
+  confirmedAt?: string;
+  completedAt?: string;
   createdAt: string;
+  // Backwards-compat fields (derived from populated refs, filled by normalizeAppointment)
+  patientName?: string;
+  patientPhone?: string;
+  clinicId?: string;
+  clinicName?: string;
+  summary?: string;
+  preferredTime?: string;
   imageAnalysis?: {
     imageType: string;
     findings: Array<{ finding: string; confidence: string; notes: string }>;
     suggestedFollowUp: string[];
-    model: string;
+    model?: string;
   };
 }
 
-export async function getReferrals(): Promise<ReferralRecord[]> {
-  const res = await fetch(`${BASE}/api/clinics/referrals`);
+export type ReferralRecord = AppointmentRecord;
+
+function normalizeAppointment(a: AppointmentRecord): AppointmentRecord {
+  return {
+    ...a,
+    patientName:   a.patientId?.fullName ?? 'Unknown Patient',
+    patientPhone:  a.patientId?.phone ?? undefined,
+    clinicId:      typeof a.facilityId === 'object' ? a.facilityId._id : String(a.facilityId ?? ''),
+    clinicName:    typeof a.facilityId === 'object' ? a.facilityId.name : undefined,
+    summary:       a.agentSummary ?? undefined,
+    preferredTime: a.scheduledDate && a.scheduledTime ? `${a.scheduledDate} ${a.scheduledTime}` : undefined,
+    imageAnalysis: a.agentAnalysis?.imageReportId
+      ? {
+          imageType:         a.agentAnalysis.imageReportId.imageType,
+          findings:          a.agentAnalysis.imageReportId.findings,
+          suggestedFollowUp: a.agentAnalysis.imageReportId.suggestedFollowUp,
+        }
+      : undefined,
+  };
+}
+
+export async function getReferrals(facilityId?: string): Promise<AppointmentRecord[]> {
+  const params = new URLSearchParams();
+  if (facilityId) params.set('facilityId', facilityId);
+  const res = await fetch(`${BASE}/api/appointments?${params}`);
   if (!res.ok) throw await safeError(res);
   const data = await res.json();
-  return (data.referrals ?? []) as ReferralRecord[];
+  return ((data.appointments ?? []) as AppointmentRecord[]).map(normalizeAppointment);
 }
 
 export async function updateReferral(
   id: string,
-  status: 'confirmed' | 'cancelled' | 'pending',
-): Promise<ReferralRecord> {
-  const res = await fetch(`${BASE}/api/clinics/referrals/${id}`, {
+  status: 'confirmed' | 'cancelled' | 'pending' | 'completed',
+  doctorNotes?: string,
+): Promise<AppointmentRecord> {
+  const res = await fetch(`${BASE}/api/appointments/${id}`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ status }),
+    body: JSON.stringify({ status, doctorNotes }),
   });
   if (!res.ok) throw await safeError(res);
   const data = await res.json();
-  return data.referral as ReferralRecord;
+  return data.appointment as AppointmentRecord;
 }

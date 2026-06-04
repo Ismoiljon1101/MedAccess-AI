@@ -170,7 +170,7 @@ function VoiceUI({
     abortRef.current = ctrl;
     try {
       let assembled = '';
-      for await (const ev of streamChatRequest(text, liveSessionRef.current, language, ctrl.signal)) {
+      for await (const ev of streamChatRequest(text, liveSessionRef.current, language, { signal: ctrl.signal })) {
         if (ctrl.signal.aborted) break;
         if (ev.type === 'meta' && ev.data.sessionId) {
           setLiveSession(ev.data.sessionId);

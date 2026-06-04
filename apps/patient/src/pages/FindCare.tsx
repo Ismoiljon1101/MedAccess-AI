@@ -731,7 +731,7 @@ export default function FindCare() {
                   </a>
                 )}
                 <a
-                  href={navUrl(mapProvider, f.lat, f.lng, f.name, f.city)}
+                  href={navUrl(mapProvider, f.lat, f.lng, f.name, f.city ?? '')}
                   target="_blank"
                   rel="noopener noreferrer"
                   onClick={(e) => e.stopPropagation()}

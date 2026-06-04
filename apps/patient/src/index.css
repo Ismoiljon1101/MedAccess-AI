@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&family=DM+Serif+Display:ital@0;1&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -82,13 +84,13 @@ html, body, #root {
 
 /* ── Base ───────────────────────────────────────────────────────────────── */
 @layer base {
-  html { font-family: 'Inter', system-ui, sans-serif; }
+  html { font-family: 'Plus Jakarta Sans', system-ui, sans-serif; }
 
   body {
     background:
-      radial-gradient(1000px 550px at 10% -5%,  rgba(34, 184, 163, 0.13), transparent 60%),
-      radial-gradient(800px  450px at 105% 8%,  rgba(94, 92, 230, 0.10),  transparent 60%),
-      radial-gradient(600px  300px at 60% 100%, rgba(34, 184, 163, 0.06), transparent 60%),
+      radial-gradient(900px 500px at 8% -8%,   rgba(0, 198, 170, 0.15), transparent 60%),
+      radial-gradient(700px  400px at 108% 5%,  rgba(109, 40, 217, 0.09), transparent 60%),
+      radial-gradient(500px  280px at 55% 102%, rgba(0, 198, 170, 0.07), transparent 60%),
       var(--body-bg);
     color: var(--body-color);
     -webkit-font-smoothing: antialiased;
@@ -147,6 +149,63 @@ html.text-size-lg .chat-bubble { font-size: 1rem; }
   .chip-ok     { @apply border-ok-500   bg-ink-900 text-ok-400; }
   .chip-warn   { @apply border-warn-500 bg-ink-900 text-warn-400; }
   .chip-danger { @apply border-danger-500 bg-ink-900 text-danger-400; }
+
+  /* ── Welcome page ───────────────────────────────────────────────────── */
+  .welcome-hero {
+    @apply relative min-h-screen flex flex-col items-center justify-between overflow-hidden;
+  }
+  .welcome-setup {
+    @apply relative min-h-screen flex flex-col items-center justify-start overflow-hidden;
+  }
+  .welcome-grid {
+    @apply absolute inset-0 opacity-[0.035];
+    background-image:
+      linear-gradient(rgba(0,198,170,0.6) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,198,170,0.6) 1px, transparent 1px);
+    background-size: 40px 40px;
+  }
+  .welcome-logo-ring {
+    @apply h-20 w-20 rounded-3xl;
+    background: linear-gradient(135deg, rgba(0,198,170,0.25) 0%, rgba(0,198,170,0.08) 100%);
+    border: 1px solid rgba(0,198,170,0.35);
+    box-shadow: 0 0 40px rgba(0,198,170,0.18), inset 0 1px 0 rgba(255,255,255,0.08);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .welcome-logo-inner {
+    @apply absolute inset-0 flex items-center justify-center;
+  }
+  .welcome-title {
+    font-family: 'DM Serif Display', serif;
+    @apply text-4xl text-white tracking-tight;
+  }
+  .welcome-subtitle {
+    @apply text-brand-400 text-sm font-medium mt-1 tracking-wide;
+  }
+  .welcome-feature-pill {
+    @apply flex items-center gap-3 rounded-2xl border border-ink-700/50 bg-ink-900/60 backdrop-blur-sm px-4 py-3 transition;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+  }
+  .welcome-form-card {
+    @apply rounded-3xl border border-ink-700/70 bg-ink-900/80 backdrop-blur-md p-6 space-y-5;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.04);
+  }
+  .btn-primary-hero {
+    @apply w-full flex items-center justify-center gap-2 rounded-2xl py-4 text-base font-semibold transition-all;
+    background: linear-gradient(135deg, rgba(0,198,170,0.25), rgba(0,198,170,0.12));
+    border: 1px solid rgba(0,198,170,0.45);
+    color: rgb(var(--brand-400-rgb, 34 184 163));
+    box-shadow: 0 0 24px rgba(0,198,170,0.12);
+  }
+  .btn-primary-hero:hover:not(:disabled) {
+    background: linear-gradient(135deg, rgba(0,198,170,0.35), rgba(0,198,170,0.18));
+    box-shadow: 0 0 32px rgba(0,198,170,0.20);
+  }
+  .btn-primary-hero:disabled { @apply opacity-60 cursor-not-allowed; }
+  .btn-ghost-hero {
+    @apply w-full text-sm text-ink-400 hover:text-ink-200 transition py-2;
+  }
 
   /* ── App shell ──────────────────────────────────────────────────────── */
   .app-shell {

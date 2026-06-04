@@ -87,7 +87,7 @@ export default function Patients() {
   const byStatus = filter === 'all' ? referrals : referrals.filter((r) => r.status === filter);
   const filtered = search.trim()
     ? byStatus.filter((r) =>
-        r.patientName.toLowerCase().includes(search.toLowerCase()) ||
+        (r.patientName ?? '').toLowerCase().includes(search.toLowerCase()) ||
         r.specialty.toLowerCase().includes(search.toLowerCase())
       )
     : byStatus;
@@ -192,7 +192,7 @@ export default function Patients() {
                   <div className="flex items-start gap-3">
                     {/* Avatar */}
                     <div className="h-9 w-9 shrink-0 rounded-xl bg-ink-800 ring-1 ring-ink-700/60 grid place-items-center text-xs font-bold text-ink-300 mt-0.5">
-                      {initials(ref.patientName)}
+                      {initials(ref.patientName ?? '?')}
                     </div>
 
                     {/* Info */}

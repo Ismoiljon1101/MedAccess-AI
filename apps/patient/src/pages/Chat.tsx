@@ -1,12 +1,12 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { Send, Phone, Plus, Headphones, BookText, Image as ImageIcon, MapPin, X, Mic, MicOff, Brain } from 'lucide-react';
+import { Send, Phone, Plus, Headphones, BookText, Image as ImageIcon, MapPin, X, Mic, MicOff, Brain, CalendarCheck, Building2, Loader2, CheckCircle } from 'lucide-react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { AiAvatar, type AvatarState } from '@/components/AiAvatar';
 import ImageCaptureFlow from '@/components/ImageCaptureFlow';
 import type { ImageModality } from '@/components/ImageCaptureFlow';
-import { streamChatRequest, loadSession, analyzeReport } from '@/lib/api';
+import { streamChatRequest, loadSession, analyzeReport, confirmAgentBooking, type AgentBookingProposal } from '@/lib/api';
 import { useAppStore } from '@/store/app';
 
 interface RagCitation {
@@ -42,7 +42,8 @@ const GREETING: Message = {
 };
 
 export default function Chat() {
-  const { language, upsertSession } = useAppStore();
+  const { language, upsertSession, patientProfile, addAppointment } = useAppStore();
+  const patientPhone = patientProfile?.phone;
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
 
@@ -56,9 +57,15 @@ export default function Chat() {
 
   const [ctaSpec, setCtaSpec] = useState<{ specialty: string; urgency: string } | null>(null);
   const [pendingBooking, setPendingBooking] = useState<BookingAction | null>(null);
+  const [agentProposal, setAgentProposal] = useState<AgentBookingProposal | null>(null);
+  const [bookingLoading, setBookingLoading] = useState(false);
+  const [bookingConfirmed, setBookingConfirmed] = useState<{ date: string; time: string } | null>(null);
   const [showCapture, setShowCapture] = useState(false);
-  const [micActive, setMicActive]     = useState(false);  // inline voice input
-  const [isReasoning, setIsReasoning] = useState(false);  // model is in <think> block
+  const [micActive, setMicActive]     = useState(false);
+  const [isReasoning, setIsReasoning] = useState(false);
+
+  // Geolocation — acquired once on mount, passed with every chat request
+  const locationRef = useRef<{ lat: number; lng: number } | null>(null);
 
   const bottomRef    = useRef<HTMLDivElement>(null);
   const textareaRef  = useRef<HTMLTextAreaElement>(null);
@@ -161,6 +168,16 @@ export default function Chat() {
       .catch(() => setLoadError('Session not found or expired. Starting a new chat.'));
   }, [resumeId]);
 
+  // ── Geolocation (silent, best-effort) ────────────────────────────────
+  useEffect(() => {
+    if (!navigator.geolocation) return;
+    navigator.geolocation.getCurrentPosition(
+      (pos) => { locationRef.current = { lat: pos.coords.latitude, lng: pos.coords.longitude }; },
+      () => { /* permission denied — fine, booking proposal won't include GPS */ },
+      { timeout: 5000, maximumAge: 5 * 60 * 1000 },
+    );
+  }, []);
+
   // ── Auto-scroll ───────────────────────────────────────────────────────
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -229,7 +246,12 @@ export default function Chat() {
 
         let resolvedCitations: RagCitation[] = [];
 
-        for await (const event of streamChatRequest(trimmed, sessionId, language, ctrl.signal)) {
+        for await (const event of streamChatRequest(trimmed, sessionId, language, {
+          patientPhone: patientPhone ?? undefined,
+          lat: locationRef.current?.lat,
+          lng: locationRef.current?.lng,
+          signal: ctrl.signal,
+        })) {
           if (ctrl.signal.aborted) break;
           if (event.type === 'meta') {
             if (event.data.sessionId) {
@@ -250,6 +272,8 @@ export default function Chat() {
             setMessages((prev) =>
               prev.map((m) => (m.id === aiId ? { ...m, content: cleanText } : m)),
             );
+          } else if (event.type === 'booking_proposal') {
+            setAgentProposal(event.data as AgentBookingProposal);
           } else if (event.type === 'done' || event.type === 'error') {
             break;
           }
@@ -293,7 +317,7 @@ export default function Chat() {
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [sessionId, language],
+    [sessionId, language, patientPhone],
   );
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
@@ -594,6 +618,118 @@ export default function Chat() {
             className="shrink-0 rounded-full p-1 text-slate-500 hover:text-slate-200 hover:bg-surface-700/60 transition"
           >
             <X size={14} />
+          </button>
+        </div>
+      )}
+
+      {/* ── Agent booking proposal (server-found facility + doctor) ── */}
+      {agentProposal && !isThinking && !bookingConfirmed && (
+        <div className="shrink-0 mx-3 mb-1 rounded-2xl border border-brand-500/40 bg-gradient-to-b from-brand-500/12 to-brand-500/6 backdrop-blur-sm shadow-lg shadow-brand-900/20">
+          <div className="px-4 pt-3 pb-2">
+            <div className="flex items-start justify-between gap-2 mb-2.5">
+              <div className="flex items-center gap-2">
+                <CalendarCheck size={16} className="text-brand-400 shrink-0" />
+                <p className="text-xs font-semibold text-brand-300 uppercase tracking-wide">예약 제안 · Booking Proposal</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setAgentProposal(null)}
+                aria-label="Dismiss"
+                className="rounded-full p-1 text-ink-500 hover:text-ink-200 hover:bg-ink-700/60 transition"
+              >
+                <X size={13} />
+              </button>
+            </div>
+
+            <div className="flex items-start gap-3">
+              <div className="flex-1 min-w-0 space-y-1">
+                <p className="text-sm font-semibold text-white">{agentProposal.doctorName}</p>
+                <p className="text-xs text-ink-300">{agentProposal.doctorSpecialty}</p>
+                <div className="flex items-center gap-1.5 mt-1.5">
+                  <Building2 size={12} className="text-ink-400 shrink-0" />
+                  <p className="text-xs text-ink-300 truncate">{agentProposal.facilityName}</p>
+                  {agentProposal.distanceKm != null && (
+                    <span className="text-[10px] text-ink-500 shrink-0">{agentProposal.distanceKm.toFixed(1)}km</span>
+                  )}
+                </div>
+                {agentProposal.facilityAddress && (
+                  <p className="text-[11px] text-ink-500 truncate">{agentProposal.facilityAddress}</p>
+                )}
+                <div className="mt-2 inline-flex items-center gap-1.5 rounded-lg border border-brand-500/30 bg-brand-500/10 px-2.5 py-1">
+                  <CalendarCheck size={11} className="text-brand-400" />
+                  <span className="text-xs font-medium text-brand-300">
+                    {agentProposal.proposedDate} · {agentProposal.proposedTime}–{agentProposal.proposedEndTime}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="px-4 pb-3 flex gap-2">
+            <button
+              type="button"
+              disabled={bookingLoading || !patientPhone}
+              onClick={async () => {
+                if (!patientPhone) return;
+                setBookingLoading(true);
+                try {
+                  const result = await confirmAgentBooking({
+                    proposalKey: agentProposal.proposalKey,
+                    patientPhone,
+                    agentSummary: previewRef.current || undefined,
+                    sessionId,
+                  });
+                  setBookingConfirmed({ date: result.scheduledDate, time: result.scheduledTime });
+                  setAgentProposal(null);
+                  addAppointment({
+                    appointmentId:   result.appointmentId,
+                    facilityId:      agentProposal.facilityId,
+                    facilityName:    agentProposal.facilityName,
+                    doctorId:        agentProposal.doctorId,
+                    doctorName:      agentProposal.doctorName,
+                    specialty:       agentProposal.specialty,
+                    date:            result.scheduledDate,
+                    startTime:       result.scheduledTime,
+                    endTime:         result.scheduledEndTime,
+                    scheduledDate:   result.scheduledDate,
+                    scheduledTime:   result.scheduledTime,
+                    scheduledEndTime: result.scheduledEndTime,
+                    status:          'pending',
+                    bookedAt:        Date.now(),
+                  });
+                } catch (err: any) {
+                  alert(`예약 실패 · Booking failed: ${err.message}`);
+                } finally {
+                  setBookingLoading(false);
+                }
+              }}
+              className="flex-1 flex items-center justify-center gap-1.5 rounded-xl border border-brand-500/50 bg-brand-600/25 py-2.5 text-xs font-semibold text-brand-300 hover:bg-brand-600/40 transition disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {bookingLoading
+                ? <><Loader2 size={13} className="animate-spin" /> 예약 중…</>
+                : <>예약하기 · Book this slot</>}
+            </button>
+            <button
+              type="button"
+              onClick={() => setAgentProposal(null)}
+              className="rounded-xl border border-ink-700 bg-ink-800 px-3 py-2.5 text-xs text-ink-400 hover:text-ink-200 transition"
+            >
+              나중에
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── Booking confirmed toast ──────────────────────────────── */}
+      {bookingConfirmed && (
+        <div className="shrink-0 mx-3 mb-1 rounded-2xl border border-ok-500/40 bg-ok-500/10 px-4 py-3 flex items-center gap-3">
+          <CheckCircle size={18} className="text-ok-400 shrink-0" />
+          <div className="flex-1 min-w-0">
+            <p className="text-xs font-semibold text-ok-300">예약 완료 · Appointment Booked</p>
+            <p className="text-[11px] text-ink-400 mt-0.5">{bookingConfirmed.date} at {bookingConfirmed.time}</p>
+          </div>
+          <button type="button" onClick={() => setBookingConfirmed(null)} className="text-ink-500 hover:text-ink-200 transition">
+            <X size={13} />
           </button>
         </div>
       )}

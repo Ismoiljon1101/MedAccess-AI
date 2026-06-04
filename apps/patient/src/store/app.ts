@@ -1,7 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
-// ── Chat session ──────────────────────────────────────────────────────────────
 export interface ChatSessionMeta {
   sessionId: string;
   preview: string;
@@ -11,14 +10,15 @@ export interface ChatSessionMeta {
   updatedAt: number;
 }
 
-// ── Patient profile (stored locally, v0.1 — no auth) ─────────────────────────
+// phone is the server identity key (no auth, just phone lookup)
 export interface PatientProfile {
   fullName: string;
-  phone?: string;
+  phone?: string;           // server identity key (empty = anonymous)
+  serverPatientId?: string;
   email?: string;
-  dob?: string;          // YYYY-MM-DD
+  dob?: string;
   sex?: 'male' | 'female' | 'other';
-  bloodType?: string;    // A+, A-, B+, etc.
+  bloodType?: string;
   city?: string;
   country?: string;
   knownAllergies?: string;
@@ -28,25 +28,26 @@ export interface PatientProfile {
   emergencyContactPhone?: string;
 }
 
-// ── Booked appointments (stored locally) ─────────────────────────────────────
 export interface AppointmentMeta {
   appointmentId: string;
   facilityId: string;
   facilityName: string;
-  facilityCity: string;
-  facilityType: string;
+  facilityCity?: string;
+  facilityType?: string;
   doctorId: string;
   doctorName: string;
   specialty: string;
-  date: string;          // YYYY-MM-DD
-  startTime: string;     // HH:MM
-  endTime: string;       // HH:MM
+  date: string;            // YYYY-MM-DD (alias: scheduledDate)
+  startTime: string;       // HH:MM
+  endTime?: string;        // HH:MM
+  scheduledDate?: string;  // from server response
+  scheduledTime?: string;
+  scheduledEndTime?: string;
   status: 'pending' | 'confirmed' | 'cancelled' | 'completed';
-  bookedAt: number;      // Unix ms
+  bookedAt: number;
 }
 
 interface AppState {
-  // ── Preferences ──────────────────────────────────────────────
   language: string;
   setLanguage: (l: string) => void;
 
@@ -59,17 +60,15 @@ interface AppState {
   voiceAutoPlay: boolean;
   setVoiceAutoPlay: (v: boolean) => void;
 
-  // ── Patient profile ───────────────────────────────────────────
   patientProfile: PatientProfile | null;
   setPatientProfile: (p: PatientProfile) => void;
   clearPatientProfile: () => void;
 
-  // ── Booked appointments ───────────────────────────────────────
   appointments: AppointmentMeta[];
   addAppointment: (a: AppointmentMeta) => void;
+  updateAppointmentStatus: (appointmentId: string, status: AppointmentMeta['status']) => void;
   clearAppointments: () => void;
 
-  // ── Chat history ──────────────────────────────────────────────
   chatHistory: ChatSessionMeta[];
   upsertSession: (meta: Omit<ChatSessionMeta, 'updatedAt'> & { updatedAt?: number }) => void;
   removeSession: (sessionId: string) => void;
@@ -79,8 +78,7 @@ interface AppState {
 export const useAppStore = create<AppState>()(
   persist(
     (set) => ({
-      // Preferences
-      language:      'English',
+      language:      'Korean',
       theme:         'dark',
       fontSize:      'md',
       voiceAutoPlay: false,
@@ -90,20 +88,22 @@ export const useAppStore = create<AppState>()(
       setFontSize:      (fontSize)      => set({ fontSize }),
       setVoiceAutoPlay: (voiceAutoPlay) => set({ voiceAutoPlay }),
 
-      // Patient profile
       patientProfile: null,
       setPatientProfile: (patientProfile) => set({ patientProfile }),
       clearPatientProfile: () => set({ patientProfile: null }),
 
-      // Appointments
       appointments: [],
       addAppointment: (appt) =>
         set((s) => ({ appointments: [appt, ...s.appointments].slice(0, 100) })),
+      updateAppointmentStatus: (appointmentId, status) =>
+        set((s) => ({
+          appointments: s.appointments.map((a) =>
+            a.appointmentId === appointmentId ? { ...a, status } : a,
+          ),
+        })),
       clearAppointments: () => set({ appointments: [] }),
 
-      // History
       chatHistory: [],
-
       upsertSession: (meta) =>
         set((s) => {
           const now = Date.now();
@@ -116,10 +116,8 @@ export const useAppStore = create<AppState>()(
           }
           return { chatHistory: [entry, ...s.chatHistory].slice(0, 50) };
         }),
-
       removeSession: (sessionId) =>
         set((s) => ({ chatHistory: s.chatHistory.filter((h) => h.sessionId !== sessionId) })),
-
       clearHistory: () => set({ chatHistory: [] }),
     }),
     { name: 'medaccess-patient-prefs' },
