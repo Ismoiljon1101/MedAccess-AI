@@ -136,12 +136,26 @@ html.text-size-lg .chat-bubble { font-size: 1rem; }
     @apply btn border-danger-500 text-danger-400 hover:bg-ink-700;
   }
 
-  /* ── Inputs ─────────────────────────────────────────────────────────── */
+  /* ── Inputs — min 44px height per HIG touch target rule ────────────── */
   .input {
-    @apply w-full rounded-xl border border-ink-700 bg-ink-900 px-4 py-2.5 text-ink-100 placeholder-ink-400 outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-600;
+    @apply w-full rounded-xl border border-ink-700 bg-ink-900 px-4 py-3 text-ink-100 placeholder-ink-400 outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-600;
+    min-height: 44px;
   }
   .label {
     @apply block text-xs font-medium uppercase tracking-wider text-ink-300 mb-1.5;
+  }
+
+  /* ── HIG touch-target utility ──────────────────────────────────────── */
+  /* Ensures interactive elements meet 44×44px minimum tap target (HIG) */
+  .touch-target {
+    min-height: 44px;
+    min-width: 44px;
+    @apply flex items-center justify-center;
+  }
+  .touch-target-sm {
+    /* Visually smaller but with invisible hit area padding */
+    padding: 8px;
+    margin: -8px;
   }
 
   /* ── Chips ──────────────────────────────────────────────────────────── */
@@ -228,8 +242,10 @@ html.text-size-lg .chat-bubble { font-size: 1rem; }
     backdrop-filter: blur(12px);
     padding-bottom: env(safe-area-inset-bottom, 0px);
   }
+  /* HIG: tab bar minimum height 49px, each tab ≥ 44px touch target */
   .app-tab {
     @apply flex flex-1 flex-col items-center gap-1 pt-2.5 pb-2 text-[11px] font-medium transition-colors;
+    min-height: 49px;
   }
   .app-tab-active   { @apply text-brand-400; }
   .app-tab-inactive { @apply text-ink-400 hover:text-ink-200; }

@@ -62,9 +62,10 @@ export default function MyRecords() {
           <button
             type="button"
             onClick={() => navigate('/profile')}
-            className="flex items-center gap-1.5 rounded-xl border border-ink-600 bg-ink-700 px-3 py-1.5 text-xs text-ink-400 hover:text-white hover:border-ink-500 transition"
+            aria-label="Go to profile"
+            className="flex items-center gap-1.5 rounded-xl border border-ink-600 bg-ink-700 px-3 py-2.5 text-xs text-ink-400 hover:text-white hover:border-ink-500 transition min-h-[44px]"
           >
-            <User size={13} /> Profile
+            <User size={14} /> Profile
           </button>
         </div>
 
@@ -77,8 +78,10 @@ export default function MyRecords() {
             <button
               key={t.id}
               type="button"
+              role="tab"
+              aria-selected={tab === t.id}
               onClick={() => setTab(t.id)}
-              className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-medium border-b-2 transition-colors ${
+              className={`flex items-center gap-1.5 px-4 py-3 text-xs font-medium border-b-2 transition-colors min-h-[44px] ${
                 tab === t.id
                   ? 'border-brand-500 text-brand-400'
                   : 'border-transparent text-ink-500 hover:text-ink-200'
@@ -154,11 +157,11 @@ export default function MyRecords() {
                     <ChevronRight size={14} className="text-ink-600" />
                     <button
                       type="button"
-                      aria-label="Delete record"
+                      aria-label="Delete consultation record"
                       onClick={(e) => { e.stopPropagation(); removeSession(session.sessionId); }}
-                      className="rounded-lg p-1.5 text-ink-600 hover:text-danger-400 hover:bg-danger-500/10 transition"
+                      className="flex h-11 w-11 items-center justify-center rounded-xl text-ink-600 hover:text-danger-400 hover:bg-danger-500/10 transition"
                     >
-                      <Trash2 size={13} />
+                      <Trash2 size={15} />
                     </button>
                   </div>
                 </div>

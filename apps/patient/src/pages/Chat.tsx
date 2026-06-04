@@ -629,7 +629,7 @@ export default function Chat() {
             <div className="flex items-start justify-between gap-2 mb-2.5">
               <div className="flex items-center gap-2">
                 <CalendarCheck size={16} className="text-brand-400 shrink-0" />
-                <p className="text-xs font-semibold text-brand-300 uppercase tracking-wide">예약 제안 · Booking Proposal</p>
+                <p className="text-xs font-semibold text-brand-300 uppercase tracking-wide">Booking Proposal</p>
               </div>
               <button
                 type="button"
@@ -698,7 +698,7 @@ export default function Chat() {
                     bookedAt:        Date.now(),
                   });
                 } catch (err: any) {
-                  alert(`예약 실패 · Booking failed: ${err.message}`);
+                  alert(`Booking failed: ${err.message}`);
                 } finally {
                   setBookingLoading(false);
                 }
@@ -706,15 +706,15 @@ export default function Chat() {
               className="flex-1 flex items-center justify-center gap-1.5 rounded-xl border border-brand-500/50 bg-brand-600/25 py-2.5 text-xs font-semibold text-brand-300 hover:bg-brand-600/40 transition disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {bookingLoading
-                ? <><Loader2 size={13} className="animate-spin" /> 예약 중…</>
-                : <>예약하기 · Book this slot</>}
+                ? <><Loader2 size={13} className="animate-spin" /> Booking…</>
+                : <>Book this appointment</>}
             </button>
             <button
               type="button"
               onClick={() => setAgentProposal(null)}
               className="rounded-xl border border-ink-700 bg-ink-800 px-3 py-2.5 text-xs text-ink-400 hover:text-ink-200 transition"
             >
-              나중에
+              Maybe later
             </button>
           </div>
         </div>
@@ -725,7 +725,7 @@ export default function Chat() {
         <div className="shrink-0 mx-3 mb-1 rounded-2xl border border-ok-500/40 bg-ok-500/10 px-4 py-3 flex items-center gap-3">
           <CheckCircle size={18} className="text-ok-400 shrink-0" />
           <div className="flex-1 min-w-0">
-            <p className="text-xs font-semibold text-ok-300">예약 완료 · Appointment Booked</p>
+            <p className="text-xs font-semibold text-ok-300">Appointment Booked</p>
             <p className="text-[11px] text-ink-400 mt-0.5">{bookingConfirmed.date} at {bookingConfirmed.time}</p>
           </div>
           <button type="button" onClick={() => setBookingConfirmed(null)} className="text-ink-500 hover:text-ink-200 transition">

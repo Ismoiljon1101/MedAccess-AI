@@ -56,33 +56,32 @@ export default function Layout({ children }: { children: ReactNode }) {
             }`}
           />
 
-          {/* Emergency quick-dial — always visible */}
+          {/* Emergency quick-dial — min 44px tap target */}
           <Link
             to="/emergency"
-            title="Emergency triage"
-            aria-label="Emergency assessment"
-            className={`flex items-center justify-center rounded-lg p-1.5 transition-colors ${
+            aria-label="Emergency triage assessment"
+            className={`flex h-11 w-11 items-center justify-center rounded-xl transition-colors ${
               location.pathname === '/emergency'
                 ? 'text-danger-400 bg-danger-500/15'
                 : 'text-danger-400/70 hover:text-danger-400 hover:bg-danger-500/10'
             }`}
           >
-            <Phone size={16} />
+            <Phone size={18} />
           </Link>
 
-          {/* Profile avatar */}
+          {/* Profile avatar — min 44px tap target */}
           <Link
             to="/profile"
-            title="My Profile"
-            className={`flex h-7 w-7 items-center justify-center rounded-xl border transition-all ${
+            aria-label="My Profile"
+            className={`flex h-11 w-11 items-center justify-center rounded-xl border transition-all ${
               location.pathname === '/profile'
                 ? 'border-brand-500/50 bg-brand-500/20 text-brand-400'
                 : 'border-ink-700 bg-ink-800 text-ink-400 hover:border-ink-600 hover:text-ink-200'
             }`}
           >
             {initials
-              ? <span className="text-[10px] font-bold text-brand-400">{initials}</span>
-              : <User size={13} />
+              ? <span className="text-xs font-bold text-brand-400">{initials}</span>
+              : <User size={16} />
             }
           </Link>
         </div>

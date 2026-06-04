@@ -524,7 +524,7 @@ export default function FindCare() {
         {/* City search */}
         <input
           className="input text-sm"
-          placeholder="도시 검색 · Search by city (e.g. Seoul, Busan…)"
+          placeholder="Search by city…"
           value={citySearch}
           onChange={(e) => setCitySearch(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && load({ city: citySearch })}
@@ -629,7 +629,7 @@ export default function FindCare() {
         <div className="shrink-0 mx-3 mb-3">
           <div className="flex items-center justify-between mb-2">
             <p className="text-[11px] font-semibold uppercase tracking-wider text-ink-400">
-              내 예약 · My Appointments
+              My Appointments
             </p>
             {serverApptLoading && <Loader2 size={11} className="animate-spin text-ink-500" />}
           </div>
@@ -645,8 +645,8 @@ export default function FindCare() {
                 completed: 'border-ink-600/40 bg-ink-800/60 text-ink-400',
               };
               const statusLabel: Record<string, string> = {
-                pending: '대기 중 · Pending', confirmed: '확정 · Confirmed',
-                cancelled: '취소됨 · Cancelled', completed: '완료 · Completed',
+                pending: 'Pending', confirmed: 'Confirmed',
+                cancelled: 'Cancelled', completed: 'Completed',
               };
               const facilityName = typeof appt.facilityId === 'object'
                 ? appt.facilityId?.name : undefined;
@@ -688,7 +688,7 @@ export default function FindCare() {
 
           <div className="mt-2 border-t border-ink-700/40 pt-2">
             <p className="text-[10px] text-ink-500 font-medium uppercase tracking-wider">
-              시설 검색 · Search Facilities ↓
+              Search Facilities
             </p>
           </div>
         </div>
@@ -871,7 +871,7 @@ export default function FindCare() {
         {(mapLoading || mapPlaces.length > 0) && (
           <div className="space-y-2 pt-2">
             <p className="text-[10px] font-semibold uppercase tracking-wider text-ink-500 px-1 flex items-center gap-1.5">
-              <Map size={10} /> 네이버 지도 검색 결과 · Navigate only
+              <Map size={10} /> Map results — navigate only
             </p>
             {mapLoading && [0, 1].map((i) => <SkeletonCard key={i} />)}
             {mapPlaces.map((p) => (
