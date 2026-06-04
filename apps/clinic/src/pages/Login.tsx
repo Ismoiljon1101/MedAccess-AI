@@ -1,11 +1,20 @@
 import { useState, useEffect } from 'react';
-import { Stethoscope, Pill, ShieldCheck, ArrowRight, Building2, Loader2, Search } from 'lucide-react';
+import {
+  Stethoscope, Pill, ShieldCheck, ArrowRight, Building2,
+  Loader2, Search, Plus, ChevronLeft, MapPin, CheckCircle2,
+} from 'lucide-react';
 import { useAuthStore, type Role, type AuthUser } from '@/store/auth';
 import { MEDICAL_SPECIALTIES } from '@medaccess/shared';
 
 const BASE = import.meta.env.DEV ? 'http://localhost:4000' : '';
 
-interface ClinicOption { id: string; name: string; city: string; type: string; status: string; }
+interface FacilityOption {
+  id: string;
+  name: string;
+  city?: string;
+  type: 'hospital' | 'clinic' | 'pharmacy';
+  specialties: string[];
+}
 
 interface RoleCard {
   role: Role;
@@ -24,120 +33,213 @@ const ROLES: RoleCard[] = [
     role: 'doctor',
     icon: <Stethoscope size={28} strokeWidth={1.8} />,
     title: 'Doctor',
-    desc: 'Review AI-generated patient reports, manage encounters, write prescriptions and referrals.',
+    desc: 'Review AI-generated patient reports, manage encounters and referrals.',
     color: 'text-accent-400',
-    ring: 'ring-accent-500/40 hover:ring-accent-500/80',
-    bg: 'bg-accent-500/10 hover:bg-accent-500/15',
+    ring: 'ring-1 ring-accent-500/40 hover:ring-accent-500/70',
+    bg: 'bg-accent-500/8 hover:bg-accent-500/12',
     specialtyLabel: 'Specialty',
-    specialtyPlaceholder: 'e.g. General Practice, Cardiology, Pediatrics',
+    specialtyPlaceholder: 'e.g. General Practice, Cardiology',
   },
   {
     role: 'pharmacist',
     icon: <Pill size={28} strokeWidth={1.8} />,
     title: 'Pharmacist',
-    desc: 'Receive prescription requests from MA Agent and doctors. Review, approve or flag before dispensing.',
+    desc: 'Receive and review prescription requests from MA Agent and doctors.',
     color: 'text-violet-400',
-    ring: 'ring-violet-500/40 hover:ring-violet-500/80',
-    bg: 'bg-violet-500/10 hover:bg-violet-500/15',
+    ring: 'ring-1 ring-violet-500/40 hover:ring-violet-500/70',
+    bg: 'bg-violet-500/8 hover:bg-violet-500/12',
     specialtyLabel: 'Role',
-    specialtyPlaceholder: 'e.g. Clinical Pharmacist, Dispensary Lead',
+    specialtyPlaceholder: 'e.g. Clinical Pharmacist',
   },
   {
     role: 'admin',
     icon: <ShieldCheck size={28} strokeWidth={1.8} />,
     title: 'Admin',
-    desc: 'Manage clinic staff, roles, and settings. Oversee the full patient and prescription flow.',
+    desc: 'Manage clinic staff, roles, settings and oversee the full patient flow.',
     color: 'text-amber-400',
-    ring: 'ring-amber-500/40 hover:ring-amber-500/80',
-    bg: 'bg-amber-500/10 hover:bg-amber-500/15',
+    ring: 'ring-1 ring-amber-500/40 hover:ring-amber-500/70',
+    bg: 'bg-amber-500/8 hover:bg-amber-500/12',
     specialtyLabel: 'Title',
-    specialtyPlaceholder: 'e.g. Clinic Manager, Head Administrator',
+    specialtyPlaceholder: 'e.g. Clinic Manager',
   },
 ];
 
+const FACILITY_TYPES = [
+  { value: 'hospital', label: 'Hospital' },
+  { value: 'clinic',   label: 'Clinic' },
+  { value: 'pharmacy', label: 'Pharmacy' },
+] as const;
+
+/** Silently grab browser coords; return Seoul default if denied */
+async function getBrowserCoords(): Promise<{ lat: number; lng: number }> {
+  return new Promise((resolve) => {
+    if (!navigator.geolocation) return resolve({ lat: 37.5665, lng: 126.9780 });
+    navigator.geolocation.getCurrentPosition(
+      (p) => resolve({ lat: p.coords.latitude, lng: p.coords.longitude }),
+      ()  => resolve({ lat: 37.5665, lng: 126.9780 }),
+      { timeout: 3000 },
+    );
+  });
+}
+
 export default function Login() {
   const login = useAuthStore((s) => s.login);
+
+  // Role selection
   const [selected, setSelected] = useState<Role | null>(null);
-  const [name, setName] = useState('');
-  const [specialty, setSpecialty] = useState('');
-  const [clinicName, setClinicName] = useState('');
-  const [facilityId, setFacilityId] = useState('');
-  const [licenseNo, setLicenseNo] = useState('');
-  const [email, setEmail] = useState('');
-  const [registerDoctor, setRegisterDoctor] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
-  const [registered, setRegistered] = useState<string | null>(null);
-  const [error, setError] = useState('');
-
-  // Clinic picker state
-  const [clinics, setClinics] = useState<ClinicOption[]>([]);
-  const [clinicsLoading, setClinicsLoading] = useState(false);
-  const [clinicSearch, setClinicSearch] = useState('');
-  const [registerNewClinic, setRegisterNewClinic] = useState(false);
-
   const card = ROLES.find((r) => r.role === selected);
 
-  // Fetch registered clinics when doctor toggles registration
-  useEffect(() => {
-    if (!registerDoctor || clinics.length > 0) return;
-    setClinicsLoading(true);
-    fetch(`${BASE}/api/register/clinics`)
-      .then((r) => r.json())
-      .then((d) => setClinics(d.clinics ?? []))
-      .catch(() => {})
-      .finally(() => setClinicsLoading(false));
-  }, [registerDoctor]);
+  // Basic fields
+  const [name,      setName]      = useState('');
+  const [specialty, setSpecialty] = useState('');
+  const [clinicName,setClinicName]= useState('');
 
+  // Doctor-only registration fields
+  const [wantBookable, setWantBookable] = useState(false);
+  const [facilityId,   setFacilityId]   = useState('');
+  const [licenseNo,    setLicenseNo]    = useState('');
+  const [email,        setEmail]        = useState('');
+
+  // Facility picker state
+  const [facilities,        setFacilities]        = useState<FacilityOption[]>([]);
+  const [facilitiesLoading, setFacilitiesLoading] = useState(false);
+  const [facilitySearch,    setFacilitySearch]    = useState('');
+
+  // New clinic registration sub-form
+  const [showNewClinic,    setShowNewClinic]    = useState(false);
+  const [newClinicName,    setNewClinicName]    = useState('');
+  const [newClinicType,    setNewClinicType]    = useState<'hospital'|'clinic'|'pharmacy'>('clinic');
+  const [newClinicCity,    setNewClinicCity]    = useState('');
+  const [newClinicPhone,   setNewClinicPhone]   = useState('');
+  const [newClinicSpecs,   setNewClinicSpecs]   = useState('');
+  const [registeringClinic,setRegisteringClinic]= useState(false);
+
+  // Submit state
+  const [submitting,  setSubmitting]  = useState(false);
+  const [registered,  setRegistered]  = useState<string | null>(null);
+  const [error,       setError]       = useState('');
+
+  // ── Load facilities when doctor toggles bookable ────────────────────────
+  useEffect(() => {
+    if (!wantBookable || facilities.length > 0) return;
+    setFacilitiesLoading(true);
+    fetch(`${BASE}/api/facilities`)
+      .then((r) => r.json())
+      .then((d) => setFacilities(
+        (d.facilities ?? []).map((f: any) => ({
+          id:         f.id ?? f._id,
+          name:       f.name,
+          city:       f.city,
+          type:       f.type,
+          specialties: f.specialties ?? [],
+        })),
+      ))
+      .catch(() => {})
+      .finally(() => setFacilitiesLoading(false));
+  }, [wantBookable, facilities.length]);
+
+  // ── Register a new clinic, then auto-select it ──────────────────────────
+  async function handleRegisterClinic() {
+    if (!newClinicName.trim()) { setError('Clinic name is required'); return; }
+    setError('');
+    setRegisteringClinic(true);
+    try {
+      const { lat, lng } = await getBrowserCoords();
+      const res = await fetch(`${BASE}/api/facilities`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name:       newClinicName.trim(),
+          type:       newClinicType,
+          city:       newClinicCity.trim() || undefined,
+          phone:      newClinicPhone.trim() || undefined,
+          specialties: newClinicSpecs.trim()
+            ? newClinicSpecs.split(',').map((s) => s.trim()).filter(Boolean)
+            : [],
+          lat,
+          lng,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Registration failed');
+
+      const newFacility: FacilityOption = {
+        id:         data.facility._id ?? data.facility.id,
+        name:       data.facility.name,
+        city:       data.facility.city,
+        type:       data.facility.type,
+        specialties: data.facility.specialties ?? [],
+      };
+      setFacilities((prev) => [newFacility, ...prev]);
+      setFacilityId(newFacility.id);
+      setClinicName(newFacility.name);
+      setShowNewClinic(false);
+      // Reset form
+      setNewClinicName(''); setNewClinicType('clinic');
+      setNewClinicCity(''); setNewClinicPhone(''); setNewClinicSpecs('');
+    } catch (err: any) {
+      setError(err.message || 'Failed to register clinic');
+    } finally {
+      setRegisteringClinic(false);
+    }
+  }
+
+  // ── Enter portal ────────────────────────────────────────────────────────
   async function handleSubmit() {
     if (!name.trim()) { setError('Please enter your name.'); return; }
     if (!selected) return;
+    setError('');
 
-    // Doctor can optionally register themselves in the system
-    if (selected === 'doctor' && registerDoctor) {
+    // Doctor registration in the system
+    if (selected === 'doctor' && wantBookable) {
       if (!specialty.trim()) { setError('Please select your specialty.'); return; }
-      if (!facilityId.trim()) { setError('Please enter your Facility/Clinic ID.'); return; }
+      if (!facilityId.trim()) { setError('Please select your clinic from the list (or register it above).'); return; }
+
       setSubmitting(true);
-      setError('');
       try {
-        const body = new URLSearchParams({
-          name: name.trim(),
-          specialty: specialty.trim(),
-          facilityId: facilityId.trim(),
-          facilityName: clinicName.trim() || facilityId.trim(),
-          licenseNo: licenseNo.trim(),
-          email: email.trim(),
-          languages: 'en',
-          consultationMinutes: '30',
-        });
-        const res = await fetch(`${BASE}/api/register/doctor`, {
+        const res = await fetch(`${BASE}/api/facilities/${facilityId}/doctors`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-          body: body.toString(),
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name:                name.trim(),
+            specialty:           specialty.trim(),
+            facilityId:          facilityId.trim(),
+            licenseNo:           licenseNo.trim() || undefined,
+            email:               email.trim() || undefined,
+            languages:           ['English'],
+            consultationMinutes: 30,
+          }),
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Registration failed');
-        setRegistered(data.message);
-        setSubmitting(false);
-        // Still log in locally so they can use the portal while pending approval
+        setRegistered('Registered! You are now bookable by patients.');
       } catch (err: any) {
-        setError(err.message);
+        setError(err.message || 'Registration failed. You can still enter the portal.');
+      } finally {
         setSubmitting(false);
-        return;
       }
     }
 
     const user: AuthUser = {
-      name: name.trim(),
-      role: selected,
-      specialty: selected === 'doctor' ? specialty.trim() || undefined : undefined,
-      occupation: selected !== 'doctor' ? specialty.trim() || undefined : undefined,
+      name:       name.trim(),
+      role:       selected,
+      specialty:  selected === 'doctor'    ? specialty.trim() || undefined : undefined,
+      occupation: selected !== 'doctor'    ? specialty.trim() || undefined : undefined,
       clinicName: clinicName.trim() || undefined,
     };
     login(user);
   }
 
+  const selectedFacility = facilities.find((f) => f.id === facilityId);
+  const filteredFacilities = facilities.filter((f) =>
+    !facilitySearch ||
+    f.name.toLowerCase().includes(facilitySearch.toLowerCase()) ||
+    (f.city ?? '').toLowerCase().includes(facilitySearch.toLowerCase()),
+  );
+
   return (
     <div className="min-h-screen flex flex-col items-center justify-center px-4 py-12">
+
       {/* Logo */}
       <div className="flex items-center gap-3 mb-10">
         <div className="grid h-12 w-12 place-items-center rounded-2xl bg-gradient-to-br from-accent-400 to-accent-600 shadow-glow">
@@ -150,21 +252,19 @@ export default function Login() {
       </div>
 
       <div className="w-full max-w-3xl">
+
+        {/* ── Role selection ──────────────────────────────────────────── */}
         {!selected ? (
           <>
             <h1 className="text-2xl font-semibold text-white text-center mb-1">Who are you?</h1>
             <p className="text-sm text-ink-400 text-center mb-8">Select your role to continue</p>
-
             <div className="grid gap-4 sm:grid-cols-3">
               {ROLES.map((r) => (
                 <button
                   key={r.role}
                   type="button"
                   onClick={() => setSelected(r.role)}
-                  className={`
-                    relative text-left rounded-2xl border border-ink-700/60 p-6 transition-all duration-200
-                    ring-1 ${r.ring} ${r.bg} cursor-pointer
-                  `}
+                  className={`relative text-left rounded-2xl border border-ink-700/60 p-6 transition-all duration-200 ${r.ring} ${r.bg} cursor-pointer`}
                 >
                   <div className={`mb-4 ${r.color}`}>{r.icon}</div>
                   <h3 className="text-base font-semibold text-white mb-2">{r.title}</h3>
@@ -175,49 +275,51 @@ export default function Login() {
                 </button>
               ))}
             </div>
-
             <p className="text-center text-[11px] text-ink-500 mt-8">
               No account needed for v0.1 — authentication coming in v0.2
             </p>
           </>
+
         ) : (
+
+          // ── Details form ────────────────────────────────────────────
           <div className="max-w-sm mx-auto">
             <button
               type="button"
-              onClick={() => { setSelected(null); setError(''); }}
-              className="text-xs text-ink-400 hover:text-white mb-6 flex items-center gap-1"
+              onClick={() => { setSelected(null); setError(''); setWantBookable(false); setFacilityId(''); }}
+              className="text-xs text-ink-400 hover:text-white mb-6 flex items-center gap-1 transition"
             >
-              ← Change role
+              <ChevronLeft size={13} /> Change role
             </button>
 
+            {/* Role badge */}
             <div className={`flex items-center gap-3 mb-6 p-4 rounded-2xl border border-ink-700/60 ${card?.bg}`}>
               <div className={card?.color}>{card?.icon}</div>
               <div>
                 <div className="text-sm font-semibold text-white">{card?.title}</div>
-                <div className="text-xs text-ink-400">{card?.desc.slice(0, 60)}…</div>
+                <div className="text-xs text-ink-400">{card?.desc.slice(0, 65)}…</div>
               </div>
             </div>
 
             <div className="space-y-4">
+
+              {/* Name */}
               <div>
                 <label className="label">Full name *</label>
                 <input
                   className="input"
-                  placeholder="Dr. Sarah Johnson"
+                  placeholder="Dr. Sarah Kim"
                   value={name}
                   onChange={(e) => { setName(e.target.value); setError(''); }}
                   autoFocus
                 />
               </div>
 
+              {/* Specialty / Role / Title */}
               <div>
                 <label className="label">{card?.specialtyLabel}</label>
                 {selected === 'doctor' ? (
-                  <select
-                    className="input"
-                    value={specialty}
-                    onChange={(e) => setSpecialty(e.target.value)}
-                  >
+                  <select className="input" value={specialty} onChange={(e) => setSpecialty(e.target.value)}>
                     <option value="">— Select specialty —</option>
                     {MEDICAL_SPECIALTIES.map((s) => (
                       <option key={s} value={s}>{s}</option>
@@ -233,138 +335,241 @@ export default function Login() {
                 )}
               </div>
 
-              <div>
-                <label className="label flex items-center gap-1.5">
-                  <Building2 size={11} /> Clinic / Hospital name
-                </label>
-                <input
-                  className="input"
-                  placeholder="City General Hospital"
-                  value={clinicName}
-                  onChange={(e) => setClinicName(e.target.value)}
-                />
-              </div>
+              {/* Clinic name (display only) */}
+              {selected !== 'doctor' && (
+                <div>
+                  <label className="label flex items-center gap-1.5"><Building2 size={11} /> Hospital / Clinic</label>
+                  <input
+                    className="input"
+                    placeholder="Seoul General Hospital"
+                    value={clinicName}
+                    onChange={(e) => setClinicName(e.target.value)}
+                  />
+                  <p className="text-[11px] text-ink-500 mt-1">Used for display in the portal</p>
+                </div>
+              )}
 
-              {/* Doctor registration toggle */}
+              {/* ── Doctor: make yourself bookable ────────────────────── */}
               {selected === 'doctor' && (
-                <div className="border-t border-ink-700/40 pt-3">
-                  <label className="flex items-center gap-2 cursor-pointer text-sm text-ink-300">
-                    <input
-                      type="checkbox"
-                      className="h-4 w-4 rounded"
-                      checked={registerDoctor}
-                      onChange={(e) => setRegisterDoctor(e.target.checked)}
-                    />
-                    Register myself so patients can find & book me
-                  </label>
-                  {registerDoctor && (
-                    <div className="mt-3 space-y-3">
-
-                      {/* Clinic picker */}
-                      <div>
-                        <label className="label">Your clinic</label>
-                        {clinicsLoading && (
-                          <div className="flex items-center gap-2 text-xs text-ink-400 py-2">
-                            <Loader2 size={12} className="animate-spin" /> Loading registered clinics…
-                          </div>
-                        )}
-
-                        {!clinicsLoading && !registerNewClinic && (
-                          <>
-                            {clinics.length > 0 ? (
-                              <>
-                                {/* Search filter */}
-                                <div className="relative mb-1.5">
-                                  <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-ink-500" />
-                                  <input
-                                    className="input pl-7 text-xs"
-                                    placeholder="Search clinics…"
-                                    value={clinicSearch}
-                                    onChange={(e) => setClinicSearch(e.target.value)}
-                                  />
-                                </div>
-                                {/* Clinic list */}
-                                <div className="max-h-44 overflow-y-auto space-y-1 rounded-xl border border-ink-700 bg-ink-900 p-1">
-                                  {clinics
-                                    .filter((c) =>
-                                      !clinicSearch ||
-                                      c.name.toLowerCase().includes(clinicSearch.toLowerCase()) ||
-                                      c.city.toLowerCase().includes(clinicSearch.toLowerCase()),
-                                    )
-                                    .map((c) => (
-                                      <button
-                                        key={c.id}
-                                        type="button"
-                                        onClick={() => { setFacilityId(c.id); setClinicName(c.name); }}
-                                        className={`w-full text-left rounded-lg px-3 py-2 text-xs transition ${
-                                          facilityId === c.id
-                                            ? 'bg-accent-500/20 border border-accent-500/40 text-white'
-                                            : 'hover:bg-ink-800 text-ink-300'
-                                        }`}
-                                      >
-                                        <span className="font-medium">{c.name}</span>
-                                        <span className="ml-2 text-ink-500">{c.city} · {c.type}</span>
-                                        {c.status === 'pending' && (
-                                          <span className="ml-2 text-warn-400 text-[10px]">(pending approval)</span>
-                                        )}
-                                      </button>
-                                    ))}
-                                </div>
-                              </>
-                            ) : (
-                              <p className="text-xs text-ink-500 py-1">No clinics registered yet.</p>
-                            )}
-                            <button
-                              type="button"
-                              onClick={() => setRegisterNewClinic(true)}
-                              className="text-xs text-accent-400 hover:text-accent-300 mt-1"
-                            >
-                              + Register a new clinic instead
-                            </button>
-                          </>
-                        )}
-
-                        {!clinicsLoading && registerNewClinic && (
-                          <div className="text-xs text-ink-400 p-3 rounded-xl border border-ink-700 bg-ink-900">
-                            Register the clinic first via <strong className="text-white">Settings → Register Your Clinic</strong> inside the portal, then come back here and select it.
-                            <button
-                              type="button"
-                              onClick={() => setRegisterNewClinic(false)}
-                              className="block mt-2 text-accent-400 hover:text-accent-300"
-                            >
-                              ← Back to clinic list
-                            </button>
-                          </div>
-                        )}
+                <div className="rounded-2xl border border-ink-700/50 bg-ink-900/60 p-4 space-y-3">
+                  <label className="flex items-start gap-2.5 cursor-pointer">
+                    <div className="relative mt-0.5">
+                      <input
+                        type="checkbox"
+                        className="sr-only"
+                        checked={wantBookable}
+                        onChange={(e) => { setWantBookable(e.target.checked); setError(''); }}
+                      />
+                      <div className={`h-5 w-5 rounded flex items-center justify-center border transition ${
+                        wantBookable
+                          ? 'bg-accent-500 border-accent-500'
+                          : 'border-ink-600 bg-ink-800'
+                      }`}>
+                        {wantBookable && <CheckCircle2 size={13} className="text-white" strokeWidth={2.5} />}
                       </div>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-white">Make me bookable by patients</p>
+                      <p className="text-[11px] text-ink-500 mt-0.5 leading-relaxed">
+                        {wantBookable
+                          ? 'You\'ll appear in patient search and they can book appointments with you.'
+                          : 'You\'ll enter the portal without patient visibility. You can still review all incoming appointments.'}
+                      </p>
+                    </div>
+                  </label>
 
-                      {facilityId && (
-                        <p className="text-[11px] text-ok-400">
-                          ✓ Selected: {clinicName || facilityId}
-                        </p>
+                  {/* Clinic picker — only shown when wantBookable */}
+                  {wantBookable && (
+                    <div className="space-y-3 pt-1 border-t border-ink-700/40">
+                      <p className="text-[11px] font-semibold uppercase tracking-wider text-ink-400">
+                        Your clinic
+                      </p>
+
+                      {facilitiesLoading && (
+                        <div className="flex items-center gap-2 text-xs text-ink-400 py-2">
+                          <Loader2 size={12} className="animate-spin" /> Loading clinics…
+                        </div>
                       )}
 
-                      <div className="grid grid-cols-2 gap-3">
-                        <div>
-                          <label className="label">License No.</label>
-                          <input className="input" placeholder="KR-12345" value={licenseNo} onChange={(e) => setLicenseNo(e.target.value)} />
+                      {!facilitiesLoading && !showNewClinic && (
+                        <>
+                          {/* Search */}
+                          <div className="relative">
+                            <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-ink-500" />
+                            <input
+                              className="input pl-7 text-xs h-9"
+                              placeholder="Search registered clinics…"
+                              value={facilitySearch}
+                              onChange={(e) => setFacilitySearch(e.target.value)}
+                            />
+                          </div>
+
+                          {/* List */}
+                          {filteredFacilities.length > 0 ? (
+                            <div className="max-h-48 overflow-y-auto space-y-1 rounded-xl border border-ink-700 bg-ink-950 p-1">
+                              {filteredFacilities.map((f) => (
+                                <button
+                                  key={f.id}
+                                  type="button"
+                                  onClick={() => { setFacilityId(f.id); setClinicName(f.name); }}
+                                  className={`w-full text-left rounded-lg px-3 py-2.5 text-xs transition ${
+                                    facilityId === f.id
+                                      ? 'bg-accent-500/20 border border-accent-500/40 text-white'
+                                      : 'hover:bg-ink-800 text-ink-300'
+                                  }`}
+                                >
+                                  <div className="flex items-center gap-2">
+                                    <Building2 size={11} className={facilityId === f.id ? 'text-accent-400' : 'text-ink-500'} />
+                                    <span className="font-medium truncate">{f.name}</span>
+                                  </div>
+                                  <div className="mt-0.5 ml-[19px] text-ink-500 text-[10px]">
+                                    {[f.type, f.city].filter(Boolean).join(' · ')}
+                                    {f.specialties.length > 0 && ` · ${f.specialties.slice(0, 2).join(', ')}`}
+                                  </div>
+                                </button>
+                              ))}
+                            </div>
+                          ) : (
+                            <p className="text-xs text-ink-500 py-1">
+                              {facilitySearch ? `No results for "${facilitySearch}"` : 'No clinics registered yet.'}
+                            </p>
+                          )}
+
+                          {/* Register new */}
+                          <button
+                            type="button"
+                            onClick={() => setShowNewClinic(true)}
+                            className="flex items-center gap-1.5 text-xs text-accent-400 hover:text-accent-300 transition"
+                          >
+                            <Plus size={12} /> Register my clinic
+                          </button>
+                        </>
+                      )}
+
+                      {/* ── Inline new clinic form ───────────────────── */}
+                      {!facilitiesLoading && showNewClinic && (
+                        <div className="space-y-3 rounded-xl border border-accent-500/20 bg-ink-900/80 p-3">
+                          <div className="flex items-center justify-between">
+                            <p className="text-xs font-semibold text-white">Register your clinic</p>
+                            <button
+                              type="button"
+                              onClick={() => { setShowNewClinic(false); setError(''); }}
+                              className="text-[10px] text-ink-500 hover:text-ink-200 transition"
+                            >
+                              ← Back to list
+                            </button>
+                          </div>
+
+                          <div>
+                            <label className="label text-[10px]">Clinic / Hospital name *</label>
+                            <input
+                              className="input h-9 text-sm"
+                              placeholder="Seoul Medical Center"
+                              value={newClinicName}
+                              onChange={(e) => setNewClinicName(e.target.value)}
+                              autoFocus
+                            />
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-2">
+                            <div>
+                              <label className="label text-[10px]">Type *</label>
+                              <select
+                                className="input h-9 text-sm"
+                                value={newClinicType}
+                                onChange={(e) => setNewClinicType(e.target.value as any)}
+                              >
+                                {FACILITY_TYPES.map(({ value, label }) => (
+                                  <option key={value} value={value}>{label}</option>
+                                ))}
+                              </select>
+                            </div>
+                            <div>
+                              <label className="label text-[10px]">City</label>
+                              <input
+                                className="input h-9 text-sm"
+                                placeholder="Seoul"
+                                value={newClinicCity}
+                                onChange={(e) => setNewClinicCity(e.target.value)}
+                              />
+                            </div>
+                          </div>
+
+                          <div>
+                            <label className="label text-[10px]">Phone</label>
+                            <input
+                              className="input h-9 text-sm"
+                              placeholder="+82 2 0000 0000"
+                              value={newClinicPhone}
+                              onChange={(e) => setNewClinicPhone(e.target.value)}
+                            />
+                          </div>
+
+                          <div>
+                            <label className="label text-[10px]">Specialties offered (comma-separated)</label>
+                            <input
+                              className="input h-9 text-sm"
+                              placeholder="Cardiology, General Practice"
+                              value={newClinicSpecs}
+                              onChange={(e) => setNewClinicSpecs(e.target.value)}
+                            />
+                          </div>
+
+                          <p className="text-[10px] text-ink-500 flex items-center gap-1">
+                            <MapPin size={9} /> Location auto-detected from your browser
+                          </p>
+
+                          <button
+                            type="button"
+                            onClick={handleRegisterClinic}
+                            disabled={registeringClinic}
+                            className="w-full flex items-center justify-center gap-1.5 rounded-xl border border-accent-500/50 bg-accent-500/15 py-2 text-xs font-semibold text-accent-400 hover:bg-accent-500/25 transition disabled:opacity-50"
+                          >
+                            {registeringClinic
+                              ? <><Loader2 size={12} className="animate-spin" /> Registering…</>
+                              : <><Plus size={12} /> Register clinic</>}
+                          </button>
                         </div>
-                        <div>
-                          <label className="label">Email</label>
-                          <input className="input" type="email" placeholder="dr@hospital.com" value={email} onChange={(e) => setEmail(e.target.value)} />
+                      )}
+
+                      {/* Selected confirmation */}
+                      {selectedFacility && (
+                        <div className="flex items-center gap-1.5 text-xs text-ok-400">
+                          <CheckCircle2 size={12} />
+                          <span>Selected: <strong>{selectedFacility.name}</strong></span>
                         </div>
-                      </div>
-                      <p className="text-[11px] text-ink-500">Pending admin review before appearing in patient search.</p>
+                      )}
+
+                      {/* License + Email */}
+                      {facilityId && (
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <label className="label">License No.</label>
+                            <input className="input h-9 text-sm" placeholder="KR-12345" value={licenseNo} onChange={(e) => setLicenseNo(e.target.value)} />
+                          </div>
+                          <div>
+                            <label className="label">Email</label>
+                            <input className="input h-9 text-sm" type="email" placeholder="dr@hospital.com" value={email} onChange={(e) => setEmail(e.target.value)} />
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
               )}
 
               {registered && (
-                <p className="text-xs text-ok-400 border border-ok-500/30 bg-ok-500/10 rounded-xl px-3 py-2">{registered}</p>
+                <div className="flex items-center gap-2 rounded-xl border border-ok-500/30 bg-ok-500/10 px-3 py-2.5">
+                  <CheckCircle2 size={14} className="text-ok-400 shrink-0" />
+                  <p className="text-xs text-ok-400">{registered}</p>
+                </div>
               )}
 
-              {error && <p className="text-xs text-red-400">{error}</p>}
+              {error && (
+                <p className="rounded-xl border border-danger-500/30 bg-danger-500/10 px-3 py-2 text-xs text-danger-400">
+                  {error}
+                </p>
+              )}
 
               <button
                 type="button"
