@@ -212,7 +212,7 @@ export default function FindCare() {
 
       // Soft specialty filter: if no in-network results match the specialty,
       // fall back to showing ALL nearby in-network clinics with a notice.
-      // Prevents empty screen when user is outside Uzbekistan or specialty
+      // Prevents empty screen when no in-network clinics match the specialty
       // is rare (e.g. Pulmonology has 0 in-network matches).
       if (results.length === 0 && spec && spec !== 'All') {
         const fallback = await searchFacilities({

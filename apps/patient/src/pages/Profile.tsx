@@ -136,7 +136,7 @@ export default function Profile() {
             </Field>
           </div>
           <Field label="City">
-            <input className="input" placeholder="Tashkent" value={city} onChange={(e) => setCity(e.target.value)} />
+            <input className="input" placeholder="Seoul" value={city} onChange={(e) => setCity(e.target.value)} />
           </Field>
         </Section>
 
