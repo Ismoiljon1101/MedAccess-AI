@@ -1,20 +1,20 @@
 import { Schema, model, type Document } from 'mongoose';
 
 export interface ITriageResult extends Omit<Document, 'model'> {
-  encounterId?:    Schema.Types.ObjectId;
-  sessionId?:      string;
-  caseSummary:     string;
-  level:           'RED' | 'ORANGE' | 'YELLOW' | 'GREEN' | 'BLUE';
-  levelLabel:      string;
+  patientId?: Schema.Types.ObjectId;
+  sessionId?: string;
+  caseSummary: string;
+  level: 'RED' | 'ORANGE' | 'YELLOW' | 'GREEN' | 'BLUE';
+  levelLabel: string;
   targetTimeToCare: string;
-  rationale:       string;
-  actions:         string[];
-  warningSigns:    string[];
-  model:           string;
+  rationale: string;
+  actions: string[];
+  warningSigns: string[];
+  model: string;
 }
 
 const TriageResultSchema = new Schema<ITriageResult>({
-  encounterId:      { type: Schema.Types.ObjectId, ref: 'Encounter' },
+  patientId:        { type: Schema.Types.ObjectId, ref: 'Patient' },
   sessionId:        { type: String },
   caseSummary:      { type: String, required: true },
   level:            { type: String, enum: ['RED','ORANGE','YELLOW','GREEN','BLUE'], required: true },
@@ -26,6 +26,6 @@ const TriageResultSchema = new Schema<ITriageResult>({
   model:            { type: String, required: true },
 }, { timestamps: true });
 
-TriageResultSchema.index({ encounterId: 1 });
+TriageResultSchema.index({ patientId: 1 });
 
 export const TriageResult = model<ITriageResult>('TriageResult', TriageResultSchema);

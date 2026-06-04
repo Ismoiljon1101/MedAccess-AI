@@ -16,6 +16,7 @@ export const ChatRequestSchema = z.object({
   language: z.string().optional(),
   model: z.string().optional(),
   useRag: z.boolean().optional().default(true),
+  patientPhone: z.string().optional(),
 });
 
 export const ChatResponseSchema = z.object({
@@ -29,11 +30,36 @@ export const ChatResponseSchema = z.object({
   })),
 });
 
+// ---------- Patient ---------------------------------------------------
+
+export const PatientCreateSchema = z.object({
+  fullName: z.string().min(1).max(200),
+  phone: z.string().min(1),
+  dateOfBirth: z.string().optional(),
+  sex: z.enum(['male', 'female', 'other']).optional(),
+  bloodType: z.enum(['A+','A-','B+','B-','AB+','AB-','O+','O-']).optional(),
+  email: z.string().email().optional(),
+  address: z.string().optional(),
+  city: z.string().optional(),
+  country: z.string().default('South Korea'),
+  preferredLanguage: z.string().default('Korean'),
+  knownAllergies: z.array(z.string()).default([]),
+  chronicConditions: z.array(z.string()).default([]),
+  currentMedications: z.array(z.string()).default([]),
+  emergencyContact: z.object({
+    name: z.string(),
+    phone: z.string(),
+    relationship: z.string(),
+  }).optional(),
+});
+
+export const PatientUpdateSchema = PatientCreateSchema.partial().omit({ phone: true });
+
 // ---------- Symptoms --------------------------------------------------
 
 export const PatientContextSchema = z.object({
   age: z.number().int().min(0).max(130).optional(),
-  sex: z.enum(['male', 'female', 'other', 'unknown']).optional(),
+  sex: z.enum(['male', 'female', 'other']).optional(),
   pregnancy: z.boolean().optional(),
   knownConditions: z.array(z.string()).optional(),
   medications: z.array(z.string()).optional(),
@@ -45,6 +71,7 @@ export const SymptomsRequestSchema = z.object({
   patient: PatientContextSchema.optional(),
   language: z.string().optional(),
   model: z.string().optional(),
+  patientPhone: z.string().optional(),
 });
 
 export const DifferentialSchema = z.object({
@@ -79,6 +106,7 @@ export const TriageRequestSchema = z.object({
   vitals: VitalsSchema.optional(),
   language: z.string().optional(),
   model: z.string().optional(),
+  patientPhone: z.string().optional(),
 });
 
 export const TriageLevelSchema = z.enum(['RED', 'ORANGE', 'YELLOW', 'GREEN', 'BLUE']);
@@ -111,7 +139,6 @@ export const VisionAnalysisSchema = z.object({
 
 // ---------- Care Discovery -------------------------------------------
 
-/** Doctor summary returned inside ClinicResult / FacilityResult. */
 export const DoctorSummarySchema = z.object({
   id:                  z.string(),
   name:                z.string(),
@@ -121,10 +148,10 @@ export const DoctorSummarySchema = z.object({
   bio:                 z.string().optional(),
 });
 
-/** Enrolled clinic in our network (Tier 1). */
-export const ClinicResultSchema = z.object({
+export const FacilityResultSchema = z.object({
   id:               z.string(),
   name:             z.string(),
+  type:             z.enum(['hospital', 'clinic', 'pharmacy']).default('clinic'),
   city:             z.string().default(''),
   country:          z.string().default(''),
   address:          z.string().optional(),
@@ -132,7 +159,7 @@ export const ClinicResultSchema = z.object({
   openingHours:     z.string().optional(),
   lat:              z.number().optional(),
   lng:              z.number().optional(),
-  offeredSpecialties: z.array(z.string()).default([]),
+  specialties:      z.array(z.string()).default([]),
   rating:           z.number().optional(),
   avgWaitMinutes:   z.number().nullable().optional(),
   distanceKm:       z.number().nullable().optional(),
@@ -140,7 +167,6 @@ export const ClinicResultSchema = z.object({
   doctors:          z.array(DoctorSummarySchema).default([]),
 });
 
-/** Public map result from Google/Naver Places fallback (Tier 2). */
 export const MapPlaceSchema = z.object({
   placeId:    z.string(),
   name:       z.string(),
@@ -152,9 +178,53 @@ export const MapPlaceSchema = z.object({
   openNow:    z.boolean().optional(),
   types:      z.array(z.string()).default([]),
   distanceKm: z.number().nullable().optional(),
-  /** Deep-link URL for navigation (no API key needed). */
   navUrl:     z.string(),
-  source:     z.enum(['google', 'naver', 'stub']).default('google'),
+  source:     z.enum(['google', 'naver', 'stub']).default('naver'),
+});
+
+// ---------- Appointment -----------------------------------------------
+
+export const AppointmentStatusSchema = z.enum(['pending', 'confirmed', 'cancelled', 'completed']);
+
+export const BookAppointmentSchema = z.object({
+  patientPhone: z.string().default(''),
+  facilityId: z.string().min(1),
+  doctorId: z.string().min(1),
+  specialty: z.string().min(1),
+  urgency: z.string().default('see-clinician-soon'),
+  scheduledDate: z.string().min(1),
+  scheduledTime: z.string().min(1),
+  agentSummary: z.string().max(4000).optional(),
+  sessionId: z.string().optional(),
+  slotId: z.string().optional(),
+});
+
+// ---------- Facility Registration ------------------------------------
+
+export const FacilityRegisterSchema = z.object({
+  name: z.string().min(1).max(300),
+  type: z.enum(['hospital', 'clinic', 'pharmacy']),
+  address: z.string().optional(),
+  city: z.string().optional(),
+  country: z.string().default('South Korea'),
+  lat: z.number(),
+  lng: z.number(),
+  phone: z.string().optional(),
+  email: z.string().email().optional(),
+  website: z.string().optional(),
+  specialties: z.array(z.string()).default([]),
+});
+
+export const DoctorRegisterSchema = z.object({
+  name: z.string().min(1).max(200),
+  specialty: z.string().min(1),
+  facilityId: z.string().min(1),
+  licenseNo: z.string().optional(),
+  phone: z.string().optional(),
+  email: z.string().email().optional(),
+  bio: z.string().max(500).optional(),
+  languages: z.array(z.string()).default(['Korean']),
+  consultationMinutes: z.number().default(30),
 });
 
 // ---------- Transcription --------------------------------------------
@@ -171,6 +241,8 @@ export const TranscribeResponseSchema = z.object({
 export type ChatMessage = z.infer<typeof ChatMessageSchema>;
 export type ChatRequest = z.infer<typeof ChatRequestSchema>;
 export type ChatResponse = z.infer<typeof ChatResponseSchema>;
+export type PatientCreate = z.infer<typeof PatientCreateSchema>;
+export type PatientUpdate = z.infer<typeof PatientUpdateSchema>;
 export type PatientContext = z.infer<typeof PatientContextSchema>;
 export type SymptomsRequest = z.infer<typeof SymptomsRequestSchema>;
 export type Differential = z.infer<typeof DifferentialSchema>;
@@ -183,5 +255,13 @@ export type VisionFinding = z.infer<typeof VisionFindingSchema>;
 export type VisionAnalysis = z.infer<typeof VisionAnalysisSchema>;
 export type TranscribeResponse = z.infer<typeof TranscribeResponseSchema>;
 export type DoctorSummary = z.infer<typeof DoctorSummarySchema>;
-export type ClinicResult = z.infer<typeof ClinicResultSchema>;
+export type FacilityResult = z.infer<typeof FacilityResultSchema>;
 export type MapPlace = z.infer<typeof MapPlaceSchema>;
+export type AppointmentStatus = z.infer<typeof AppointmentStatusSchema>;
+export type BookAppointment = z.infer<typeof BookAppointmentSchema>;
+export type FacilityRegister = z.infer<typeof FacilityRegisterSchema>;
+export type DoctorRegister = z.infer<typeof DoctorRegisterSchema>;
+
+// Backwards compat alias — remove after all consumers updated
+export const ClinicResultSchema = FacilityResultSchema;
+export type ClinicResult = FacilityResult;

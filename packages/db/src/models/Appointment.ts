@@ -2,55 +2,55 @@ import { Schema, model, type Document } from 'mongoose';
 
 export type AppointmentStatus = 'pending' | 'confirmed' | 'cancelled' | 'completed';
 
+export interface IAgentAnalysis {
+  symptomsId?: Schema.Types.ObjectId;
+  triageId?: Schema.Types.ObjectId;
+  imageReportId?: Schema.Types.ObjectId;
+}
+
 export interface IAppointment extends Document {
-  // Patient info (captured at booking — no auth in v0.1)
-  patientName: string;
-  patientPhone?: string;
-  patientEmail?: string;
-  patientAge?: number;
-  patientSex?: 'male' | 'female' | 'other';
-
-  // Booking references
-  // Stored as string (seed data uses 'd1'/'f1' IDs; real ObjectIds welcome too).
-  slotId: Schema.Types.ObjectId;
-  doctorId: string;
-  facilityId: string;
-
-  // Context from MA Agent
+  patientId: Schema.Types.ObjectId;
+  doctorId: Schema.Types.ObjectId;
+  facilityId: Schema.Types.ObjectId;
+  slotId?: Schema.Types.ObjectId;
   specialty: string;
   urgency: string;
-  maAgentSummary?: string;  // AI-generated report attached to appointment
+  agentSummary?: string;
+  agentAnalysis?: IAgentAnalysis;
   sessionId?: string;
-
-  // Workflow
+  scheduledDate: string;
+  scheduledTime: string;
   status: AppointmentStatus;
-  doctorNotes?: string;     // added by doctor during/after encounter
+  doctorNotes?: string;
   confirmedAt?: Date;
   completedAt?: Date;
 }
 
+const AgentAnalysisSchema = new Schema<IAgentAnalysis>({
+  symptomsId:    { type: Schema.Types.ObjectId, ref: 'SymptomAnalysis' },
+  triageId:      { type: Schema.Types.ObjectId, ref: 'TriageResult' },
+  imageReportId: { type: Schema.Types.ObjectId, ref: 'ReportAnalysis' },
+}, { _id: false });
+
 const AppointmentSchema = new Schema<IAppointment>({
-  patientName:     { type: String, required: true, trim: true },
-  patientPhone:    { type: String },
-  patientEmail:    { type: String },
-  patientAge:      { type: Number },
-  patientSex:      { type: String, enum: ['male', 'female', 'other'] },
-
-  slotId:          { type: Schema.Types.ObjectId, ref: 'TimeSlot', required: true },
-  doctorId:        { type: String, required: true },   // seed IDs ('d1'…) or real ObjectId strings
-  facilityId:      { type: String, required: true },   // seed IDs ('f1'…) or real ObjectId strings
-
-  specialty:       { type: String, required: true },
-  urgency:         { type: String, default: 'see-clinician-soon' },
-  maAgentSummary:  { type: String, maxlength: 4000 },
-  sessionId:       { type: String },
-
-  status:          { type: String, enum: ['pending','confirmed','cancelled','completed'], default: 'pending' },
-  doctorNotes:     { type: String, maxlength: 4000 },
-  confirmedAt:     { type: Date },
-  completedAt:     { type: Date },
+  patientId:     { type: Schema.Types.ObjectId, ref: 'Patient', required: true },
+  doctorId:      { type: Schema.Types.ObjectId, ref: 'Doctor', required: true },
+  facilityId:    { type: Schema.Types.ObjectId, ref: 'Facility', required: true },
+  slotId:        { type: Schema.Types.ObjectId, ref: 'TimeSlot' },
+  specialty:     { type: String, required: true },
+  urgency:       { type: String, default: 'see-clinician-soon' },
+  agentSummary:  { type: String, maxlength: 4000 },
+  agentAnalysis: { type: AgentAnalysisSchema },
+  sessionId:     { type: String },
+  scheduledDate: { type: String, required: true },
+  scheduledTime: { type: String, required: true },
+  status:        { type: String, enum: ['pending','confirmed','cancelled','completed'], default: 'pending' },
+  doctorNotes:   { type: String, maxlength: 4000 },
+  confirmedAt:   { type: Date },
+  completedAt:   { type: Date },
 }, { timestamps: true });
 
+AppointmentSchema.index({ patientId: 1, status: 1 });
 AppointmentSchema.index({ doctorId: 1, status: 1 });
 AppointmentSchema.index({ facilityId: 1, status: 1 });
 AppointmentSchema.index({ sessionId: 1 });

@@ -46,3 +46,15 @@ coverage/
 
 # PWA build artifacts
 apps/web/dev-dist/
+
+# ML model weights (large binary files — never commit)
+*.pt
+*.onnx
+*.pb
+*.h5
+*.keras
+services/image-ml/models/
+!services/image-ml/models/.gitkeep
+
+# Screenshots (taken separately, not tracked in code commits)
+docs/screenshots/

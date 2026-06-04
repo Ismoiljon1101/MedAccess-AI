@@ -1,18 +1,18 @@
 import { Schema, model, type Document } from 'mongoose';
 
 export interface IMessage {
-  role:      'user' | 'assistant';
-  content:   string;
+  role: 'user' | 'assistant';
+  content: string;
   citations: Array<{ ragDocId: Schema.Types.ObjectId; score: number }>;
   createdAt: Date;
 }
 
 export interface IInterview extends Omit<Document, 'model'> {
-  encounterId?: Schema.Types.ObjectId;  // optional: anonymous patient sessions have no encounter
-  sessionId:    string;                 // maps to in-memory session key
-  language:     string;
-  model:        string;
-  messages:     IMessage[];
+  patientId?: Schema.Types.ObjectId;
+  sessionId: string;
+  language: string;
+  model: string;
+  messages: IMessage[];
 }
 
 const MessageSchema = new Schema<IMessage>({
@@ -26,11 +26,11 @@ const MessageSchema = new Schema<IMessage>({
 }, { _id: true });
 
 const InterviewSchema = new Schema<IInterview>({
-  encounterId: { type: Schema.Types.ObjectId, ref: 'Encounter' },
-  sessionId:   { type: String, required: true, unique: true },
-  language:    { type: String, default: 'English' },
-  model:       { type: String, required: true },
-  messages:    [MessageSchema],
+  patientId: { type: Schema.Types.ObjectId, ref: 'Patient' },
+  sessionId: { type: String, required: true, unique: true },
+  language:  { type: String, default: 'Korean' },
+  model:     { type: String, required: true },
+  messages:  [MessageSchema],
 }, { timestamps: true });
 
 export const Interview = model<IInterview>('Interview', InterviewSchema);

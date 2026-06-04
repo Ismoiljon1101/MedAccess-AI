@@ -1,22 +1,22 @@
 import { Schema, model, type Document } from 'mongoose';
 
 export interface IDifferential {
-  condition:      string;
-  likelihood:     'high' | 'moderate' | 'low';
+  condition: string;
+  likelihood: 'high' | 'moderate' | 'low';
   probabilityPct: number;
-  reasoning:      string;
-  redFlags:       string[];
+  reasoning: string;
+  redFlags: string[];
 }
 
 export interface ISymptomAnalysis extends Omit<Document, 'model'> {
-  encounterId?:        Schema.Types.ObjectId;
-  sessionId?:          string;
-  symptoms:            string[];
-  urgency:             'self-care' | 'see-clinician-soon' | 'urgent' | 'emergency';
-  differentials:       IDifferential[];
+  patientId?: Schema.Types.ObjectId;
+  sessionId?: string;
+  symptoms: string[];
+  urgency: 'self-care' | 'see-clinician-soon' | 'urgent' | 'emergency';
+  differentials: IDifferential[];
   recommendedNextSteps: string[];
-  disclaimer:          string;
-  model:               string;
+  disclaimer: string;
+  model: string;
 }
 
 const DifferentialSchema = new Schema<IDifferential>({
@@ -28,7 +28,7 @@ const DifferentialSchema = new Schema<IDifferential>({
 }, { _id: false });
 
 const SymptomAnalysisSchema = new Schema<ISymptomAnalysis>({
-  encounterId:          { type: Schema.Types.ObjectId, ref: 'Encounter' },
+  patientId:            { type: Schema.Types.ObjectId, ref: 'Patient' },
   sessionId:            { type: String },
   symptoms:             [{ type: String }],
   urgency:              { type: String, enum: ['self-care','see-clinician-soon','urgent','emergency'], required: true },
@@ -38,7 +38,7 @@ const SymptomAnalysisSchema = new Schema<ISymptomAnalysis>({
   model:                { type: String, required: true },
 }, { timestamps: true });
 
-SymptomAnalysisSchema.index({ encounterId: 1 });
+SymptomAnalysisSchema.index({ patientId: 1 });
 SymptomAnalysisSchema.index({ sessionId: 1 });
 
 export const SymptomAnalysis = model<ISymptomAnalysis>('SymptomAnalysis', SymptomAnalysisSchema);
