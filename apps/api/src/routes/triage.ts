@@ -1,12 +1,8 @@
 import { Router } from 'express';
-import {
-  TriageRequestSchema,
-  TriageResultSchema,
-  triagePrompt,
-  type TriageResult,
-} from '@medaccess/shared';
+import { TriageRequestSchema, TriageResultSchema, triagePrompt, type TriageResult } from '@medaccess/shared';
 import { TriageResult as TriageResultModel, dbReady } from '@medaccess/db';
 import { chat, defaultFastModel, safeParseJson } from '../services/llm.js';
+import { getIdByPhone } from '../services/patient.service.js';
 import { HttpError } from '../middleware/error.js';
 
 const router: Router = Router();
@@ -16,18 +12,11 @@ router.post('/', async (req, res, next) => {
     const parsed = TriageRequestSchema.parse(req.body);
 
     const vitalsLines = parsed.vitals
-      ? Object.entries(parsed.vitals)
-          .filter(([, v]) => v != null)
-          .map(([k, v]) => `${k}: ${v}`)
-          .join(', ')
+      ? Object.entries(parsed.vitals).filter(([, v]) => v != null).map(([k, v]) => `${k}: ${v}`).join(', ')
       : '';
 
-    const userMsg = [
-      `Case: ${parsed.caseSummary}`,
-      vitalsLines ? `Vitals: ${vitalsLines}` : '',
-    ]
-      .filter(Boolean)
-      .join('\n');
+    const userMsg = [`Case: ${parsed.caseSummary}`, vitalsLines ? `Vitals: ${vitalsLines}` : '']
+      .filter(Boolean).join('\n');
 
     const system = triagePrompt({ language: parsed.language });
 
@@ -47,7 +36,9 @@ router.post('/', async (req, res, next) => {
     const triage = validated.success ? validated.data : json as TriageResult;
 
     if (dbReady()) {
+      const patientId = parsed.patientPhone ? (await getIdByPhone(parsed.patientPhone) ?? undefined) : undefined;
       TriageResultModel.create({
+        patientId,
         sessionId:        req.body.sessionId,
         caseSummary:      parsed.caseSummary,
         level:            triage.level,
@@ -57,7 +48,7 @@ router.post('/', async (req, res, next) => {
         actions:          triage.actions,
         warningSigns:     triage.warningSigns,
         model,
-      }).catch(() => { /* non-fatal */ });
+      }).catch(() => {});
     }
 
     res.json({ triage, model });
