@@ -39,15 +39,15 @@ const URGENCY_ICON: Record<string, React.ReactNode> = {
 };
 
 function StatCard({
-  label, value, icon, sub, accent,
-}: { label: string; value: number | string; icon: React.ReactNode; sub?: string; accent: string }) {
+  label, value, icon, sub, accentClass,
+}: { label: string; value: number | string; icon: React.ReactNode; sub?: string; accentClass: string }) {
   return (
-    <div className={`card p-5 flex items-start gap-4 border-l-2 ${accent}`}>
-      <div className="mt-0.5 text-ink-400">{icon}</div>
+    <div className={`rounded-2xl border border-ink-700/60 bg-ink-900/70 backdrop-blur-sm p-5 flex items-start gap-4 border-l-[3px] ${accentClass} transition hover:bg-ink-800/50`}>
+      <div className="mt-0.5 text-ink-500">{icon}</div>
       <div>
-        <p className="text-2xl font-bold text-white">{value}</p>
-        <p className="text-xs text-ink-300 mt-0.5">{label}</p>
-        {sub && <p className="text-[10px] text-ink-500 mt-1">{sub}</p>}
+        <p className="font-mono-data text-2xl font-bold text-white leading-none">{value}</p>
+        <p className="text-xs text-ink-300 mt-1.5 font-medium">{label}</p>
+        {sub && <p className="text-[10px] text-ink-600 mt-0.5">{sub}</p>}
       </div>
     </div>
   );
@@ -78,10 +78,10 @@ function DoctorDashboard({ referrals }: { referrals: ReferralRecord[] }) {
     <div className="space-y-6">
       {/* Stats */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <StatCard label="Pending"    value={pending.length}   icon={<Clock size={18} />}       sub="awaiting review"       accent="border-yellow-500" />
-        <StatCard label="Confirmed"  value={confirmed.length} icon={<CheckCircle size={18} />} sub="appointments set"       accent="border-green-500"  />
-        <StatCard label="Urgent"     value={urgent.length}    icon={<AlertTriangle size={18} />} sub="emergency + urgent"  accent="border-red-500"    />
-        <StatCard label="Total"      value={referrals.length} icon={<Users size={18} />}       sub="all referrals"          accent="border-accent-500" />
+        <StatCard label="Pending"    value={pending.length}   icon={<Clock size={18} />}         sub="awaiting review"     accentClass="border-yellow-500" />
+        <StatCard label="Confirmed"  value={confirmed.length} icon={<CheckCircle size={18} />}   sub="appointments set"    accentClass="border-green-500"  />
+        <StatCard label="Urgent"     value={urgent.length}    icon={<AlertTriangle size={18} />}  sub="emergency + urgent"  accentClass="border-red-500"    />
+        <StatCard label="Total"      value={referrals.length} icon={<Users size={18} />}         sub="all time"            accentClass="border-accent-500" />
       </div>
 
       {/* Recent queue */}
@@ -138,9 +138,9 @@ function PharmacistDashboard({ referrals }: { referrals: ReferralRecord[] }) {
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-        <StatCard label="Pending Rx"    value={pending.length}   icon={<Clock size={18} />}         sub="awaiting review"  accent="border-yellow-500" />
-        <StatCard label="Dispensed"     value={confirmed.length} icon={<CheckCircle size={18} />}   sub="approved today"   accent="border-violet-500" />
-        <StatCard label="Total Queue"   value={rxQueue.length}   icon={<Pill size={18} />}          sub="all prescriptions" accent="border-green-500" />
+        <StatCard label="Pending Rx"    value={pending.length}   icon={<Clock size={18} />}       sub="awaiting review"   accentClass="border-yellow-500" />
+        <StatCard label="Dispensed"     value={confirmed.length} icon={<CheckCircle size={18} />} sub="approved today"    accentClass="border-violet-500" />
+        <StatCard label="Total Queue"   value={rxQueue.length}   icon={<Pill size={18} />}        sub="all prescriptions" accentClass="border-green-500"  />
       </div>
 
       <div>
@@ -182,10 +182,10 @@ function AdminDashboard({ referrals }: { referrals: ReferralRecord[] }) {
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <StatCard label="Total Referrals" value={referrals.length} icon={<TrendingUp size={18} />}   sub="all time"          accent="border-amber-500"  />
-        <StatCard label="Pending"         value={pending}           icon={<Clock size={18} />}        sub="need attention"    accent="border-yellow-500" />
-        <StatCard label="Confirmed"       value={confirmed}         icon={<Calendar size={18} />}     sub="booked"            accent="border-green-500"  />
-        <StatCard label="Urgent Cases"    value={urgent}            icon={<AlertTriangle size={18} />} sub="high priority"    accent="border-red-500"    />
+        <StatCard label="Total"      value={referrals.length} icon={<TrendingUp size={18} />}  sub="all referrals"   accentClass="border-amber-500"  />
+        <StatCard label="Pending"    value={pending}          icon={<Clock size={18} />}      sub="need attention"  accentClass="border-yellow-500" />
+        <StatCard label="Confirmed"  value={confirmed}        icon={<Calendar size={18} />}   sub="booked"          accentClass="border-green-500"  />
+        <StatCard label="Urgent"     value={urgent}           icon={<AlertTriangle size={18} />} sub="high priority" accentClass="border-red-500"    />
       </div>
       <div className="card p-6">
         <h2 className="text-sm font-semibold text-white mb-1">Staff Management</h2>
@@ -228,12 +228,20 @@ export default function Dashboard() {
   return (
     <div className="p-6 max-w-5xl mx-auto space-y-6">
       {/* Header */}
-      <div>
-        <p className="text-xs text-ink-400">{greeting}</p>
-        <h1 className="text-2xl font-bold text-white mt-0.5">{user?.name}</h1>
-        <p className="text-sm text-ink-400 mt-0.5">
-          {user?.specialty || user?.occupation || user?.role} · {user?.clinicName || 'MedAccess Clinic'}
-        </p>
+      <div className="flex items-end justify-between gap-4 pb-2 border-b border-ink-700/40">
+        <div>
+          <p className="text-xs font-medium text-ink-500 tracking-widest uppercase">{greeting}</p>
+          <h1 className="font-display text-3xl text-white mt-0.5 leading-tight">{user?.name}</h1>
+          <p className="text-sm text-ink-400 mt-1">
+            <span className="text-accent-400 font-medium">{user?.specialty || user?.occupation || user?.role}</span>
+            <span className="text-ink-600"> · </span>
+            {user?.clinicName || 'MedAccess Clinic'}
+          </p>
+        </div>
+        <div className="shrink-0 text-right hidden sm:block">
+          <p className="font-mono-data text-xs text-ink-600">{new Date().toLocaleDateString('ko-KR')}</p>
+          <p className="font-mono-data text-xs text-ink-600 mt-0.5">{new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}</p>
+        </div>
       </div>
 
       {/* Error banner */}

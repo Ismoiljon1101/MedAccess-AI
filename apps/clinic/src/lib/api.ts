@@ -313,7 +313,7 @@ export async function getReferrals(facilityId?: string): Promise<AppointmentReco
 
 export async function updateReferral(
   id: string,
-  status: 'confirmed' | 'cancelled' | 'pending' | 'completed',
+  status: 'confirmed' | 'cancelled' | 'pending' | 'completed' | string,
   doctorNotes?: string,
 ): Promise<AppointmentRecord> {
   const res = await fetch(`${BASE}/api/appointments/${id}`, {

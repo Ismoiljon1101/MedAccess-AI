@@ -38,7 +38,7 @@ const GREETING: Message = {
   id: 'greeting',
   role: 'assistant',
   content:
-    "Hi, I'm MA Agent — your MedAccess health assistant. Tell me what's bothering you today and I'll help you understand what might be going on. Type your symptoms or tap the mic to speak.",
+    "안녕하세요! I'm MA Agent — your MedAccess AI health companion. Tell me what's bothering you today and I'll help you understand what might be going on. You can type, speak, or upload a medical image.",
 };
 
 export default function Chat() {

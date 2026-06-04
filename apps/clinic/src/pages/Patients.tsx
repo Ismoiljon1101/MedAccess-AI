@@ -1,10 +1,11 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
-  Users, RefreshCw, Clock, Phone, FileText,
+  Users, RefreshCw, Clock, Phone,
   ChevronDown, ChevronUp, CheckCircle, XCircle,
   Loader2, AlertTriangle, Zap, Activity, Heart, User,
+  Stethoscope, ImageIcon, Brain, Calendar,
 } from 'lucide-react';
-import { getReferrals, updateReferral, type ReferralRecord } from '@/lib/api';
+import { getReferrals, updateReferral, type ReferralRecord, type PatientInfo } from '@/lib/api';
 
 const URGENCY_CONFIG: Record<string, { label: string; bar: string; badge: string; icon: React.ReactNode }> = {
   emergency:            { label: 'Emergency',         bar: 'bg-red-500',    badge: 'border-red-500/40 bg-red-500/10 text-red-400',       icon: <Zap size={11} /> },
@@ -14,9 +15,18 @@ const URGENCY_CONFIG: Record<string, { label: string; bar: string; badge: string
 };
 
 const STATUS_CONFIG: Record<string, { label: string; cls: string }> = {
-  pending:   { label: 'Pending',   cls: 'bg-yellow-500/15 text-yellow-400' },
-  confirmed: { label: 'Confirmed', cls: 'bg-green-500/15 text-green-400'   },
-  cancelled: { label: 'Cancelled', cls: 'bg-ink-700 text-ink-400'          },
+  pending:   { label: '대기 · Pending',   cls: 'bg-yellow-500/15 text-yellow-400 border border-yellow-500/30' },
+  confirmed: { label: '확정 · Confirmed', cls: 'bg-green-500/15 text-green-400 border border-green-500/30'   },
+  cancelled: { label: '취소 · Cancelled', cls: 'bg-ink-700/60 text-ink-500 border border-ink-600/40'         },
+  completed: { label: '완료 · Completed', cls: 'bg-ink-700/60 text-ink-500 border border-ink-600/40'         },
+};
+
+const TRIAGE_LEVEL_CONFIG: Record<string, { color: string; bg: string; label: string }> = {
+  RED:    { color: 'text-red-400',    bg: 'bg-red-500/15 border-red-500/40',    label: '🔴 RED — Immediate' },
+  ORANGE: { color: 'text-orange-400', bg: 'bg-orange-500/15 border-orange-500/40', label: '🟠 ORANGE — Very Urgent' },
+  YELLOW: { color: 'text-yellow-400', bg: 'bg-yellow-500/15 border-yellow-500/40', label: '🟡 YELLOW — Urgent' },
+  GREEN:  { color: 'text-green-400',  bg: 'bg-green-500/15 border-green-500/40',  label: '🟢 GREEN — Standard' },
+  BLUE:   { color: 'text-blue-400',   bg: 'bg-blue-500/15 border-blue-500/40',   label: '🔵 BLUE — Non-Urgent' },
 };
 
 function timeAgo(dateStr: string): string {
@@ -72,7 +82,7 @@ export default function Patients() {
     return () => document.removeEventListener('visibilitychange', onVisible);
   }, [load]);
 
-  async function handleStatus(id: string, status: 'confirmed' | 'cancelled' | 'pending') {
+  async function handleStatus(id: string, status: 'confirmed' | 'cancelled' | 'pending' | 'completed') {
     setUpdating(id);
     try {
       const updated = await updateReferral(id, status);
@@ -231,70 +241,189 @@ export default function Patients() {
                     </button>
                   </div>
 
-                  {/* Expanded detail */}
+                  {/* Expanded detail — full patient record + agent analysis */}
                   {isOpen && (
-                    <div className="mt-3 pt-3 border-t border-ink-700/40 space-y-3">
-                      {ref.summary && (
-                        <div className="rounded-xl bg-ink-800/60 border border-ink-700/40 p-3">
-                          <p className="text-[10px] uppercase tracking-wider text-ink-500 mb-1.5 flex items-center gap-1">
-                            <FileText size={10} /> MA Agent Report
+                    <div className="mt-3 pt-3 border-t border-ink-700/40 space-y-2.5">
+
+                      {/* ── Patient Profile ───────────────────────────────── */}
+                      {ref.patientId && typeof ref.patientId === 'object' && (
+                        <div className="patient-section">
+                          <p className="patient-section-title">
+                            <User size={10} /> Patient Profile
                           </p>
-                          <p className="text-xs text-ink-200 leading-relaxed">{ref.summary}</p>
+                          <div className="grid grid-cols-2 gap-x-4 gap-y-1.5">
+                            {(ref.patientId as PatientInfo).fullName && (
+                              <div className="patient-field">
+                                <span className="patient-field-label">Name</span>
+                                <span className="patient-field-value font-medium text-white">{(ref.patientId as PatientInfo).fullName}</span>
+                              </div>
+                            )}
+                            {(ref.patientId as PatientInfo).phone && (
+                              <div className="patient-field">
+                                <span className="patient-field-label">Phone</span>
+                                <a href={`tel:${(ref.patientId as PatientInfo).phone}`} className="patient-field-value text-accent-400 flex items-center gap-1">
+                                  <Phone size={9} /> {(ref.patientId as PatientInfo).phone}
+                                </a>
+                              </div>
+                            )}
+                            {(ref.patientId as PatientInfo).sex && (
+                              <div className="patient-field">
+                                <span className="patient-field-label">Sex</span>
+                                <span className="patient-field-value capitalize">{(ref.patientId as PatientInfo).sex}</span>
+                              </div>
+                            )}
+                            {(ref.patientId as PatientInfo).dateOfBirth && (
+                              <div className="patient-field">
+                                <span className="patient-field-label">DOB</span>
+                                <span className="patient-field-value font-mono-data">{(ref.patientId as PatientInfo).dateOfBirth}</span>
+                              </div>
+                            )}
+                            {(ref.patientId as PatientInfo).knownAllergies?.length ? (
+                              <div className="patient-field col-span-2">
+                                <span className="patient-field-label text-red-400">Allergies</span>
+                                <span className="patient-field-value text-red-300">{(ref.patientId as PatientInfo).knownAllergies!.join(', ')}</span>
+                              </div>
+                            ) : null}
+                            {(ref.patientId as PatientInfo).chronicConditions?.length ? (
+                              <div className="patient-field col-span-2">
+                                <span className="patient-field-label">Conditions</span>
+                                <span className="patient-field-value">{(ref.patientId as PatientInfo).chronicConditions!.join(', ')}</span>
+                              </div>
+                            ) : null}
+                            {(ref.patientId as PatientInfo).currentMedications?.length ? (
+                              <div className="patient-field col-span-2">
+                                <span className="patient-field-label">Medications</span>
+                                <span className="patient-field-value">{(ref.patientId as PatientInfo).currentMedications!.join(', ')}</span>
+                              </div>
+                            ) : null}
+                            {(ref.patientId as PatientInfo).emergencyContact && (
+                              <div className="patient-field col-span-2">
+                                <span className="patient-field-label">Emergency</span>
+                                <span className="patient-field-value">
+                                  {(ref.patientId as PatientInfo).emergencyContact!.name}
+                                  {' '}({(ref.patientId as PatientInfo).emergencyContact!.relationship})
+                                  {' · '}{(ref.patientId as PatientInfo).emergencyContact!.phone}
+                                </span>
+                              </div>
+                            )}
+                          </div>
                         </div>
                       )}
-                      {/* CONNECTION 3: Display AI image analysis report */}
+
+                      {/* ── Triage Result ─────────────────────────────────── */}
+                      {ref.agentAnalysis?.triageId && (
+                        <div className="patient-section">
+                          <p className="patient-section-title"><AlertTriangle size={10} /> Triage Assessment</p>
+                          {(() => {
+                            const t = ref.agentAnalysis!.triageId!;
+                            const lvl = TRIAGE_LEVEL_CONFIG[t.level] ?? TRIAGE_LEVEL_CONFIG.YELLOW;
+                            return (
+                              <div className="space-y-2">
+                                <div className={`inline-flex items-center gap-2 rounded-lg border px-3 py-1.5 text-xs font-semibold ${lvl.bg} ${lvl.color}`}>
+                                  {lvl.label}
+                                  {t.targetTimeToCare && <span className="opacity-70 font-normal">· {t.targetTimeToCare}</span>}
+                                </div>
+                                {t.actions?.length ? (
+                                  <ul className="space-y-0.5">
+                                    {t.actions.map((a: string, i: number) => (
+                                      <li key={i} className="text-[11px] text-ink-300 flex items-start gap-1.5">
+                                        <span className="text-accent-400 mt-0.5 shrink-0">›</span> {a}
+                                      </li>
+                                    ))}
+                                  </ul>
+                                ) : null}
+                                {t.warningSigns?.length ? (
+                                  <div className="mt-1">
+                                    <p className="text-[10px] text-red-400 font-medium mb-0.5">⚠ Warning signs</p>
+                                    <p className="text-[11px] text-red-300/80">{t.warningSigns.join(' · ')}</p>
+                                  </div>
+                                ) : null}
+                              </div>
+                            );
+                          })()}
+                        </div>
+                      )}
+
+                      {/* ── Symptom Analysis ──────────────────────────────── */}
+                      {ref.agentAnalysis?.symptomsId && (
+                        <div className="patient-section">
+                          <p className="patient-section-title"><Stethoscope size={10} /> Symptom Analysis</p>
+                          {(() => {
+                            const s = ref.agentAnalysis!.symptomsId!;
+                            return (
+                              <div className="space-y-1.5">
+                                {s.differentials?.slice(0, 4).map((d: any, i: number) => (
+                                  <div key={i} className="flex items-center gap-2">
+                                    <span className={`shrink-0 h-1.5 w-1.5 rounded-full ${
+                                      d.likelihood === 'high' ? 'bg-red-400' : d.likelihood === 'moderate' ? 'bg-yellow-400' : 'bg-ink-500'
+                                    }`} />
+                                    <span className="text-[11px] text-ink-200 flex-1 truncate">{d.condition}</span>
+                                    <span className={`font-mono-data text-[10px] shrink-0 ${
+                                      d.likelihood === 'high' ? 'text-red-400' : d.likelihood === 'moderate' ? 'text-yellow-400' : 'text-ink-500'
+                                    }`}>{d.probabilityPct}%</span>
+                                  </div>
+                                ))}
+                                {s.recommendedNextSteps?.length ? (
+                                  <div className="mt-1.5 pt-1.5 border-t border-ink-700/40">
+                                    <p className="text-[10px] text-ink-500 mb-1">Recommended next steps</p>
+                                    {s.recommendedNextSteps.slice(0, 3).map((step: string, i: number) => (
+                                      <p key={i} className="text-[11px] text-ink-300">• {step}</p>
+                                    ))}
+                                  </div>
+                                ) : null}
+                              </div>
+                            );
+                          })()}
+                        </div>
+                      )}
+
+                      {/* ── Image Analysis ────────────────────────────────── */}
                       {ref.imageAnalysis && (
-                        <div className="rounded-xl bg-brand-500/5 border border-brand-500/20 p-3">
-                          <p className="text-[10px] uppercase tracking-wider text-brand-400 mb-1.5 flex items-center gap-1">
-                            🔬 AI Image Analysis — {ref.imageAnalysis.imageType}
+                        <div className="patient-section">
+                          <p className="patient-section-title text-accent-400">
+                            <ImageIcon size={10} /> AI Image Analysis — {ref.imageAnalysis.imageType}
                           </p>
                           {ref.imageAnalysis.findings?.length > 0 ? (
                             <ul className="space-y-1">
                               {ref.imageAnalysis.findings.map((f: any, i: number) => (
-                                <li key={i} className="text-xs text-ink-200 flex items-start gap-1.5">
-                                  <span className={`shrink-0 mt-0.5 inline-block h-2 w-2 rounded-full ${
-                                    f.confidence === 'high' ? 'bg-red-400' : f.confidence === 'moderate' ? 'bg-amber-400' : 'bg-slate-400'
+                                <li key={i} className="text-[11px] text-ink-200 flex items-start gap-2">
+                                  <span className={`shrink-0 mt-1 h-1.5 w-1.5 rounded-full ${
+                                    f.confidence === 'high' ? 'bg-red-400' : f.confidence === 'moderate' ? 'bg-amber-400' : 'bg-ink-500'
                                   }`} />
-                                  <span><strong>{f.finding}</strong> ({f.confidence}){f.notes ? ` — ${f.notes}` : ''}</span>
+                                  <span><strong className="text-white">{f.finding}</strong> <span className="text-ink-500">({f.confidence})</span>{f.notes ? ` — ${f.notes}` : ''}</span>
                                 </li>
                               ))}
                             </ul>
                           ) : (
-                            <p className="text-xs text-ink-400">No specific findings detected</p>
+                            <p className="text-[11px] text-ink-500">No specific findings detected</p>
                           )}
                           {ref.imageAnalysis.suggestedFollowUp?.length > 0 && (
-                            <div className="mt-2 pt-2 border-t border-brand-500/10">
-                              <p className="text-[10px] text-ink-500 mb-1">Suggested follow-up:</p>
-                              <ul className="text-[11px] text-ink-300 space-y-0.5">
-                                {ref.imageAnalysis.suggestedFollowUp.map((s: string, i: number) => (
-                                  <li key={i}>• {s}</li>
-                                ))}
-                              </ul>
+                            <div className="mt-2 pt-2 border-t border-ink-700/40">
+                              <p className="text-[10px] text-ink-500 mb-1">Suggested follow-up</p>
+                              {ref.imageAnalysis.suggestedFollowUp.map((s: string, i: number) => (
+                                <p key={i} className="text-[11px] text-ink-300">• {s}</p>
+                              ))}
                             </div>
-                          )}
-                          {ref.imageAnalysis.model && (
-                            <p className="mt-1.5 text-[9px] text-ink-600">Model: {ref.imageAnalysis.model}</p>
                           )}
                         </div>
                       )}
 
-                      <div className="grid grid-cols-2 gap-3 text-[11px]">
-                        <div>
-                          <span className="text-ink-500 block mb-0.5">Patient</span>
-                          <p className="text-ink-300 flex items-center gap-1"><User size={10} /> {ref.patientName}</p>
+                      {/* ── MA Agent Summary ──────────────────────────────── */}
+                      {ref.summary && (
+                        <div className="patient-section">
+                          <p className="patient-section-title"><Brain size={10} /> MA Agent Summary</p>
+                          <p className="text-[11px] text-ink-200 leading-relaxed">{ref.summary}</p>
                         </div>
-                        <div>
-                          <span className="text-ink-500 block mb-0.5">Specialty requested</span>
-                          <p className="text-ink-300">{ref.specialty}</p>
-                        </div>
-                        <div>
-                          <span className="text-ink-500 block mb-0.5">Session ID</span>
-                          <p className="text-ink-400 font-mono truncate text-[10px]">{ref.sessionId}</p>
-                        </div>
-                        <div>
-                          <span className="text-ink-500 block mb-0.5">Referral ID</span>
-                          <p className="text-ink-400 font-mono truncate text-[10px]">{ref._id}</p>
-                        </div>
+                      )}
+
+                      {/* ── Appointment details ───────────────────────────── */}
+                      <div className="flex flex-wrap gap-x-4 gap-y-1 text-[10px] text-ink-600 pt-1">
+                        {ref.scheduledDate && (
+                          <span className="flex items-center gap-1 font-mono-data">
+                            <Calendar size={9} /> {ref.scheduledDate} {ref.scheduledTime}
+                          </span>
+                        )}
+                        <span className="font-mono-data truncate">ID: {ref._id}</span>
                       </div>
                     </div>
                   )}
@@ -325,8 +454,11 @@ export default function Patients() {
               )}
 
               {ref.status === 'confirmed' && (
-                <div className="border-t border-ink-700/40 px-4 py-2.5 flex items-center gap-2 text-xs text-green-400 bg-green-500/5">
-                  <CheckCircle size={13} /> Appointment confirmed
+                <div className="border-t border-ink-700/40 px-4 py-2.5 flex items-center justify-between bg-green-500/5">
+                  <span className="text-xs text-green-400 flex items-center gap-1.5"><CheckCircle size={13} /> 확정됨 · Confirmed</span>
+                  <button type="button" onClick={() => handleStatus(ref._id, 'completed')} className="text-[11px] text-ink-500 hover:text-ink-300 transition">
+                    Mark complete
+                  </button>
                 </div>
               )}
 

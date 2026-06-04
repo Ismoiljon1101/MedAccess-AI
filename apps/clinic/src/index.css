@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=DM+Serif+Display:ital@0;1&family=JetBrains+Mono:wght@400;500&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -75,10 +77,10 @@
     height: 100%;
   }
   body {
-    font-family: 'Inter', ui-sans-serif, system-ui, sans-serif;
+    font-family: 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
     background:
-      radial-gradient(1100px 600px at 15% -10%, rgba(34, 184, 163, 0.12), transparent 60%),
-      radial-gradient(900px 500px at 110% 10%, rgba(94, 92, 230, 0.10), transparent 60%),
+      radial-gradient(1100px 600px at 15% -10%, rgba(0, 198, 170, 0.11), transparent 60%),
+      radial-gradient(900px 500px at 110% 10%, rgba(109, 40, 217, 0.08), transparent 60%),
       var(--body-bg);
     color: var(--body-color);
     -webkit-font-smoothing: antialiased;
@@ -125,6 +127,40 @@
   .chip {
     @apply inline-flex items-center gap-1 rounded-full border border-ink-700 bg-ink-800/70 px-2.5 py-1 text-xs text-ink-200;
   }
+}
+
+/* ── Display font utility ─────────────────────────────────────────── */
+.font-display { font-family: 'DM Serif Display', serif; }
+.font-mono-data { font-family: 'JetBrains Mono', monospace; font-variant-numeric: tabular-nums; }
+
+/* ── Urgency system ───────────────────────────────────────────────── */
+.urgency-bar-emergency { background: #ef4444; }
+.urgency-bar-urgent    { background: #f97316; }
+.urgency-bar-soon      { background: #eab308; }
+.urgency-bar-self      { background: #22c55e; }
+
+/* ── Stat card gradient accents ───────────────────────────────────── */
+.stat-card-red    { border-image: linear-gradient(to bottom, #ef4444, #ef444440) 1; }
+.stat-card-orange { border-image: linear-gradient(to bottom, #f97316, #f9731640) 1; }
+.stat-card-green  { border-image: linear-gradient(to bottom, #22c55e, #22c55e40) 1; }
+.stat-card-teal   { border-image: linear-gradient(to bottom, #22b8a3, #22b8a340) 1; }
+.stat-card-yellow { border-image: linear-gradient(to bottom, #eab308, #eab30840) 1; }
+
+/* ── Patient detail sections ──────────────────────────────────────── */
+.patient-section {
+  @apply rounded-xl border border-ink-700/50 bg-ink-800/40 p-3 space-y-2;
+}
+.patient-section-title {
+  @apply text-[10px] font-semibold uppercase tracking-widest text-ink-500 flex items-center gap-1.5;
+}
+.patient-field {
+  @apply flex items-start gap-2 text-[11px];
+}
+.patient-field-label {
+  @apply text-ink-500 w-24 shrink-0;
+}
+.patient-field-value {
+  @apply text-ink-200 flex-1;
 }
 
 .prose-medic { color: var(--prose-color); }
