@@ -87,7 +87,9 @@ The following skills are installed globally and available to **every team member
 
 | Skill | Trigger | What it does |
 |---|---|---|
-| `/frontend-design` | Building UI components, pages, styling | Production-grade React UI with high design quality. Avoids generic AI aesthetics. |
+| `/frontend-design` | Building UI components, pages, styling | Production-grade React UI with high design quality. Avoids generic AI aesthetics. **Use first on any new page or component.** |
+| `/frontend-ui-ux-design` | UX flows, information hierarchy, interaction patterns | Full UX/UI design guidelines — layout, spacing, hierarchy, accessibility, interaction. **Use alongside `/frontend-design` for any screen redesign.** |
+| `/hig-project-context` | Mobile UX, touch targets, navigation, PWA feel | Apple Human Interface Guidelines — tap targets ≥ 44pt, safe areas, navigation depth, gesture design. **Required for all patient app screens (PWA/mobile-first).** |
 | `/vercel-react-best-practices` | Writing/reviewing React code | React 18 performance patterns from Vercel Engineering — memo, Suspense, code splitting, hydration. |
 | `/vite` | Vite config, plugins, build issues | Vite build tool patterns, plugin API, SSR config, Rolldown migration. |
 | `/pwa-development` | PWA manifest, service worker, install | PWA best practices — manifest, workbox, offline caching, install prompts. |
@@ -113,9 +115,11 @@ The following skills are installed globally and available to **every team member
 ### Skill workflow by task type
 
 ```
-UI component / page          → /frontend-design + /vercel-react-best-practices
+UI component / page (new)    → /frontend-design + /frontend-ui-ux-design + /vercel-react-best-practices
+UI component / page (fix)    → /frontend-ui-ux-design + /hig-project-context
+Patient app screen (mobile)  → /hig-project-context + /frontend-design (PWA/touch-first rules apply)
 Vite / build / bundle issue  → /vite
-PWA score / manifest / SW    → /pwa-development
+PWA score / manifest / SW    → /pwa-development + /hig-project-context
 API endpoint / Express route → (no skill needed — follow schemas.ts contract)
 Python sidecar / FastAPI     → /fastapi
 MongoDB model / query        → /mongodb
@@ -129,7 +133,7 @@ Find a new skill             → /find-skills
 | Role | Primary skills | Notes |
 |---|---|---|
 | **Ismail** | All skills | Full access, owns architecture decisions |
-| **Otabek** | `/frontend-design`, `/vercel-react-best-practices`, `/vite`, `/pwa-development`, `/webapp-testing` | Frontend focus |
+| **Otabek** | `/frontend-design`, `/frontend-ui-ux-design`, `/hig-project-context`, `/vercel-react-best-practices`, `/vite`, `/pwa-development`, `/webapp-testing` | Frontend focus — always use HIG + UX skills on patient app |
 | **Temirlan** | `/fastapi`, `/mongodb` | Python sidecar focus |
 | **Mirsaid** | `/webapp-testing`, `/verify` | QA workflows |
 | **Sobirov** | `/webapp-testing` (read-only observation), `/verify` | Learning — observe, don't configure |
