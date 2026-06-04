@@ -16,8 +16,9 @@ import {
 } from 'lucide-react';
 import {
   searchFacilities, getFacilitySlots, bookAppointment,
-  searchMapNearby, loadSession,
+  searchMapNearby, loadSession, getMyAppointments,
   type FacilityResult, type DoctorResult, type SlotResult, type MapPlace,
+  type AppointmentRecord,
 } from '@/lib/api';
 import { useAppStore } from '@/store/app';
 
@@ -160,6 +161,10 @@ export default function FindCare() {
   const [mapLoading,      setMapLoading]      = useState(false);
   const [specialtyFallback, setSpecialtyFallback] = useState<string | null>(null);
   const [expanded,     setExpanded]     = useState<string | null>(null);
+
+  // Server-linked appointments (from DB via phone)
+  const [serverAppts,      setServerAppts]      = useState<AppointmentRecord[]>([]);
+  const [serverApptLoading, setServerApptLoading] = useState(false);
 
   // Booking sheet state
   const [bookDoctor,    setBookDoctor]    = useState<{ doctor: DoctorResult; facility: FacilityResult } | null>(null);
@@ -304,6 +309,17 @@ export default function FindCare() {
     );
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // ── Load server appointments (phone-linked) ──────────────────────────────
+  useEffect(() => {
+    const phone = patientProfile?.phone;
+    if (!phone) return;
+    setServerApptLoading(true);
+    getMyAppointments(phone)
+      .then(setServerAppts)
+      .catch(() => {})
+      .finally(() => setServerApptLoading(false));
+  }, [patientProfile?.phone]);
 
   function requestLocation() {
     if (locRequesting) return;
@@ -508,7 +524,7 @@ export default function FindCare() {
         {/* City search */}
         <input
           className="input text-sm"
-          placeholder="Search by city (e.g. Tashkent, Samarkand…)"
+          placeholder="도시 검색 · Search by city (e.g. Seoul, Busan…)"
           value={citySearch}
           onChange={(e) => setCitySearch(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && load({ city: citySearch })}
@@ -608,6 +624,76 @@ export default function FindCare() {
         </div>
       )}
 
+      {/* ── My Appointments (server-linked, shown when phone identity exists) */}
+      {(serverApptLoading || serverAppts.length > 0) && (
+        <div className="shrink-0 mx-3 mb-3">
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-ink-400">
+              내 예약 · My Appointments
+            </p>
+            {serverApptLoading && <Loader2 size={11} className="animate-spin text-ink-500" />}
+          </div>
+
+          {serverAppts.length === 0 && !serverApptLoading && null}
+
+          <div className="space-y-2">
+            {serverAppts.slice(0, 5).map((appt) => {
+              const statusColors: Record<string, string> = {
+                pending:   'border-warn-500/40 bg-warn-500/10 text-warn-400',
+                confirmed: 'border-ok-500/40 bg-ok-500/10 text-ok-400',
+                cancelled: 'border-danger-500/40 bg-danger-500/10 text-danger-400',
+                completed: 'border-ink-600/40 bg-ink-800/60 text-ink-400',
+              };
+              const statusLabel: Record<string, string> = {
+                pending: '대기 중 · Pending', confirmed: '확정 · Confirmed',
+                cancelled: '취소됨 · Cancelled', completed: '완료 · Completed',
+              };
+              const facilityName = typeof appt.facilityId === 'object'
+                ? appt.facilityId?.name : undefined;
+              const doctorName = typeof appt.doctorId === 'object'
+                ? appt.doctorId?.name : undefined;
+
+              return (
+                <div key={appt._id} className="rounded-xl border border-ink-700/60 bg-ink-900/80 px-3 py-2.5 flex items-start gap-3">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="text-xs font-semibold text-white truncate">
+                        {doctorName ?? appt.specialty}
+                      </p>
+                      <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium border ${statusColors[appt.status] ?? statusColors.pending}`}>
+                        {statusLabel[appt.status] ?? appt.status}
+                      </span>
+                    </div>
+                    {facilityName && (
+                      <p className="text-[11px] text-ink-400 mt-0.5 flex items-center gap-1">
+                        <Building2 size={10} className="shrink-0" /> {facilityName}
+                      </p>
+                    )}
+                    <p className="text-[11px] text-ink-500 mt-0.5 flex items-center gap-1">
+                      <Calendar size={10} className="shrink-0" />
+                      {appt.scheduledDate} · {appt.scheduledTime}
+                      {appt.scheduledEndTime && `–${appt.scheduledEndTime}`}
+                    </p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {serverAppts.length > 5 && (
+            <p className="text-[10px] text-ink-500 mt-1.5 text-center">
+              +{serverAppts.length - 5} more
+            </p>
+          )}
+
+          <div className="mt-2 border-t border-ink-700/40 pt-2">
+            <p className="text-[10px] text-ink-500 font-medium uppercase tracking-wider">
+              시설 검색 · Search Facilities ↓
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* ── Map view (OSM iframe + horizontal facility strip) ───────────── */}
       {viewMode === 'map' && !loading && (facilities.length > 0 || mapPlaces.length > 0) && (
         <div className="shrink-0 mx-3 mb-2 rounded-xl overflow-hidden border border-surface-700">
@@ -619,7 +705,7 @@ export default function FindCare() {
                 ...facilities.map((f) => ({ lat: f.lat, lng: f.lng })),
                 ...mapPlaces.map((p) => ({ lat: p.lat, lng: p.lng })),
               ].filter((p) => typeof p.lat === 'number' && typeof p.lng === 'number'),
-              coords ?? { lat: 41.3111, lng: 69.2797 }, // Tashkent fallback
+              coords ?? { lat: 37.5665, lng: 126.9780 }, // Seoul fallback
             )}
             className="w-full h-56 bg-surface-800"
             loading="lazy"
