@@ -607,7 +607,7 @@ export default function Chat() {
               if (previewRef.current) params.set('summary', previewRef.current);
               navigate(`/find-care?${params.toString()}`);
             }}
-            className="shrink-0 rounded-xl border border-brand-500/40 bg-brand-600/20 px-3 py-1.5 text-xs font-semibold text-brand-400 hover:bg-brand-600/30 transition whitespace-nowrap"
+            className="shrink-0 rounded-xl border border-brand-500/40 bg-brand-600/20 px-3 py-1.5 text-xs font-semibold text-brand-400 hover:bg-brand-600/30 transition whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/60 active:scale-95"
           >
             Book Now →
           </button>
@@ -703,7 +703,7 @@ export default function Chat() {
                   setBookingLoading(false);
                 }
               }}
-              className="flex-1 flex items-center justify-center gap-1.5 rounded-xl border border-brand-500/50 bg-brand-600/25 py-2.5 text-xs font-semibold text-brand-300 hover:bg-brand-600/40 transition disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex-1 flex items-center justify-center gap-1.5 rounded-xl border border-brand-500/50 bg-brand-600/25 py-2.5 text-xs font-semibold text-brand-300 hover:bg-brand-600/40 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/60 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100"
             >
               {bookingLoading
                 ? <><Loader2 size={13} className="animate-spin" /> Booking…</>
@@ -764,7 +764,7 @@ export default function Chat() {
               }
               navigate(`/find-care?${params.toString()}`);
             }}
-            className="shrink-0 rounded-xl border border-brand-500/40 bg-brand-600/20 px-3 py-1.5 text-xs font-semibold text-brand-400 hover:bg-brand-600/30 transition whitespace-nowrap"
+            className="shrink-0 rounded-xl border border-brand-500/40 bg-brand-600/20 px-3 py-1.5 text-xs font-semibold text-brand-400 hover:bg-brand-600/30 transition whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/60 active:scale-95"
           >
             Find Care →
           </button>
@@ -795,7 +795,7 @@ export default function Chat() {
           onClick={() => setShowCapture(true)}
           aria-label="Upload medical image"
           title="Upload image"
-          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-ink-700 bg-ink-800 text-ink-400 transition hover:border-brand-500/50 hover:text-ink-200"
+          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-ink-700 bg-ink-800 text-ink-400 transition hover:border-brand-500/50 hover:text-ink-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/60 active:scale-95"
         >
           <ImageIcon size={20} />
         </button>
@@ -832,7 +832,7 @@ export default function Chat() {
           onClick={() => navigate(`/voice${sessionId ? `?s=${sessionId}` : ''}`)}
           aria-label="Full voice mode"
           title="Hands-free voice conversation"
-          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-brand-500/40 bg-brand-600/15 text-brand-400 transition hover:bg-brand-600/25 hover:border-brand-400"
+          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-brand-500/40 bg-brand-600/15 text-brand-400 transition hover:bg-brand-600/25 hover:border-brand-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/60 active:scale-95"
         >
           <Headphones size={18} />
         </button>

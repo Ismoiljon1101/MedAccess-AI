@@ -37,7 +37,7 @@ export default function Layout({ children }: { children: ReactNode }) {
 
       {/* ── Header ──────────────────────────────────────────────── */}
       <header className="app-header">
-        <Link to="/" className="flex items-center gap-2.5 text-white min-w-0">
+        <Link to="/" className="flex items-center gap-2.5 text-white min-w-0 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/50">
           <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-brand-500/40 to-brand-700/20 border border-brand-500/30">
             <Heart size={13} className="text-brand-400" />
           </div>
@@ -60,7 +60,7 @@ export default function Layout({ children }: { children: ReactNode }) {
           <Link
             to="/emergency"
             aria-label="Emergency triage assessment"
-            className={`flex h-11 w-11 items-center justify-center rounded-xl transition-colors ${
+            className={`flex h-11 w-11 items-center justify-center rounded-xl transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger-500/60 ${
               location.pathname === '/emergency'
                 ? 'text-danger-400 bg-danger-500/15'
                 : 'text-danger-400/70 hover:text-danger-400 hover:bg-danger-500/10'
@@ -73,7 +73,7 @@ export default function Layout({ children }: { children: ReactNode }) {
           <Link
             to="/profile"
             aria-label="My Profile"
-            className={`flex h-11 w-11 items-center justify-center rounded-xl border transition-all ${
+            className={`flex h-11 w-11 items-center justify-center rounded-xl border transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/60 ${
               location.pathname === '/profile'
                 ? 'border-brand-500/50 bg-brand-500/20 text-brand-400'
                 : 'border-ink-700 bg-ink-800 text-ink-400 hover:border-ink-600 hover:text-ink-200'

@@ -82,7 +82,7 @@ export default function Welcome() {
           <div className="absolute bottom-0 left-1/2 -translate-x-1/2 h-[280px] w-[560px] rounded-full bg-brand-600/8 blur-[110px]" />
         </div>
 
-        <div className="relative z-10 flex flex-col items-center gap-8 w-full max-w-sm px-6 pt-16 pb-8">
+        <div className="relative z-10 flex flex-col items-center gap-8 w-full max-w-sm px-6 pt-[calc(4rem+env(safe-area-inset-top,0px))] pb-8">
           <div className="animate-fade-up flex flex-col items-center gap-5">
             <div className="relative">
               <div className="welcome-logo-ring" />
@@ -141,11 +141,11 @@ export default function Welcome() {
       </div>
 
       <div className="relative z-10 w-full max-w-sm px-6 space-y-5">
-        <div className="animate-fade-up pt-12">
-          <button type="button" onClick={() => setStep('hero')} className="text-xs text-ink-400 hover:text-ink-200 transition mb-4 flex items-center gap-1">
+        <div className="animate-fade-up pt-[calc(3rem+env(safe-area-inset-top,0px))]">
+          <button type="button" onClick={() => setStep('hero')} className="touch-target-sm text-xs text-ink-400 hover:text-ink-200 transition mb-4 inline-flex items-center gap-1 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40">
             ← Back
           </button>
-          <h2 className="text-2xl font-bold text-white tracking-tight">Quick setup</h2>
+          <h2 className="text-2xl font-bold text-ink-100 tracking-tight">Quick setup</h2>
           <p className="text-sm text-ink-400 mt-0.5">Takes 10 seconds</p>
         </div>
 
@@ -169,6 +169,7 @@ export default function Welcome() {
             <input
               className="input"
               type="tel"
+              inputMode="tel"
               placeholder="+82 10 0000 0000"
               value={phone}
               onChange={(e) => setPhone(e.target.value)}

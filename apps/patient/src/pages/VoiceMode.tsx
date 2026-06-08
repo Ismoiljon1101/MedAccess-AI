@@ -327,12 +327,12 @@ function VoiceUI({
         className="pointer-events-none absolute inset-0"
         style={{
           background: isListening
-            ? 'radial-gradient(ellipse 60% 50% at 50% 45%, rgba(59,130,246,0.18) 0%, transparent 70%)'
+            ? 'radial-gradient(ellipse 60% 50% at 50% 45%, rgba(34,184,163,0.18) 0%, transparent 70%)'
             : isSpeaking
             ? 'radial-gradient(ellipse 60% 50% at 50% 45%, rgba(34,197,94,0.12) 0%, transparent 70%)'
             : isBusy
-            ? 'radial-gradient(ellipse 50% 40% at 50% 45%, rgba(59,130,246,0.10) 0%, transparent 70%)'
-            : 'radial-gradient(ellipse 45% 35% at 50% 45%, rgba(59,130,246,0.06) 0%, transparent 70%)',
+            ? 'radial-gradient(ellipse 50% 40% at 50% 45%, rgba(34,184,163,0.10) 0%, transparent 70%)'
+            : 'radial-gradient(ellipse 45% 35% at 50% 45%, rgba(34,184,163,0.06) 0%, transparent 70%)',
           transition: 'background 0.6s ease',
         }}
       />
@@ -343,7 +343,7 @@ function VoiceUI({
           type="button"
           onClick={onEnd}
           aria-label="Exit voice mode"
-          className="flex h-9 w-9 items-center justify-center rounded-full bg-white/8 text-ink-400 hover:text-white transition"
+          className="flex h-11 w-11 items-center justify-center rounded-full bg-white/8 text-ink-400 hover:text-white transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/60 active:scale-95"
         >
           <X size={18} />
         </button>
@@ -362,7 +362,7 @@ function VoiceUI({
             if (!muted) window.speechSynthesis?.cancel();
           }}
           aria-label={muted ? 'Unmute audio' : 'Mute audio'}
-          className="flex h-9 w-9 items-center justify-center rounded-full bg-white/8 text-ink-400 hover:text-white transition"
+          className="flex h-11 w-11 items-center justify-center rounded-full bg-white/8 text-ink-400 hover:text-white transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/60 active:scale-95"
         >
           {muted ? <VolumeX size={17} /> : <Volume2 size={17} className="text-brand-400" />}
         </button>
@@ -375,10 +375,10 @@ function VoiceUI({
             className="absolute -inset-8 rounded-full pointer-events-none"
             style={{
               background: isListening
-                ? 'radial-gradient(circle, rgba(59,130,246,0.25) 0%, transparent 70%)'
+                ? 'radial-gradient(circle, rgba(34,184,163,0.25) 0%, transparent 70%)'
                 : isSpeaking
                 ? 'radial-gradient(circle, rgba(34,197,94,0.20) 0%, transparent 70%)'
-                : 'radial-gradient(circle, rgba(59,130,246,0.10) 0%, transparent 70%)',
+                : 'radial-gradient(circle, rgba(34,184,163,0.10) 0%, transparent 70%)',
               transition: 'background 0.5s ease',
             }}
           />

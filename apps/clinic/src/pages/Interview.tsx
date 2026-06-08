@@ -66,7 +66,7 @@ export default function Interview() {
     <div className="mx-auto flex h-[calc(100vh-8rem)] max-w-3xl flex-col gap-4">
       <div className="card card-pad shrink-0 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-lg font-semibold text-white">Patient Interview</h1>
+          <h1 className="font-display text-2xl text-white tracking-tight">Patient Interview</h1>
           <p className="mt-1 text-sm text-ink-300">
             Conversational diagnostic intake. The copilot asks one focused question at a time,
             grounded in the clinical knowledge base.

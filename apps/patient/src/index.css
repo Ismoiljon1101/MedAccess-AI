@@ -127,7 +127,7 @@ html.text-size-lg .chat-bubble { font-size: 1rem; }
 
   /* ── Buttons ────────────────────────────────────────────────────────── */
   .btn {
-    @apply inline-flex items-center gap-2 rounded-xl border border-ink-700 bg-ink-800 px-4 py-2.5 text-sm font-medium text-ink-100 transition hover:border-brand-500 hover:text-white disabled:cursor-not-allowed disabled:opacity-50;
+    @apply inline-flex items-center gap-2 rounded-xl border border-ink-700 bg-ink-800 px-4 py-2.5 text-sm font-medium text-ink-100 transition hover:border-brand-500 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/60 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100;
   }
   .btn-primary {
     @apply btn border-brand-600 bg-brand-600 text-white hover:bg-brand-500 hover:border-brand-500;
@@ -198,7 +198,7 @@ html.text-size-lg .chat-bubble { font-size: 1rem; }
     @apply text-brand-400 text-sm font-medium mt-1 tracking-wide;
   }
   .welcome-feature-pill {
-    @apply flex items-center gap-3 rounded-2xl border border-ink-700/50 bg-ink-900/60 backdrop-blur-sm px-4 py-3 transition;
+    @apply flex items-center gap-3 rounded-2xl border border-ink-700/50 bg-ink-900/60 backdrop-blur-sm px-4 py-3 transition hover:border-brand-500/30 hover:bg-ink-800/60;
     box-shadow: 0 1px 3px rgba(0,0,0,0.3);
   }
   .welcome-form-card {
@@ -206,7 +206,7 @@ html.text-size-lg .chat-bubble { font-size: 1rem; }
     box-shadow: 0 20px 60px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.04);
   }
   .btn-primary-hero {
-    @apply w-full flex items-center justify-center gap-2 rounded-2xl py-4 text-base font-semibold transition-all;
+    @apply w-full flex items-center justify-center gap-2 rounded-2xl py-4 text-base font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/60 focus-visible:ring-offset-2 focus-visible:ring-offset-ink-950 active:scale-[0.99];
     background: linear-gradient(135deg, rgba(0,198,170,0.25), rgba(0,198,170,0.12));
     border: 1px solid rgba(0,198,170,0.45);
     color: rgb(var(--brand-400-rgb, 34 184 163));
@@ -218,7 +218,8 @@ html.text-size-lg .chat-bubble { font-size: 1rem; }
   }
   .btn-primary-hero:disabled { @apply opacity-60 cursor-not-allowed; }
   .btn-ghost-hero {
-    @apply w-full text-sm text-ink-400 hover:text-ink-200 transition py-2;
+    @apply w-full flex items-center justify-center text-sm text-ink-400 hover:text-ink-200 transition py-3 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40;
+    min-height: 44px;
   }
 
   /* ── App shell ──────────────────────────────────────────────────────── */
@@ -233,6 +234,8 @@ html.text-size-lg .chat-bubble { font-size: 1rem; }
     @apply flex shrink-0 items-center justify-between border-b border-ink-700 px-4 py-3;
     background: var(--header-bg);
     backdrop-filter: blur(12px);
+    /* Add the iOS notch/status-bar inset on top of the base padding */
+    padding-top: calc(0.75rem + env(safe-area-inset-top, 0px));
   }
 
   /* ── Bottom nav ─────────────────────────────────────────────────────── */
@@ -244,7 +247,7 @@ html.text-size-lg .chat-bubble { font-size: 1rem; }
   }
   /* HIG: tab bar minimum height 49px, each tab ≥ 44px touch target */
   .app-tab {
-    @apply flex flex-1 flex-col items-center gap-1 pt-2.5 pb-2 text-[11px] font-medium transition-colors;
+    @apply flex flex-1 flex-col items-center gap-1 pt-2.5 pb-2 text-[11px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-500/50;
     min-height: 49px;
   }
   .app-tab-active   { @apply text-brand-400; }
@@ -298,12 +301,12 @@ html.text-size-lg .chat-bubble { font-size: 1rem; }
   .chat-input-field:disabled { @apply opacity-50; }
 
   .chat-mic-btn {
-    @apply relative flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-ink-700 bg-ink-800 transition;
+    @apply relative flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-ink-700 bg-ink-800 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/60 active:scale-95;
   }
   .chat-mic-btn:not([disabled]):hover { @apply border-brand-500 text-ink-200; }
 
   .chat-send-btn {
-    @apply flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-brand-600 bg-brand-600 text-white transition;
+    @apply flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-brand-600 bg-brand-600 text-white transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 active:scale-95;
   }
   .chat-send-btn:not([disabled]):hover { @apply bg-brand-500 border-brand-500; }
   .chat-send-btn:disabled { @apply opacity-40 cursor-not-allowed; }
@@ -311,8 +314,8 @@ html.text-size-lg .chat-bubble { font-size: 1rem; }
   /* ── Voice mode ─────────────────────────────────────────────────────── */
   .voice-layout     { @apply flex flex-1 flex-col overflow-hidden min-h-0 relative; }
   .voice-header     { @apply flex shrink-0 items-center justify-between px-4 py-3 border-b border-ink-700; }
-  .voice-close-btn  { @apply flex h-9 w-9 items-center justify-center rounded-full border border-ink-700 bg-ink-800 text-ink-400 hover:text-ink-100 transition; }
-  .voice-mute-btn   { @apply flex h-9 w-9 items-center justify-center rounded-full border border-ink-700 bg-ink-800 transition hover:border-brand-500; }
+  .voice-close-btn  { @apply flex h-11 w-11 items-center justify-center rounded-full border border-ink-700 bg-ink-800 text-ink-400 hover:text-ink-100 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/60 active:scale-95; }
+  .voice-mute-btn   { @apply flex h-11 w-11 items-center justify-center rounded-full border border-ink-700 bg-ink-800 transition hover:border-brand-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/60 active:scale-95; }
   .voice-avatar-area { @apply flex flex-1 flex-col items-center justify-center px-6 min-h-0; }
   .voice-subtitles  { @apply shrink-0 max-h-36 overflow-y-auto; }
   .voice-controls   {
@@ -320,7 +323,7 @@ html.text-size-lg .chat-bubble { font-size: 1rem; }
     padding-bottom: max(32px, env(safe-area-inset-bottom, 0px));
   }
   .voice-mic-btn {
-    @apply flex h-20 w-20 items-center justify-center rounded-full border-2 border-brand-500 text-brand-400 transition;
+    @apply flex h-20 w-20 items-center justify-center rounded-full border-2 border-brand-500 text-brand-400 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 focus-visible:ring-offset-2 focus-visible:ring-offset-ink-950 active:scale-95;
     background: rgba(18, 144, 121, 0.15);
     box-shadow: 0 0 0 0 rgba(34, 184, 163, 0.4);
   }
@@ -349,6 +352,9 @@ html.text-size-lg .chat-bubble { font-size: 1rem; }
     animation: avatar-spin 1.1s linear infinite;
   }
 }
+
+/* ── Display font utility (DM Serif Display — already imported above) ────── */
+.font-display { font-family: 'DM Serif Display', serif; }
 
 /* ── Prose ──────────────────────────────────────────────────────────────── */
 .prose-medic        { color: var(--prose-color); }
@@ -398,6 +404,16 @@ html.text-size-lg .chat-bubble { font-size: 1rem; }
 .animate-fade-up-delay-2  { animation: fade-up 0.5s ease-out 0.20s both; }
 .animate-fade-up-delay-3  { animation: fade-up 0.5s ease-out 0.35s both; }
 
+/* ── Respect prefers-reduced-motion (WCAG 2.3.3) ───────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
 /* ── Light mode: override hardcoded white/slate text ────────────────────── */
 [data-theme="light"] .text-white  { color: var(--ink-100) !important; }
 [data-theme="light"] .text-ink-100,
@@ -419,6 +435,11 @@ html.text-size-lg .chat-bubble { font-size: 1rem; }
   color: #1e293b;
   border-color: #e2e8f0;
 }
+
+/* User bubble is always teal (brand-600) in both themes — keep its text white
+   so the global .text-white light override doesn't flip it to dark-on-teal */
+[data-theme="light"] .chat-bubble-user,
+[data-theme="light"] .chat-bubble-user * { color: #ffffff !important; }
 
 /* Chat input field */
 [data-theme="light"] .chat-input-field {

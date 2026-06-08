@@ -31,7 +31,7 @@ export default function Header() {
         <span
           className={[
             'chip',
-            ok ? 'border-ok-500/40 text-ok-500' : 'border-danger-500/40 text-danger-500',
+            ok ? 'border-ok-500/40 text-ok-500 bg-ok-500/5' : 'border-danger-500/40 text-danger-500 bg-danger-500/10',
           ].join(' ')}
           title={error ?? undefined}
         >
@@ -51,7 +51,7 @@ export default function Header() {
           <select
             value={language}
             onChange={(e) => setLanguage(e.target.value)}
-            className="bg-transparent text-ink-100 outline-none"
+            className="bg-transparent text-ink-100 outline-none rounded-md cursor-pointer focus-visible:ring-2 focus-visible:ring-accent-500/40"
           >
             {LANGUAGES.map((l) => (
               <option key={l.code} value={l.code} className="bg-ink-900">
@@ -65,7 +65,7 @@ export default function Header() {
           <select
             value={model}
             onChange={(e) => setModel(e.target.value)}
-            className="bg-transparent text-ink-100 outline-none"
+            className="bg-transparent text-ink-100 outline-none rounded-md cursor-pointer focus-visible:ring-2 focus-visible:ring-accent-500/40"
           >
             {MODEL_OPTIONS.map((m) => (
               <option key={m.id} value={m.id} className="bg-ink-900">

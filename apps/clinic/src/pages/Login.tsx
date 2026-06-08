@@ -246,7 +246,7 @@ export default function Login() {
           <Stethoscope size={22} strokeWidth={2.5} className="text-ink-950" />
         </div>
         <div>
-          <div className="text-xl font-bold text-white tracking-tight">MedAccess AI</div>
+          <div className="font-display text-xl text-white tracking-tight">MedAccess AI</div>
           <div className="text-xs text-ink-400">Clinical Portal · v0.1</div>
         </div>
       </div>
@@ -256,7 +256,7 @@ export default function Login() {
         {/* ── Role selection ──────────────────────────────────────────── */}
         {!selected ? (
           <>
-            <h1 className="text-2xl font-semibold text-white text-center mb-1">Who are you?</h1>
+            <h1 className="font-display text-2xl text-white text-center mb-1 tracking-tight">Who are you?</h1>
             <p className="text-sm text-ink-400 text-center mb-8">Select your role to continue</p>
             <div className="grid gap-4 sm:grid-cols-3">
               {ROLES.map((r) => (

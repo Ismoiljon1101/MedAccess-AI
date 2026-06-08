@@ -51,7 +51,7 @@ export default function Triage() {
   return (
     <div className="mx-auto max-w-3xl space-y-6">
       <div className="card card-pad">
-        <h1 className="text-lg font-semibold text-white">Triage</h1>
+        <h1 className="font-display text-2xl text-white tracking-tight">Triage</h1>
         <p className="mt-1 text-sm text-ink-300">
           Manchester-style emergency triage. Returns a color level, target time to care,
           recommended actions, and warning signs.

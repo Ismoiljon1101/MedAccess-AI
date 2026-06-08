@@ -47,7 +47,7 @@ export default function Symptoms() {
   return (
     <div className="mx-auto max-w-3xl space-y-6">
       <div className="card card-pad">
-        <h1 className="text-lg font-semibold text-white">Symptom Analysis</h1>
+        <h1 className="font-display text-2xl text-white tracking-tight">Symptom Analysis</h1>
         <p className="mt-1 text-sm text-ink-300">
           Enter symptoms, add patient context, and receive a ranked differential with red flags.
         </p>
@@ -209,6 +209,21 @@ export default function Symptoms() {
       {error && (
         <div className="rounded-xl border border-danger-500/40 bg-danger-500/10 px-4 py-3 text-sm text-danger-500">
           {error}
+        </div>
+      )}
+
+      {loading && !result && (
+        <div className="space-y-4">
+          <div className="h-9 w-40 rounded-xl bg-ink-800 animate-pulse" />
+          {[0, 1, 2].map((i) => (
+            <div key={i} className="card card-pad space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="h-3 w-1/3 rounded bg-ink-700 animate-pulse" />
+                <div className="h-3 w-10 rounded bg-ink-700 animate-pulse" />
+              </div>
+              <div className="h-2 w-full rounded-full bg-ink-700 animate-pulse" />
+            </div>
+          ))}
         </div>
       )}
 

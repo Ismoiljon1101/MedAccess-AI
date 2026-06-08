@@ -76,7 +76,7 @@ export default function Home() {
           <div className="inline-flex items-center gap-2 rounded-full border border-accent-500/40 bg-accent-500/10 px-3 py-1 text-xs font-medium text-accent-400">
             <Sparkles size={12} /> AI Doctor Copilot · v0.1 MVP
           </div>
-          <h1 className="mt-4 text-3xl font-semibold tracking-tight text-white md:text-4xl">
+          <h1 className="mt-4 font-display text-3xl tracking-tight text-white md:text-4xl">
             MedAccess AI
           </h1>
           <p className="mt-3 max-w-2xl text-base leading-relaxed text-ink-200">

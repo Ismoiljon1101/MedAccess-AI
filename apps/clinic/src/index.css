@@ -110,7 +110,7 @@
     @apply p-5 md:p-6;
   }
   .btn {
-    @apply inline-flex items-center justify-center gap-2 rounded-xl border border-ink-700 bg-ink-800/80 px-4 py-2.5 text-sm font-medium text-ink-100 transition hover:border-accent-500 hover:text-white hover:shadow-glow disabled:cursor-not-allowed disabled:opacity-50;
+    @apply inline-flex items-center justify-center gap-2 rounded-xl border border-ink-700 bg-ink-800/80 px-4 py-2.5 text-sm font-medium text-ink-100 transition hover:border-accent-500 hover:text-white hover:shadow-glow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/50 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100;
   }
   .btn-primary {
     @apply btn border-accent-500/60 bg-accent-500/15 text-accent-400 hover:bg-accent-500/25;
@@ -120,6 +120,9 @@
   }
   .input {
     @apply w-full rounded-xl border border-ink-700 bg-ink-900/60 px-4 py-2.5 text-ink-100 placeholder-ink-400 outline-none transition focus:border-accent-500/60 focus:ring-2 focus:ring-accent-500/20;
+  }
+  .focus-ring {
+    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/40;
   }
   .label {
     @apply block text-xs font-medium uppercase tracking-wider text-ink-300 mb-1.5;
@@ -179,3 +182,13 @@
 
 /* Sidebar in light mode */
 [data-theme="light"] aside { border-right-color: var(--ink-700); }
+
+/* ── Respect prefers-reduced-motion (WCAG 2.3.3) ───────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

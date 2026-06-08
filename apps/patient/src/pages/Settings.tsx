@@ -86,7 +86,7 @@ export default function Settings() {
   return (
     <div className="flex-1 overflow-y-auto overscroll-contain">
       <div className="px-4 py-5 space-y-6 max-w-2xl mx-auto">
-        <h1 className="text-xl font-semibold text-white">Settings</h1>
+        <h1 className="font-display text-2xl text-white tracking-tight">Settings</h1>
 
         {/* ── Language & Display ───────────────────────────────── */}
         <Section title="Language & Display">
@@ -125,14 +125,14 @@ export default function Settings() {
                   onClick={() => setFontSize(s)}
                   aria-label={`Text size ${s === 'sm' ? 'small' : s === 'md' ? 'medium' : 'large'}`}
                   aria-pressed={fontSize === s}
-                  className={`px-3 py-2.5 transition min-h-[44px] ${
+                  className={`flex min-w-[44px] min-h-[44px] items-center justify-center px-3 py-2.5 leading-none transition focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-500 ${
                     fontSize === s
                       ? 'bg-brand-600 text-white'
                       : 'bg-ink-700 text-ink-400 hover:bg-ink-600'
                   }`}
                 >
-                  {s === 'sm' ? 'A' : s === 'md' ? 'A' : 'A'}
-                  <span className="sr-only">{s}</span>
+                  <span aria-hidden="true" className={s === 'sm' ? 'text-[11px]' : s === 'md' ? 'text-sm' : 'text-lg'}>A</span>
+                  <span className="sr-only">{s === 'sm' ? 'Small' : s === 'md' ? 'Medium' : 'Large'}</span>
                 </button>
               ))}
             </div>

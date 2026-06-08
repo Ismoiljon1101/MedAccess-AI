@@ -465,7 +465,7 @@ export default function FindCare() {
       <div className="shrink-0 px-4 pt-4 pb-3 border-b border-ink-700">
         <div className="flex items-center justify-between gap-2 mb-3">
           <div>
-            <h2 className="text-base font-semibold text-white">Find Care</h2>
+            <h2 className="font-display text-xl text-white tracking-tight">Find Care</h2>
             <p className="text-xs text-ink-500 mt-0.5">Hospitals · Clinics · Pharmacies</p>
           </div>
           <div className="flex items-center gap-1.5">
@@ -476,7 +476,7 @@ export default function FindCare() {
                 onClick={() => setViewMode('list')}
                 aria-label="List view"
                 aria-pressed={viewMode === 'list'}
-                className={`flex items-center gap-1 rounded-md px-2 py-1 text-[10px] font-medium transition ${
+                className={`flex items-center gap-1 rounded-md px-2.5 py-1.5 text-[11px] font-medium transition ${
                   viewMode === 'list'
                     ? 'bg-brand-600/20 text-brand-400 border border-brand-500/40'
                     : 'text-ink-500 hover:text-ink-200'
@@ -489,7 +489,7 @@ export default function FindCare() {
                 onClick={() => setViewMode('map')}
                 aria-label="Map view"
                 aria-pressed={viewMode === 'map'}
-                className={`flex items-center gap-1 rounded-md px-2 py-1 text-[10px] font-medium transition ${
+                className={`flex items-center gap-1 rounded-md px-2.5 py-1.5 text-[11px] font-medium transition ${
                   viewMode === 'map'
                     ? 'bg-brand-600/20 text-brand-400 border border-brand-500/40'
                     : 'text-ink-500 hover:text-ink-200'
@@ -508,7 +508,7 @@ export default function FindCare() {
                   onClick={() => setMapProvider(p)}
                   aria-label={`Use ${p === 'google' ? 'Google' : 'Naver'} Maps for directions`}
                   aria-pressed={mapProvider === p}
-                  className={`flex items-center gap-1 rounded-md px-2 py-1 text-[10px] font-medium transition ${
+                  className={`flex items-center gap-1 rounded-md px-2.5 py-1.5 text-[11px] font-medium transition ${
                     mapProvider === p
                       ? 'bg-brand-600/20 text-brand-400 border border-brand-500/40'
                       : 'text-ink-500 hover:text-ink-200'
@@ -1010,7 +1010,7 @@ export default function FindCare() {
                     </div>
                     <div>
                       <label className="label">Phone</label>
-                      <input className="input" type="tel" placeholder="+998…" value={pPhone} onChange={(e) => setPPhone(e.target.value)} />
+                      <input className="input" type="tel" inputMode="tel" placeholder="+82 10…" value={pPhone} onChange={(e) => setPPhone(e.target.value)} />
                     </div>
                     <div>
                       <label className="label">Age</label>

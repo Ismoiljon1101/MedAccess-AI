@@ -71,7 +71,7 @@ function NavItems({ items }: { items: NavItem[] }) {
           to={to}
           className={({ isActive }) =>
             [
-              'flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-all',
+              'flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/40',
               isActive
                 ? 'bg-accent-500/15 text-accent-400 ring-1 ring-accent-500/30 font-medium'
                 : 'text-ink-300 hover:bg-ink-800/80 hover:text-white',
@@ -137,7 +137,7 @@ export default function Sidebar() {
         <button
           type="button"
           onClick={logout}
-          className="w-full flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-ink-400 hover:bg-red-500/10 hover:text-red-400 transition-all"
+          className="w-full flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-ink-400 hover:bg-danger-500/10 hover:text-danger-500 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger-500/40"
         >
           <LogOut size={16} />
           <span>Sign out</span>

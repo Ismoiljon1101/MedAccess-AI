@@ -65,7 +65,7 @@ export default function EmergencyCheck() {
 
         {/* Header */}
         <div>
-          <h1 className="text-xl font-semibold text-white">Is this an emergency?</h1>
+          <h1 className="font-display text-2xl text-white tracking-tight">Is this an emergency?</h1>
           <p className="mt-1 text-sm text-ink-400">
             Describe what's happening — age, main complaint, how long it's been going on.
           </p>

@@ -73,9 +73,9 @@ export default function Prescriptions() {
       {/* Header */}
       <div className="shrink-0 border-b border-ink-700/60 px-6 py-5 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <Pill size={20} className="text-violet-400" />
+          <Pill size={20} className="text-accent-400" />
           <div>
-            <h1 className="text-base font-semibold text-white">Prescription Queue</h1>
+            <h1 className="font-display text-xl text-white tracking-tight">Prescription Queue</h1>
             <p className="text-xs text-ink-300 mt-0.5">Requests forwarded from MA Agent & doctors</p>
           </div>
         </div>
@@ -83,7 +83,7 @@ export default function Prescriptions() {
           type="button"
           onClick={() => load(false)}
           disabled={loading}
-          className="flex items-center gap-1.5 rounded-lg border border-ink-600 bg-ink-800 px-3 py-1.5 text-xs text-ink-200 hover:border-violet-500/50 transition"
+          className="flex items-center gap-1.5 rounded-lg border border-ink-600 bg-ink-800 px-3 py-1.5 text-xs text-ink-200 hover:border-accent-500/50 transition"
         >
           <RefreshCw size={13} className={loading ? 'animate-spin' : ''} /> Refresh
         </button>
@@ -98,7 +98,7 @@ export default function Prescriptions() {
             onClick={() => setFilter(f)}
             className={`rounded-full px-3 py-1 text-xs font-medium border transition capitalize ${
               filter === f
-                ? 'border-violet-500/60 bg-violet-500/15 text-violet-400'
+                ? 'border-accent-500/60 bg-accent-500/15 text-accent-400'
                 : 'border-ink-600 bg-ink-800 text-ink-300 hover:border-ink-500'
             }`}
           >
@@ -108,7 +108,7 @@ export default function Prescriptions() {
       </div>
 
       {error && (
-        <div className="shrink-0 mx-6 mt-2 rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-400">
+        <div className="shrink-0 mx-6 mt-2 rounded-xl border border-danger-500/30 bg-danger-500/10 px-3 py-2 text-xs text-danger-500">
           {error}
         </div>
       )}
@@ -131,23 +131,23 @@ export default function Prescriptions() {
         {filtered.map((rx) => {
           const isOpen = expanded === rx._id;
           return (
-            <div key={rx._id} className="rounded-2xl border border-ink-700/60 bg-ink-900/60 overflow-hidden">
+            <div key={rx._id} className="card overflow-hidden">
               <div className="p-4 flex items-start gap-3">
                 {/* Icon */}
-                <div className="mt-0.5 flex items-center justify-center rounded-xl border border-violet-500/40 bg-violet-500/10 p-2 text-violet-400">
+                <div className="mt-0.5 flex items-center justify-center rounded-xl border border-accent-500/40 bg-accent-500/10 p-2 text-accent-400">
                   <Pill size={13} />
                 </div>
 
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="text-sm font-semibold text-white">{rx.patientName}</span>
-                    <span className="inline-flex items-center gap-1 rounded-full border border-violet-500/30 bg-violet-500/10 px-2 py-0.5 text-[10px] text-violet-400">
+                    <span className="inline-flex items-center gap-1 rounded-full border border-accent-500/30 bg-accent-500/10 px-2 py-0.5 text-[10px] text-accent-400">
                       <Pill size={9} /> {rx.specialty}
                     </span>
                     <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
-                      rx.status === 'confirmed' ? 'bg-green-500/15 text-green-400' :
+                      rx.status === 'confirmed' ? 'bg-ok-500/15 text-ok-500' :
                       rx.status === 'cancelled' ? 'bg-ink-700 text-ink-400' :
-                      'bg-yellow-500/15 text-yellow-400'
+                      'bg-warn-500/15 text-warn-500'
                     }`}>{rx.status}</span>
                   </div>
 
@@ -208,7 +208,7 @@ export default function Prescriptions() {
                     type="button"
                     disabled={updating === rx._id}
                     onClick={() => handleAction(rx._id, 'confirmed')}
-                    className="flex-1 flex items-center justify-center gap-1.5 rounded-xl border border-violet-500/40 bg-violet-500/10 py-2 text-xs font-medium text-violet-400 hover:bg-violet-500/20 transition disabled:opacity-50"
+                    className="flex-1 flex items-center justify-center gap-1.5 rounded-xl border border-accent-500/40 bg-accent-500/10 py-2 text-xs font-medium text-accent-400 hover:bg-accent-500/20 transition disabled:opacity-50"
                   >
                     {updating === rx._id ? <Loader2 size={13} className="animate-spin" /> : <CheckCircle size={13} />}
                     Dispense
@@ -217,21 +217,21 @@ export default function Prescriptions() {
                     type="button"
                     disabled={updating === rx._id}
                     onClick={() => handleAction(rx._id, 'cancelled')}
-                    className="flex items-center justify-center gap-1.5 rounded-xl border border-ink-600 bg-ink-800 px-4 py-2 text-xs font-medium text-ink-400 hover:border-red-500/40 hover:text-red-400 transition disabled:opacity-50"
+                    className="flex items-center justify-center gap-1.5 rounded-xl border border-ink-600 bg-ink-800 px-4 py-2 text-xs font-medium text-ink-400 hover:border-danger-500/40 hover:text-danger-500 transition disabled:opacity-50"
                   >
                     <XCircle size={13} /> Flag
                   </button>
                 </div>
               )}
               {rx.status === 'confirmed' && (
-                <div className="border-t border-ink-700/60 px-4 py-2 flex items-center gap-2 text-xs text-violet-400">
+                <div className="border-t border-ink-700/60 px-4 py-2 flex items-center gap-2 text-xs text-accent-400">
                   <CheckCircle size={13} /> Dispensed
                 </div>
               )}
               {rx.status === 'cancelled' && (
                 <div className="border-t border-ink-700/60 px-4 py-2 flex items-center justify-between">
                   <span className="text-xs text-ink-500 flex items-center gap-1.5"><XCircle size={13} /> Flagged / declined</span>
-                  <button type="button" onClick={() => handleAction(rx._id, 'pending')} className="text-[11px] text-violet-400 hover:underline">
+                  <button type="button" onClick={() => handleAction(rx._id, 'pending')} className="text-[11px] text-accent-400 hover:underline">
                     Reopen
                   </button>
                 </div>

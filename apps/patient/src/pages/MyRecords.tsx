@@ -56,7 +56,7 @@ export default function MyRecords() {
       <div className="shrink-0 px-4 pt-4 pb-0 border-b border-ink-700">
         <div className="flex items-center justify-between mb-3">
           <div>
-            <h2 className="text-base font-semibold text-white">My Records</h2>
+            <h2 className="font-display text-xl text-white tracking-tight">My Records</h2>
             <p className="text-xs text-ink-500 mt-0.5">Consultations &amp; appointments</p>
           </div>
           <button
@@ -126,7 +126,7 @@ export default function MyRecords() {
               {sortedChats.map((session) => (
                 <div
                   key={session.sessionId}
-                  className="card p-3.5 flex items-start gap-3 cursor-pointer hover:border-ink-600 transition-colors"
+                  className="card p-3.5 flex items-start gap-3 cursor-pointer hover:border-ink-600 transition-colors animate-fade-up focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/50"
                   onClick={() => navigate(`/?s=${session.sessionId}`)}
                   role="button"
                   tabIndex={0}
@@ -188,7 +188,7 @@ export default function MyRecords() {
           ) : (
             <div className="flex-1 overflow-y-auto px-3 py-3 space-y-2">
               {sortedAppts.map((appt) => (
-                <div key={appt.appointmentId} className="card p-4 space-y-2">
+                <div key={appt.appointmentId} className="card p-4 space-y-2 animate-fade-up">
                   {/* Top row */}
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex-1 min-w-0">
