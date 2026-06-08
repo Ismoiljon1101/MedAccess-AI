@@ -155,9 +155,14 @@ Required components (Otabek):
 ```bash
 git pull origin develop
 pnpm install
-cp .env.example .env   # fill OPENROUTER_API_KEY — ask Ismail for the key
+cp .env.example .env   # fill OPENROUTER_API_KEY — ask Ismail (REQUIRED for chat/symptoms/triage/reports)
 pnpm dev               # starts API :4000, clinic :5173, patient :5174
+node scripts/seed-demo.mjs   # populate demo Seoul clinics — run AFTER the API is up
 ```
+
+> ⚠️ **Two gotchas that make the demo look broken:**
+> 1. **No `OPENROUTER_API_KEY`** → chat, symptoms, triage, and image analysis all fail silently (the entire AI core). `/api/health` shows `providers.openrouter:false`. Mirsaid procures, Ismail installs.
+> 2. **Find Care is empty without the seed.** The redesign ships no persistent seed data; with the in-memory DB (no `MONGODB_URI`) the facility list starts empty, so Find Care shows nothing and nothing is bookable. Run `node scripts/seed-demo.mjs` after the API boots (8 Seoul clinics + 11 doctors, covering every specialty the MA Agent suggests). Re-run after each API restart unless `MONGODB_URI` is set.
 
 ### Feature checklist — test EVERY item, record pass ✅ or fail ❌ + notes
 

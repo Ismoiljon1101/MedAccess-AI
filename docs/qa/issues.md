@@ -45,13 +45,40 @@ Sobirov pulls SEV-3 / SEV-4 with `owner: unassigned`. Otabek and Ismail handle S
   2. Google Maps Places API key (`GOOGLE_MAPS_KEY`) not set in `.env` → Tier 2 always silently fails outside Uzbekistan.
 - **Console errors:** none (Tier 2 failure is caught silently)
 - **Screenshot:** `docs/screenshots/findcare_no_results_seoul.png`
-- **Owner:** Ismail
-- **Status:** assigned
-- **Notes:** Fix options:
-  - (A) When no Tier 1 results AND Tier 2 fails, show "No in-network clinics nearby — search by city instead" with city search pre-focused. Don't leave empty screen.
-  - (B) Soft-apply specialty filter: show all in-network facilities first when specialty filter returns zero, with a note "No {specialty} specialists found — showing all nearby clinics"
-  - (C) Mirsaid: procure Google Maps API key → Tier 2 will automatically show Seoul hospitals
-  - **Immediate fix (no API key needed):** When specialty filter returns 0 results, clear it and reload without specialty filter. Show a banner: "No Pulmonology specialists in our network near you — showing all nearby clinics"
+- **Owner:** Ismail / Otabek
+- **Status:** fixed
+- **Notes:** Resolved by two parts, both now in place:
+  - (B) **Soft specialty filter — DONE.** `FindCare.tsx` already retries without the specialty when it returns 0 and shows the "No {specialty} specialists in our network nearby — showing all available clinics" banner (`specialtyFallback`).
+  - **Real root cause was no facility data, not the filter.** `/api/facilities` returned 0 because the redesign ships no persistent seed and the in-memory DB starts empty. Fixed with `scripts/seed-demo.mjs` (Otabek) — registers 8 Seoul clinics + 11 doctors via the public open-registration endpoints, covering every MA-Agent specialty. **Must be re-run after each API restart** unless `MONGODB_URI` is set. See TODO.md §2.5.
+  - (C) Google/Naver Maps key still unset → Tier 2 map fallback stays in stub mode. Mirsaid to procure if real-world (non-network) results are wanted for the demo.
+
+## #002 · [SEV-2] Clinic Patient Queue shows raw IDs instead of names for manual bookings
+- **Found on:** Clinic app, 2026-06-08 (surfaced once demo facilities were seeded)
+- **Repro:**
+  1. Seed facilities (`node scripts/seed-demo.mjs`), then book via patient Find Care (or `POST /api/appointments`)
+  2. Open clinic app → Patient Queue
+- **Expected:** Queue row shows patient name, doctor name, facility name
+- **Actual:** `GET /api/appointments` (the `getQueue` path in `appointment.service.ts`) returns `patientId` / `doctorId` / `facilityId` only — no `patientName` / `doctorName` / `facilityName` / `patientPhone`. `Patients.tsx` reads `ref.patientName` etc., so those render blank. The agent-booking path populates `agentAnalysis`; the manual `book()` path does not join names.
+- **Console errors:** none
+- **Owner:** Ismail (fix is in `appointment.service.ts getQueue` — gated service, needs his sign-off)
+- **Status:** open
+- **Notes:** Fix = populate name fields in `getQueue` (join Doctor/Facility/Patient, both DB and in-memory branches). Frontend could add a fallback (`ref.patientName ?? ref.patientPhone ?? 'Patient'`) as a stopgap — Otabek can do that ungated if wanted.
+
+## #003 · [SEV-1] OPENROUTER_API_KEY empty → entire AI core dead
+- **Found on:** All apps, 2026-06-08 (local `.env`)
+- **Repro:** `curl localhost:4000/api/health` → `providers.openrouter:false`. Chat/symptoms/triage/reports all fail.
+- **Expected:** AI features stream responses
+- **Actual:** No key set in `.env`, so the LLM gateway is disabled. This is the single biggest demo blocker.
+- **Owner:** Mirsaid (procure OpenRouter key) → Ismail (install in `.env`)
+- **Status:** open
+- **Notes:** Not code — purely an env/credential gap. Nothing in the AI half of the loop can be verified until this is set.
+
+## #004 · [SEV-4] TODO §4 endpoint checklist references removed `/api/clinics`
+- **Found on:** Docs, 2026-06-08
+- **Repro:** `curl localhost:4000/api/clinics` → 404. Routes were renamed to `/api/facilities` + `/api/appointments` in the MVC redesign.
+- **Owner:** unassigned (Sobirov-friendly doc fix)
+- **Status:** open
+- **Notes:** Update the §4 Endpoint Verification Checklist in TODO.md to the current route names (`/api/facilities`, `/api/appointments`, `/api/maps`).
 
 <!--
 Template — copy this for each new bug:
