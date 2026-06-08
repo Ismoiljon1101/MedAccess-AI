@@ -122,6 +122,22 @@ export default function Triage() {
         </div>
       )}
 
+      {loading && !result && (
+        <div className="space-y-4">
+          <div className="card card-pad">
+            <div className="flex items-center gap-4">
+              <div className="h-8 w-24 rounded-lg bg-ink-700 animate-pulse" />
+              <div className="h-3 w-40 rounded bg-ink-700 animate-pulse" />
+            </div>
+          </div>
+          <div className="card card-pad space-y-2.5">
+            <div className="h-3 w-1/3 rounded bg-ink-700 animate-pulse" />
+            <div className="h-3 w-full rounded bg-ink-700 animate-pulse" />
+            <div className="h-3 w-4/5 rounded bg-ink-700 animate-pulse" />
+          </div>
+        </div>
+      )}
+
       {result && (
         <div className="space-y-4">
           <div className="card card-pad">

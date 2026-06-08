@@ -146,6 +146,23 @@ export default function Reports() {
         </div>
       )}
 
+      {loading && !result && (
+        <div className="space-y-4">
+          <div className="card card-pad space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="h-4 w-40 rounded bg-ink-700 animate-pulse" />
+              <div className="h-4 w-20 rounded-full bg-ink-700 animate-pulse" />
+            </div>
+            <div className="h-3 w-2/3 rounded bg-ink-700 animate-pulse" />
+          </div>
+          <div className="card card-pad space-y-2.5">
+            <div className="h-3 w-1/3 rounded bg-ink-700 animate-pulse" />
+            <div className="h-3 w-full rounded bg-ink-700 animate-pulse" />
+            <div className="h-3 w-5/6 rounded bg-ink-700 animate-pulse" />
+          </div>
+        </div>
+      )}
+
       {result?.analysis && (
         <div className="space-y-4">
           <div className="card card-pad space-y-3">
