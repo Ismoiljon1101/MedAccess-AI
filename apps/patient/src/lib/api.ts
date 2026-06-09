@@ -227,6 +227,7 @@ export async function* streamChatRequest(
     lat?: number;
     lng?: number;
     signal?: AbortSignal;
+    model?: string;
   },
 ): AsyncGenerator<ChatStreamEvent> {
   const res = await fetch(`${BASE}/api/chat/stream`, {
@@ -240,6 +241,7 @@ export async function* streamChatRequest(
       patientPhone: opts?.patientPhone,
       lat: opts?.lat,
       lng: opts?.lng,
+      model: opts?.model,
     }),
     signal: opts?.signal,
   });

@@ -26,12 +26,13 @@ import { getVoiceToken, getVoiceStatus, streamChatRequest, transcribeAudio } fro
 import type { VoiceToken } from '@/lib/api';
 import { useAppStore } from '@/store/app';
 
-// ── Free OpenRouter models for voice ──────────────────────────────────────────
+// ── Voice models — matches the project's chosen stack (cheap Chinese LLMs).
+// id '' = use the server's configured default (OPENROUTER_CHAT_MODEL = Qwen),
+// so the default always tracks whatever the team set in .env.
 const VOICE_MODELS = [
-  { id: 'google/gemini-2.0-flash-exp:free',        label: 'Gemini 2.0 Flash' },
-  { id: 'meta-llama/llama-3.3-70b-instruct:free',  label: 'Llama 3.3 70B' },
-  { id: 'deepseek/deepseek-r1:free',               label: 'DeepSeek R1' },
-  { id: 'meta-llama/llama-3.1-8b-instruct:free',   label: 'Llama 3.1 8B (fast)' },
+  { id: '',                          label: 'Qwen 3.5 Plus · default' },
+  { id: 'qwen/qwen3.6-flash',        label: 'Qwen 3.6 Flash · fast'   },
+  { id: 'deepseek/deepseek-r1:free', label: 'DeepSeek R1 · free'      },
 ];
 
 /** Map app language code → BCP-47 tag accepted by SpeechRecognition */
@@ -74,7 +75,7 @@ function Waveform({ active, color = 'brand' }: { active: boolean; color?: string
 
 // ── Core voice UI ─────────────────────────────────────────────────────────────
 function VoiceUI({
-  model: _model,
+  model,
   sessionId,
   language,
   onEnd,
@@ -100,6 +101,7 @@ function VoiceUI({
   const abortRef      = useRef<AbortController | null>(null);
   const speechRef     = useRef<SpeechRecognition | null>(null);
   const liveSessionRef = useRef(sessionId);
+  const modelRef       = useRef(model);
 
   // Keep refs in sync
   function setVoiceStateSynced(s: VoiceState) {
@@ -109,6 +111,7 @@ function VoiceUI({
 
   useEffect(() => { mutedRef.current = muted; }, [muted]);
   useEffect(() => { liveSessionRef.current = liveSession; }, [liveSession]);
+  useEffect(() => { modelRef.current = model; }, [model]);
 
   // ── Cleanup on unmount ────────────────────────────────────────────────
   useEffect(() => {
@@ -170,7 +173,8 @@ function VoiceUI({
     abortRef.current = ctrl;
     try {
       let assembled = '';
-      for await (const ev of streamChatRequest(text, liveSessionRef.current, language, { signal: ctrl.signal })) {
+      let streamError: string | null = null;
+      for await (const ev of streamChatRequest(text, liveSessionRef.current, language, { signal: ctrl.signal, model: modelRef.current || undefined })) {
         if (ctrl.signal.aborted) break;
         if (ev.type === 'meta' && ev.data.sessionId) {
           setLiveSession(ev.data.sessionId);
@@ -178,13 +182,25 @@ function VoiceUI({
         } else if (ev.type === 'token') {
           assembled += ev.data.delta ?? '';
           setAiText(assembled);
-        } else if (ev.type === 'done' || ev.type === 'error') break;
+        } else if (ev.type === 'error') {
+          streamError = ev.data?.message ?? 'error';
+          break;
+        } else if (ev.type === 'done') break;
       }
-      speak(assembled);
+      // Don't loop silently when the AI is unreachable (e.g. OPENROUTER_API_KEY
+      // unset) — say so out loud so the user knows why nothing came back.
+      if (streamError || !assembled.trim()) {
+        const msg = "Sorry — I can't reach the AI service right now. Please try again in a moment.";
+        setAiText(msg);
+        speak(msg);
+      } else {
+        speak(assembled);
+      }
     } catch (e: any) {
       if (e.name !== 'AbortError') {
-        setVoiceStateSynced('idle');
-        if (shouldLoopRef.current) setTimeout(() => startListening(), 500);
+        const msg = "Sorry — I couldn't connect. Please check your connection and try again.";
+        setAiText(msg);
+        speak(msg);
       }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
