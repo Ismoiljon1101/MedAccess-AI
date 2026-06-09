@@ -30,9 +30,9 @@ import { useAppStore } from '@/store/app';
 // id '' = use the server's configured default (OPENROUTER_CHAT_MODEL = Qwen),
 // so the default always tracks whatever the team set in .env.
 const VOICE_MODELS = [
-  { id: '',                          label: 'Qwen 3.5 Plus · default' },
-  { id: 'qwen/qwen3.6-flash',        label: 'Qwen 3.6 Flash · fast'   },
-  { id: 'deepseek/deepseek-r1:free', label: 'DeepSeek R1 · free'      },
+  { id: '',                               label: 'MA Agent · default'  },
+  { id: 'deepseek/deepseek-chat-v3-0324', label: 'DeepSeek V3'         },
+  { id: 'qwen/qwen-2.5-7b-instruct',      label: 'Qwen 2.5 · fast'     },
 ];
 
 /** Map app language code → BCP-47 tag accepted by SpeechRecognition */
