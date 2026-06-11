@@ -4,8 +4,7 @@ import { Interview, dbReady } from '@medaccess/db';
 import { chat, chatStream } from '../services/llm.js';
 import { formatContext, ragStatus, retrieve, toCitations } from '../services/rag.js';
 import { appendMessage, ensureSession, getSession, newSessionId, replaceMessages } from '../utils/sessions.js';
-import { getAllActiveDoctors } from '../services/facility.service.js';
-import { findBestOption } from '../services/agent-booking.service.js';
+import { searchEnrolled, getUpcomingSlots } from '../services/facility.service.js';
 import { getIdByPhone } from '../services/patient.service.js';
 import { HttpError } from '../middleware/error.js';
 
@@ -33,39 +32,39 @@ function detectSpecialty(messages: Array<{ role: string; content: string }>): st
   return 'General Practice';
 }
 
-// Whether the agent response suggests the patient needs in-person care
-function agentSuggestsCare(assembled: string): boolean {
-  const lower = assembled.toLowerCase();
-  return (
-    lower.includes('see a doctor') ||
-    lower.includes('visit a doctor') ||
-    lower.includes('medical attention') ||
-    lower.includes('seek care') ||
-    lower.includes('consult a') ||
-    lower.includes('see a specialist') ||
-    lower.includes('recommend seeing') ||
-    lower.includes('in-person') ||
-    lower.includes('병원에') ||
-    lower.includes('진료를') ||
-    lower.includes('의사를')
-  );
-}
+/**
+ * Build the bookable options the agent may propose — real facility names,
+ * distance, and the doctor's REAL upcoming open slots so the agent never
+ * invents a time. Falls back to all enrolled facilities when no GPS/specialty.
+ */
+async function getBookableDoctors(specialty: string, lat?: number, lng?: number) {
+  let facilities = await searchEnrolled({ specialty, lat, lng, radius: 100 });
+  if (facilities.length === 0) facilities = await searchEnrolled({ lat, lng, radius: 100 });
 
-async function getMatchedDoctors(specialty: string) {
-  const all = await getAllActiveDoctors(specialty);
-  if (all.length > 0) return all.slice(0, 3);
-  return (await getAllActiveDoctors()).slice(0, 3);
-}
+  const options: Array<{
+    id: string; name: string; specialty: string;
+    facilityId: string; facilityName: string; languages: string[];
+    distanceKm?: number | null; slots: { date: string; startTime: string }[];
+  }> = [];
 
-function enrichWithFacilityNames(doctors: any[]) {
-  return doctors.map((d) => ({
-    id:           String(d._id ?? d.id),
-    name:         d.name,
-    specialty:    d.specialty,
-    facilityId:   String(d.facilityId),
-    facilityName: String(d.facilityId),
-    languages:    d.languages ?? [],
-  }));
+  for (const f of facilities.slice(0, 3)) {
+    const doc =
+      (f.doctors ?? []).find((d: any) => d.specialty?.toLowerCase().includes(specialty.toLowerCase())) ??
+      (f.doctors ?? [])[0];
+    if (!doc) continue;
+    const slots = await getUpcomingSlots(doc.id, f.id, 5);
+    options.push({
+      id:           String(doc.id),
+      name:         doc.name,
+      specialty:    doc.specialty,
+      facilityId:   String(f.id),
+      facilityName: f.name,
+      languages:    doc.languages ?? [],
+      distanceKm:   f.distanceKm,
+      slots,
+    });
+  }
+  return options;
 }
 
 // ── POST /api/chat ────────────────────────────────────────────────────────────
@@ -85,7 +84,7 @@ router.post('/', async (req, res, next) => {
 
     const s = getSession(sessionId)!;
     const specialty = detectSpecialty(s.messages);
-    const enrolledDoctors = enrichWithFacilityNames(await getMatchedDoctors(specialty));
+    const enrolledDoctors = await getBookableDoctors(specialty);
     const system = interviewSystemPrompt({ context, language: parsed.language, enrolledDoctors });
 
     const { text, model } = await chat({
@@ -145,7 +144,7 @@ router.post('/stream', async (req, res, next) => {
 
     const s = getSession(sessionId)!;
     const specialty = detectSpecialty(s.messages);
-    const enrolledDoctors = enrichWithFacilityNames(await getMatchedDoctors(specialty));
+    const enrolledDoctors = await getBookableDoctors(specialty, lat, lng);
     const system = interviewSystemPrompt({ context, language: parsed.language, enrolledDoctors });
 
     res.setHeader('Content-Type', 'text/event-stream');
@@ -192,22 +191,10 @@ router.post('/stream', async (req, res, next) => {
       ).catch(() => {});
     }
 
-    // ── Agent booking proposal trigger ────────────────────────────────────────
-    // Propose after ≥3 user turns when agent suggests care AND location known
-    const userTurns = getSession(sessionId)!.messages.filter((m) => m.role === 'user').length;
-    const hasLocation = lat != null && lng != null;
-    const shouldPropose = hasLocation && userTurns >= 3 && agentSuggestsCare(assembled) && specialty !== 'General Practice';
-
-    if (shouldPropose) {
-      try {
-        const proposal = await findBestOption({ specialty, urgency: 'see-clinician-soon', lat, lng, patientId, sessionId });
-        if (proposal) {
-          res.write(`event: booking_proposal\ndata: ${JSON.stringify(proposal)}\n\n`);
-        }
-      } catch {
-        // Non-fatal — booking proposal is best-effort
-      }
-    }
+    // Booking is now fully conversational: the agent proposes a real injected
+    // slot and emits a hidden <<BOOK>> marker on confirmation (see prompts.ts).
+    // The old server-side booking_proposal card has been retired to avoid two
+    // competing booking UIs.
 
     res.write(`event: done\ndata: ${JSON.stringify({ sessionId })}\n\n`);
     res.end();

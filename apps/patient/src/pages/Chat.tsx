@@ -7,7 +7,7 @@ import { AiAvatar, type AvatarState } from '@/components/AiAvatar';
 import ImageCaptureFlow from '@/components/ImageCaptureFlow';
 import type { ImageModality } from '@/components/ImageCaptureFlow';
 import BookingFlow from '@/components/BookingFlow';
-import { streamChatRequest, loadSession, analyzeReport, confirmAgentBooking, type AgentBookingProposal } from '@/lib/api';
+import { streamChatRequest, loadSession, analyzeReport, confirmAgentBooking, bookAppointment, type AgentBookingProposal } from '@/lib/api';
 import { useAppStore } from '@/store/app';
 
 interface RagCitation {
@@ -22,6 +22,9 @@ interface BookingAction {
   facilityId: string;
   specialty: string;
   reason: string;
+  // Present when the agent booked conversationally (real injected slot) → auto-book silently.
+  date?: string;
+  time?: string;
 }
 
 interface Message {
@@ -112,6 +115,8 @@ export default function Chat() {
         facilityId: payload.facilityId,
         specialty: payload.specialty,
         reason: payload.reason,
+        date: payload.date,
+        time: payload.time,
       },
     };
   }
@@ -307,9 +312,11 @@ export default function Chat() {
           ),
         );
 
-        // Check for booking action
+        // Booking action: conversational (has real slot) → book silently;
+        // otherwise fall back to the in-chat picker card.
         if (booking) {
-          setPendingBooking(booking);
+          if (booking.date && booking.time) autoBook(booking);
+          else setPendingBooking(booking);
         }
 
         // Check for clinical snapshot → show Connect to Care CTA
@@ -390,6 +397,46 @@ export default function Chat() {
 
   function handleBooked(result: { date: string; time: string; doctorName: string; facilityName: string }) {
     setBookingConfirmed({ date: result.date, time: result.time });
+  }
+
+  // ── Conversational booking: agent emitted a real slot → book silently ─────
+  async function autoBook(booking: BookingAction) {
+    if (!booking.date || !booking.time) return;
+    // No identity → can't complete server-side; fall back to the in-chat picker.
+    if (!patientPhone) { setPendingBooking(booking); return; }
+    try {
+      const result = await bookAppointment({
+        patientPhone,
+        doctorId:      booking.doctorId,
+        facilityId:    booking.facilityId,
+        specialty:     booking.specialty,
+        urgency:       'see-clinician-soon',
+        scheduledDate: booking.date,
+        scheduledTime: booking.time,
+        agentSummary:  buildAgentSummary(booking.specialty, booking.reason),
+        sessionId,
+      });
+      setBookingConfirmed({ date: result.scheduledDate, time: result.scheduledTime });
+      addAppointment({
+        appointmentId:    result.appointmentId,
+        facilityId:       booking.facilityId,
+        facilityName:     '',
+        doctorId:         booking.doctorId,
+        doctorName:       booking.doctorName,
+        specialty:        booking.specialty,
+        date:             result.scheduledDate,
+        startTime:        result.scheduledTime,
+        endTime:          result.scheduledEndTime,
+        scheduledDate:    result.scheduledDate,
+        scheduledTime:    result.scheduledTime,
+        scheduledEndTime: result.scheduledEndTime,
+        status:           'pending',
+        bookedAt:         Date.now(),
+      });
+    } catch {
+      // Slot taken or transient error — fall back to the picker so the patient can retry.
+      setPendingBooking(booking);
+    }
   }
 
   async function handleCaptureConfirm(file: File, _modality: ImageModality) {

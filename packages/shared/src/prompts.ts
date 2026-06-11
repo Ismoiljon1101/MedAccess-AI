@@ -28,19 +28,38 @@ CLINICAL SAFETY RULES:
 export interface PromptContext {
   context?: string;
   language?: string;
-  enrolledDoctors?: Array<{ id: string; name: string; specialty: string; facilityId: string; facilityName: string; languages: string[] }>;
+  enrolledDoctors?: Array<{
+    id: string;
+    name: string;
+    specialty: string;
+    facilityId: string;
+    facilityName: string;
+    languages: string[];
+    distanceKm?: number | null;
+    /** Real, currently-open slots the agent may propose. The agent must never invent a time. */
+    slots?: Array<{ date: string; startTime: string }>;
+  }>;
 }
 
 export function interviewSystemPrompt(ctx: PromptContext = {}): string {
   const { context = '', language, enrolledDoctors = [] } = ctx;
   const doctorSection = enrolledDoctors.length ? `
-ENROLLED DOCTORS (you can suggest to book):
-${enrolledDoctors.map((d) => `- Dr. ${d.name} (${d.specialty} at ${d.facilityName}) — speaks ${d.languages.join(', ')}`).join('\n')}
+ENROLLED DOCTORS YOU CAN BOOK — these "Open times" are REAL and currently free. NEVER invent a time:
+${enrolledDoctors.map((d) => {
+  const dist = d.distanceKm != null ? ` · ${d.distanceKm.toFixed(1)}km away` : '';
+  const slots = (d.slots ?? []).length
+    ? (d.slots ?? []).map((s) => `${s.date} ${s.startTime}`).join(', ')
+    : 'no open times in the next few days';
+  return `- Dr. ${d.name} (${d.specialty} at ${d.facilityName}${dist}) — speaks ${d.languages.join(', ')}\n    Open times: ${slots}`;
+}).join('\n')}
 
-When you reach a point where the patient needs specialized care, suggest ONE matching doctor by emitting a marker whose payload is STRICT JSON with double-quoted keys:
-<<BOOK:{"doctorId":"${enrolledDoctors[0]?.id || 'doctor-id'}","doctorName":"Dr. Name","facilityId":"${enrolledDoctors[0]?.facilityId || 'facility-id'}","specialty":"Specialty","reason":"brief reason for referral"}>>
-
-IMPORTANT: The booking marker must be on its own line at the END of your message, with all JSON keys double-quoted. The patient sees an in-chat booking card to pick a clinic and time — do not write out the raw marker text yourself.` : '';
+BOOKING FLOW (fully conversational — there are NO buttons; you drive the whole booking in chat):
+1. When the patient needs specialist care, name ONE matching doctor + clinic and propose ONE specific open time from that doctor's "Open times" list. Ask them to confirm — e.g. "Dr. ${enrolledDoctors[0]?.name || 'Kim'} at ${enrolledDoctors[0]?.facilityName || 'the clinic'} has an opening on ${enrolledDoctors[0]?.slots?.[0] ? `${enrolledDoctors[0].slots[0].date} at ${enrolledDoctors[0].slots[0].startTime}` : 'a day this week'} — shall I book it for you?".
+2. ONLY propose a date/time that appears in that doctor's "Open times" list above. If none are listed, say you'll have the clinic follow up instead of inventing a slot.
+3. If the patient wants a different time, offer another time FROM the list.
+4. ONLY after the patient clearly agrees (e.g. "yes", "book it", "sounds good"), emit — on its OWN LINE — a marker with STRICT double-quoted JSON, using the EXACT date (YYYY-MM-DD) and time (HH:MM) from the list:
+<<BOOK:{"doctorId":"${enrolledDoctors[0]?.id || 'doctor-id'}","facilityId":"${enrolledDoctors[0]?.facilityId || 'facility-id'}","specialty":"Specialty","date":"YYYY-MM-DD","time":"HH:MM","reason":"brief referral reason"}>>
+5. NEVER show, mention, or describe the marker to the patient. Write one short, warm confirmation sentence (e.g. "All set — I've booked that for you.") and put the marker on the next line. The app turns the marker into a real appointment automatically.` : '';
 
   return `${SAFETY_PREAMBLE}
 

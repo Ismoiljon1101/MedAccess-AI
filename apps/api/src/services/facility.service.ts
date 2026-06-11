@@ -203,6 +203,30 @@ export async function getAvailableSlots(
   return all.filter((s) => !bookedTimes.has(s.startTime));
 }
 
+// ── Collect the next N open slots within the next `days` business days ────────
+// Used to feed the conversational agent REAL bookable times (never invent one).
+export async function getUpcomingSlots(
+  doctorId: string,
+  facilityId: string,
+  maxSlots = 5,
+  days = 7,
+): Promise<{ date: string; startTime: string }[]> {
+  const out: { date: string; startTime: string }[] = [];
+  for (let i = 1; i <= days && out.length < maxSlots; i++) {
+    const d = new Date();
+    d.setDate(d.getDate() + i);
+    if (d.getDay() === 0) continue; // Sunday — closed
+    const dateStr = d.toISOString().slice(0, 10);
+    const slots = await getAvailableSlots(doctorId, facilityId, dateStr);
+    if (!slots) continue;
+    for (const s of slots) {
+      out.push({ date: dateStr, startTime: s.startTime });
+      if (out.length >= maxSlots) break;
+    }
+  }
+  return out;
+}
+
 // ── Find next available slot within 7 days ───────────────────────────────────
 export async function findNextAvailableSlot(
   doctorId: string,
