@@ -23,9 +23,17 @@ from __future__ import annotations
 import io
 import os
 import ssl
+import sys
 import time
 from pathlib import Path
 from typing import Literal
+
+# Windows cp1252 consoles crash on Unicode glyphs in our log lines — force UTF-8.
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")  # type: ignore[union-attr]
+    except Exception:
+        pass
 
 import cv2
 import numpy as np

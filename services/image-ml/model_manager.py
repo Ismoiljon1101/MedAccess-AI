@@ -26,6 +26,14 @@ import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
 
+# Windows consoles default to cp1252, which crashes on the ↓/✓ glyphs we print.
+# Force UTF-8 so model download logging never aborts startup.
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")  # type: ignore[union-attr]
+    except Exception:
+        pass
+
 # Korean ISP TLS bypass — same justification as elsewhere in this service
 ssl._create_default_https_context = ssl._create_unverified_context  # type: ignore
 

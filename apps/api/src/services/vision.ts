@@ -111,7 +111,7 @@ export async function analyzeImageFull(
       messages: [{ role: 'user', content: prompt }],
       model: defaultChatModel(),
       temperature: 0.2,
-      maxTokens: 1200,
+      maxTokens: 700,
       json: true,
     });
 
