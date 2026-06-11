@@ -126,8 +126,14 @@ export async function getQueue(filter: {
   if (dbReady()) {
     const q: Record<string, unknown> = {};
     if (filter.facilityId) q['facilityId'] = filter.facilityId;
-    if (filter.doctorId)   q['doctorId']   = filter.doctorId;
     if (filter.status)     q['status']     = filter.status;
+
+    // Resilience: skip legacy/corrupt rows whose doctorId/facilityId are not real
+    // ObjectIds (e.g. "d14" from the old fake-data era). A single such row would
+    // otherwise make .populate() throw a Cast error and 500 the whole queue.
+    if (filter.doctorId) q['doctorId'] = filter.doctorId;
+    else                 q['doctorId'] = { $type: 'objectId' };
+    if (!filter.facilityId) q['facilityId'] = { $type: 'objectId' };
 
     return Appointment.find(q)
       .populate('patientId', 'fullName phone email sex dateOfBirth knownAllergies chronicConditions currentMedications emergencyContact')
