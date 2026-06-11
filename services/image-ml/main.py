@@ -34,19 +34,19 @@ from fastapi.middleware.cors import CORSMiddleware
 from PIL import Image
 from pydantic import BaseModel, Field
 
+from model_manager import MODELS_DIR, ensure_all, model_status
+
 
 # ── SSL bypass for Korean ISP TLS inspection (same reason as Node) ─────────
 ssl._create_default_https_context = ssl._create_unverified_context  # type: ignore
 
-# ── Model paths ───────────────────────────────────────────────────────────────
-BASE_DIR   = Path(__file__).parent
-MODELS_DIR = BASE_DIR / "models"
-MODELS_DIR.mkdir(exist_ok=True)
-
+# ── Model paths (filenames match model_manager.MODELS) ────────────────────────
 MALARIA_MODEL_PATH  = MODELS_DIR / "malaria-yolov8s.pt"
-SKIN_MODEL_PATH     = MODELS_DIR / "skin-ham10000.pt"
-SKIN_ONNX_PATH      = MODELS_DIR / "skin-xception.onnx"  # converted from Skin_Disease_AI (92% acc)
-SKIN_SAVEDMODEL_DIR = MODELS_DIR / "skin-xception"        # TF SavedModel directory
+SKIN_CONVNEXT_PATH  = MODELS_DIR / "skin-convnext-ham10000.pth"
+SKIN_MODEL_PATH     = MODELS_DIR / "skin-ham10000.pt"          # legacy YOLO HAM10000 (kept for back-compat)
+SKIN_ONNX_PATH      = MODELS_DIR / "skin-xception.onnx"        # legacy Xception ONNX (Temirlan's path)
+SKIN_SAVEDMODEL_DIR = MODELS_DIR / "skin-xception"
+EYE_DR_ONNX_PATH    = MODELS_DIR / "eye-dr-detect.onnx"        # diabetic retinopathy classifier
 
 # Skin_Disease_AI 6-class labels (Xception, 92% accuracy, NadavIs56/Skin_Disease_AI)
 SKIN_XCEPTION_CLASSES = ["acne", "carcinoma", "eczema", "keratosis", "millia", "rosacea"]
@@ -60,6 +60,14 @@ HAM10000_CLASSES = [
     "benign keratosis",
     "dermatofibroma",
     "vascular lesion",
+]
+
+# BlairFerg DR ONNX is a binary classifier — output shape [1, 2]:
+#   index 0 → no diabetic retinopathy
+#   index 1 → diabetic retinopathy detected (grade not separated)
+DR_CLASSES = [
+    "no diabetic retinopathy",
+    "diabetic retinopathy detected",
 ]
 
 # TorchXRayVision pathology labels (DenseNet121-all outputs 18 pathologies)
@@ -95,11 +103,25 @@ def get_malaria_model() -> object | None:
 
 def get_skin_model() -> tuple[object | None, str, str]:
     """Returns (model, model_name, model_type).
-    Priority: Xception ONNX (92%) → HAM10000 YOLO → None.
+    Priority: ConvNeXt HAM10000 (auto-downloaded) → Xception ONNX → HAM10000 YOLO → None.
     NEVER uses base ImageNet YOLO — gives dangerous results on medical images."""
     if "skin" not in _models:
-        # 1. Try Xception ONNX (Skin_Disease_AI, 92% accuracy, NadavIs56)
-        if SKIN_ONNX_PATH.exists():
+        # 1. ConvNeXt-Base HAM10000 — auto-downloaded by model_manager
+        if SKIN_CONVNEXT_PATH.exists():
+            try:
+                import torch  # type: ignore
+                import timm  # type: ignore
+                model_obj = timm.create_model("convnext_base", num_classes=7, pretrained=False)
+                state = torch.load(str(SKIN_CONVNEXT_PATH), map_location="cpu", weights_only=False)
+                model_obj.load_state_dict(state, strict=False)
+                model_obj.eval()
+                _models["skin"] = (model_obj, "skin-convnext-ham10000", "convnext")
+                print("[models] Skin: ConvNeXt-Base HAM10000 loaded (7 classes)")
+            except Exception as exc:
+                print(f"[models] ConvNeXt load failed: {exc}")
+                _models["skin"] = (None, "", "")
+        # 2. Xception ONNX (Skin_Disease_AI, 92% accuracy, NadavIs56) — legacy path
+        elif SKIN_ONNX_PATH.exists():
             try:
                 import onnxruntime as ort  # type: ignore
                 sess = ort.InferenceSession(
@@ -111,7 +133,7 @@ def get_skin_model() -> tuple[object | None, str, str]:
             except Exception as exc:
                 print(f"[models] Xception ONNX load failed: {exc}")
                 _models["skin"] = (None, "", "")
-        # 2. Try HAM10000 YOLO (86-92% with CLAHE)
+        # 3. HAM10000 YOLO (86-92% with CLAHE)
         elif SKIN_MODEL_PATH.exists():
             m = _load_yolo(SKIN_MODEL_PATH)
             _models["skin"] = (m, "skin-ham10000", "yolo") if m else (None, "", "")
@@ -119,6 +141,27 @@ def get_skin_model() -> tuple[object | None, str, str]:
         else:
             _models["skin"] = (None, "", "")
     return _models["skin"]  # type: ignore
+
+
+def get_eye_model() -> tuple[object | None, str, str]:
+    """Returns (model_or_session, model_name, model_type).
+    Currently: BlairFerg DR ONNX (auto-downloaded). Returns (None,...) if absent."""
+    if "eye" not in _models:
+        if EYE_DR_ONNX_PATH.exists():
+            try:
+                import onnxruntime as ort  # type: ignore
+                sess = ort.InferenceSession(
+                    str(EYE_DR_ONNX_PATH),
+                    providers=["CPUExecutionProvider"],
+                )
+                _models["eye"] = (sess, "eye-dr-onnx", "onnx")
+                print("[models] Eye: DR ONNX loaded")
+            except Exception as exc:
+                print(f"[models] Eye DR ONNX load failed: {exc}")
+                _models["eye"] = (None, "", "")
+        else:
+            _models["eye"] = (None, "", "")
+    return _models["eye"]  # type: ignore
 
 
 def get_xray_model() -> object | None:
@@ -190,6 +233,23 @@ app.add_middleware(
 )
 
 
+@app.on_event("startup")
+def _pull_weights_on_startup() -> None:
+    """Auto-download any missing managed weights on boot.
+
+    Set SKIP_MODEL_DOWNLOADS=1 to disable (e.g. CI, air-gapped deployments).
+    Failures are non-fatal: missing weights → that modality returns
+    `skipped:true`; everything else still serves.
+    """
+    if os.environ.get("SKIP_MODEL_DOWNLOADS") == "1":
+        print("[startup] SKIP_MODEL_DOWNLOADS=1 — skipping weight auto-download")
+        return
+    try:
+        ensure_all()
+    except Exception as exc:
+        print(f"[startup] weight auto-download error (continuing): {exc}")
+
+
 class Finding(BaseModel):
     label: str
     confidence: float = Field(..., ge=0.0, le=1.0)
@@ -210,17 +270,32 @@ class AnalyzeResponse(BaseModel):
 
 @app.get("/healthz")
 def healthz() -> dict[str, object]:
-    loaded = []
-    if MALARIA_MODEL_PATH.exists(): loaded.append("malaria-yolov8s")
-    if SKIN_ONNX_PATH.exists():     loaded.append("skin-xception-92pct")
-    elif SKIN_MODEL_PATH.exists():  loaded.append("skin-ham10000")
+    loaded: list[str] = []
+    if MALARIA_MODEL_PATH.exists():    loaded.append("malaria-yolov8s")
+    if SKIN_CONVNEXT_PATH.exists():    loaded.append("skin-convnext-ham10000")
+    elif SKIN_ONNX_PATH.exists():      loaded.append("skin-xception-92pct")
+    elif SKIN_MODEL_PATH.exists():     loaded.append("skin-ham10000")
+    if EYE_DR_ONNX_PATH.exists():      loaded.append("eye-dr-onnx")
     # Check if TorchXRayVision is importable (doesn't trigger download)
     try:
         import torchxrayvision  # type: ignore  # noqa: F401
         loaded.append("torchxrayvision-available")
     except ImportError:
         pass
-    return {"ok": True, "service": "medaccess-image-ml", "version": app.version, "models_loaded": loaded}
+    return {
+        "ok": True,
+        "service": "medaccess-image-ml",
+        "version": app.version,
+        "models_loaded": loaded,
+        "managed_models": model_status(),
+    }
+
+
+@app.post("/admin/pull-models")
+def pull_models(force: bool = False) -> dict[str, object]:
+    """Manually trigger weight downloads (idempotent)."""
+    status = ensure_all(force=force)
+    return {"ok": True, "downloaded": status, "managed_models": model_status()}
 
 
 @app.post("/analyze", response_model=AnalyzeResponse)
@@ -280,8 +355,53 @@ async def analyze(
 
         findings = []
 
+        # ── ConvNeXt HAM10000 path (Ratnakar01/convnext_ham10000_best) ────
+        if model_type == "convnext":
+            try:
+                import torch  # type: ignore
+                import torch.nn.functional as F  # type: ignore
+                # Preprocess: ImageNet normalization, 224×224 input
+                img_rgb = cv2.cvtColor(preprocess_skin(img_np), cv2.COLOR_BGR2RGB)
+                img_resized = cv2.resize(img_rgb, (224, 224)).astype(np.float32) / 255.0
+                mean = np.array([0.485, 0.456, 0.406], dtype=np.float32)
+                std = np.array([0.229, 0.224, 0.225], dtype=np.float32)
+                img_norm = (img_resized - mean) / std
+                tensor = torch.from_numpy(img_norm).permute(2, 0, 1).unsqueeze(0).float()
+                # The loaded "model" is whatever was pickled. If it's an nn.Module run it;
+                # if it's a state_dict, fall back gracefully (logs which case we hit).
+                if hasattr(model, "eval"):
+                    model.eval()  # type: ignore
+                    with torch.no_grad():
+                        logits = model(tensor)  # type: ignore
+                    probs = F.softmax(logits, dim=1)[0].cpu().numpy()
+                    for idx, conf in enumerate(probs):
+                        if idx >= len(HAM10000_CLASSES):
+                            break
+                        conf = float(conf)
+                        if conf >= 0.05:
+                            findings.append(Finding(
+                                label=HAM10000_CLASSES[idx],
+                                confidence=round(conf, 3),
+                                notes="ConvNeXt HAM10000 community checkpoint",
+                            ))
+                    findings.sort(key=lambda f: f.confidence, reverse=True)
+                    findings = findings[:5]
+                else:
+                    # State-dict only — would need an architecture wrapper to run.
+                    return AnalyzeResponse(
+                        image_type="skin", skipped=True,
+                        skipped_reason="skin-convnext checkpoint is a state_dict — needs a ConvNeXt arch wrapper to run.",
+                        model_used=model_name, processing_ms=elapsed_ms(),
+                    )
+            except Exception as exc:
+                return AnalyzeResponse(
+                    image_type="skin", skipped=True,
+                    skipped_reason=f"ConvNeXt skin inference error: {exc}",
+                    model_used=model_name, processing_ms=elapsed_ms(),
+                )
+
         # ── Xception ONNX path (Skin_Disease_AI, 92% accuracy) ────
-        if model_type == "onnx":
+        elif model_type == "onnx":
             import onnxruntime as ort  # type: ignore
             # Preprocess: resize to 299x299, apply Xception preprocessing [-1, 1]
             img_rgb = cv2.cvtColor(img_np, cv2.COLOR_BGR2RGB)
@@ -368,10 +488,57 @@ async def analyze(
                 model_used="torchxrayvision", processing_ms=elapsed_ms(),
             )
 
+    # ── Eye fundus (diabetic retinopathy) ─────────────────────────
+    if image_type == "eye":
+        sess, model_name, model_type = get_eye_model()
+        if sess is None:
+            return AnalyzeResponse(
+                image_type="eye", skipped=True,
+                skipped_reason="Eye DR model not present. Boot the sidecar to auto-download, or POST /admin/pull-models.",
+                model_used="", processing_ms=elapsed_ms(),
+            )
+        try:
+            # ONNX DR classifier — 224×224 RGB, ImageNet normalization
+            img_rgb = cv2.cvtColor(img_np, cv2.COLOR_BGR2RGB)
+            img_resized = cv2.resize(img_rgb, (224, 224)).astype(np.float32) / 255.0
+            mean = np.array([0.485, 0.456, 0.406], dtype=np.float32)
+            std = np.array([0.229, 0.224, 0.225], dtype=np.float32)
+            img_norm = (img_resized - mean) / std
+            inp = np.transpose(img_norm, (2, 0, 1))[np.newaxis, ...].astype(np.float32)
+            input_name = sess.get_inputs()[0].name  # type: ignore
+            out = sess.run(None, {input_name: inp})[0][0]  # type: ignore
+            # Apply softmax in numpy
+            exps = np.exp(out - np.max(out))
+            probs = exps / exps.sum()
+            findings = []
+            for idx, conf in enumerate(probs):
+                if idx >= len(DR_CLASSES):
+                    break
+                conf = float(conf)
+                if conf >= 0.05:
+                    findings.append(Finding(
+                        label=DR_CLASSES[idx],
+                        confidence=round(conf, 3),
+                        notes="DR classifier (community ONNX, accuracy TBD)",
+                    ))
+            findings.sort(key=lambda f: f.confidence, reverse=True)
+            return AnalyzeResponse(
+                image_type="eye", skipped=False,
+                findings=findings[:5],
+                model_used=model_name,
+                processing_ms=elapsed_ms(),
+            )
+        except Exception as exc:
+            return AnalyzeResponse(
+                image_type="eye", skipped=True,
+                skipped_reason=f"Eye inference error: {exc}",
+                model_used=model_name, processing_ms=elapsed_ms(),
+            )
+
     # ── Unknown / other ───────────────────────────────────────────
     return AnalyzeResponse(
         image_type=image_type, skipped=True,
-        skipped_reason=f"Type '{image_type}' — no specialist model loaded yet. Add hint='skin'/'xray'/'malaria' if misdetected.",
+        skipped_reason=f"Type '{image_type}' — no specialist model loaded yet. Add hint='skin'/'xray'/'eye'/'malaria' if misdetected.",
         model_used="", processing_ms=elapsed_ms(),
     )
 
