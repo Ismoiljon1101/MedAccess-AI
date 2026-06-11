@@ -34,6 +34,24 @@ curl http://localhost:5001/healthz
 
 To call from Node, set `IMAGE_ML_URL=http://localhost:5001` in the root `.env`. If the env var is unset, the Node API skips this sidecar entirely (graceful degradation).
 
+### Specialist models (auto-pulled on startup)
+
+On first boot, `model_manager.py` downloads any missing weights from HuggingFace into `models/` so a fresh clone "just works." Subsequent boots are instant (idempotent — already-present files are skipped).
+
+| Model file | Modality | Source | Size | Notes |
+|---|---|---|---|---|
+| `skin-convnext-ham10000.pth` | Skin lesions (HAM10000 7-class) | `Ratnakar01/convnext_ham10000_best` | 334 MB | ConvNeXt-Base, loaded via `timm` |
+| `eye-dr-detect.onnx` | Diabetic retinopathy (binary) | `BlairFerg/diabetic-retinopathy-detection` | 214 MB | Auto-runs via `onnxruntime` |
+| (auto-fetched) | Chest X-ray (18 pathologies) | TorchXRayVision DenseNet121-all | ~135 MB | First inference call fetches from xrv CDN |
+| `malaria-yolov8s.pt` | Blood-smear parasites | _(none — original HF source 401s)_ | — | Missing → `/analyze` returns `skipped:true`. Temirlan picks alternative or trains. |
+
+Manual control:
+- `curl -X POST http://localhost:5001/admin/pull-models` — pull anything missing
+- `curl -X POST 'http://localhost:5001/admin/pull-models?force=true'` — re-download everything
+- `SKIP_MODEL_DOWNLOADS=1 uvicorn main:app --port 5001` — air-gapped boot
+
+⚠️ **Accuracy note:** the skin (ConvNeXt) and eye (DR ONNX) checkpoints are open-weight community models. They prove the specialist-routing pipeline but have NOT been independently evaluated against benchmark splits. Run `eval/` before any clinical claim. None are FDA/CE cleared.
+
 ---
 
 ## HTTP contract (stable — do not break)

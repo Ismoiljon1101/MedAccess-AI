@@ -46,9 +46,11 @@ Ismail reviewed and rewrote the entire architecture. All concerns resolved:
 | FindCare GPS + OSM map view + list/map toggle | ✅ Done (Otabek) |
 | Korea/Naver defaults — no Uzbekistan seed data | ✅ Done (Ismail, 2026-06-04) |
 | Image thumbnails in chat | ✅ Done (Otabek) |
-| Specialist disease models: **YOLOv8s-Malaria** (Phase 1, MIT) | ✅ Done — running on :5001 |
-| Specialist disease models: **TorchXRayVision DenseNet121-all** X-ray (Phase 2) | ✅ Done — running on :5001 |
-| Specialist disease models: **EfficientNet-B0** skin (Phase 3, 95.5%) | 🔴 **BLOCKED** — Temirlan needs x86/Mac for ONNX conversion |
+| Specialist disease models: **YOLOv8s-Malaria** (Phase 1, MIT) | 🔴 **Blocked** — `keremberke/yolov8s-malaria-detection` HF source now 401s. Sidecar correctly returns `skipped:true`. Temirlan picks alternative or trains. |
+| Specialist disease models: **TorchXRayVision DenseNet121-all** X-ray (Phase 2) | ✅ **Live on :5001** — auto-fetches weights from xrv CDN on first call |
+| Specialist disease models: **EfficientNet-B0** skin (Phase 3, 95.5%) | ⚠️ Temirlan's preferred model still pending ONNX conversion; **temporarily replaced with ConvNeXt-Base HAM10000** (`Ratnakar01/...`, 334 MB, auto-downloaded, accuracy TBD) so the skin path is demoable now. |
+| Specialist disease models: **Diabetic-retinopathy** (eye fundus, binary) | ✅ **Live on :5001** — `BlairFerg/diabetic-retinopathy-detection.onnx`, 214 MB, auto-downloaded |
+| Image-ML auto-pull-on-boot (`model_manager.py`) | ✅ Done — `uvicorn main:app` downloads any missing weights, then serves; failures are non-fatal (`skipped:true`) |
 | `pnpm typecheck` clean across all workspaces | ✅ Done (Ismail, 2026-06-04) |
 | Frontend design pass — both apps | 📋 Todo (Ismail, use `/frontend-design`) |
 | PWA Lighthouse audit ≥ 90 | 📋 Todo (Otabek) |
@@ -156,8 +158,18 @@ Required components (Otabek):
 git pull origin develop
 pnpm install
 cp .env.example .env   # fill OPENROUTER_API_KEY — ask Ismail (REQUIRED for chat/symptoms/triage/reports)
-pnpm dev               # starts API :4000, clinic :5173, patient :5174
-node scripts/seed-demo.mjs   # populate demo Seoul clinics — run AFTER the API is up
+
+# Image-ML sidecar (specialist medical vision: skin/eye/X-ray). Optional but
+# strongly recommended — without it, image analysis is "skipped".
+cd services/image-ml
+python -m venv .venv
+.venv\Scripts\python -m pip install -r requirements.txt
+.venv\Scripts\python -m uvicorn main:app --port 5001
+# (auto-downloads ~550 MB of weights on first boot; idempotent thereafter)
+cd ../..
+
+pnpm dev                       # starts API :4000, clinic :5173, patient :5174
+node scripts/seed-demo.mjs     # populate demo Seoul clinics — AFTER API is up
 ```
 
 > ⚠️ **Two gotchas that make the demo look broken:**
