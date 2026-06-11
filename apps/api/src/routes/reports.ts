@@ -17,27 +17,35 @@ router.post('/analyze', imageUpload.single('image'), async (req, res, next) => {
 
     const result = await analyzeImageFull({ buffer: req.file.buffer, mimetype: req.file.mimetype, userNote, language, model });
 
+    // Persist the analysis and return its id so the patient app can attach it to
+    // the booking (agentAnalysis.imageReportId) → the doctor sees the structured
+    // AI Image Analysis card on the Patient Queue.
+    let reportId: string | undefined;
     if (dbReady() && result.analysis) {
       const patientId = req.body?.patientPhone
         ? (await getIdByPhone(req.body.patientPhone) ?? undefined)
         : undefined;
 
-      ReportAnalysis.create({
-        patientId,
-        sessionId:         req.body.sessionId,
-        imageType:         result.analysis.imageType,
-        qualityNotes:      result.analysis.qualityNotes,
-        keyObservations:   result.analysis.keyObservations,
-        findings:          result.analysis.possibleFindings,
-        suggestedFollowUp: result.analysis.suggestedFollowUp,
-        disclaimer:        result.analysis.disclaimer,
-        model:             result.model,
-        imageMimeType:     req.file!.mimetype,
-        imageSizeBytes:    req.file!.size,
-      }).catch(() => {});
+      try {
+        const doc = await ReportAnalysis.create({
+          patientId,
+          sessionId:         req.body.sessionId,
+          imageType:         result.analysis.imageType,
+          qualityNotes:      result.analysis.qualityNotes,
+          keyObservations:   result.analysis.keyObservations,
+          findings:          result.analysis.possibleFindings,
+          suggestedFollowUp: result.analysis.suggestedFollowUp,
+          disclaimer:        result.analysis.disclaimer,
+          model:             result.model,
+          imageMimeType:     req.file!.mimetype,
+          imageSizeBytes:    req.file!.size,
+        });
+        reportId = String(doc._id);
+      } catch { /* non-fatal — analysis still returned to the patient */ }
     }
 
     res.json({
+      reportId,
       model:    result.model,
       analysis: result.analysis,
       raw:      result.analysis ? undefined : result.raw,

@@ -405,6 +405,7 @@ export default function Chat() {
     // No identity → can't complete server-side; fall back to the in-chat picker.
     if (!patientPhone) { setPendingBooking(booking); return; }
     try {
+      const imageReportId = lastImageAnalysisRef.current?.reportId;
       const result = await bookAppointment({
         patientPhone,
         doctorId:      booking.doctorId,
@@ -414,6 +415,7 @@ export default function Chat() {
         scheduledDate: booking.date,
         scheduledTime: booking.time,
         agentSummary:  buildAgentSummary(booking.specialty, booking.reason),
+        agentAnalysis: imageReportId ? { imageReportId } : undefined,
         sessionId,
       });
       setBookingConfirmed({ date: result.scheduledDate, time: result.scheduledTime });
@@ -649,6 +651,7 @@ export default function Chat() {
           patientPhone={patientPhone}
           sessionId={sessionId}
           agentSummary={buildAgentSummary(bookingSession.specialty, bookingSession.reason)}
+          imageReportId={lastImageAnalysisRef.current?.reportId}
           preferredDoctorId={bookingSession.preferredDoctorId}
           preferredFacilityId={bookingSession.preferredFacilityId}
           onBooked={handleBooked}

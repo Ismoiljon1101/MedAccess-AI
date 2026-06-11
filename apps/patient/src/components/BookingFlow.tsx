@@ -17,6 +17,8 @@ interface BookingFlowProps {
   sessionId?: string;
   /** Rich, clinician-facing summary attached to the appointment. */
   agentSummary: string;
+  /** Saved image-analysis report id — surfaces the AI Image Analysis card to the doctor. */
+  imageReportId?: string;
   /** When the agent suggested a specific doctor (<<BOOK>> marker), preselect that clinic. */
   preferredDoctorId?: string;
   preferredFacilityId?: string;
@@ -55,7 +57,7 @@ function matchingDoctor(f: FacilityResult, specialty: string, preferredDoctorId?
 }
 
 export default function BookingFlow(props: BookingFlowProps) {
-  const { specialty, urgency, lat, lng, patientPhone, sessionId, agentSummary,
+  const { specialty, urgency, lat, lng, patientPhone, sessionId, agentSummary, imageReportId,
           preferredDoctorId, preferredFacilityId, onBooked, onClose } = props;
 
   const [step, setStep]           = useState<Step>('clinic');
@@ -72,25 +74,34 @@ export default function BookingFlow(props: BookingFlowProps) {
   const [slotsLoading, setSlotsLoading] = useState(false);
   const [slot, setSlot]           = useState<SlotResult | null>(null);
 
+  const [fallbackNote, setFallbackNote] = useState(false);
+
   // ── Load clinics for this specialty near the patient ──────────────────
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    searchFacilities({ specialty, lat, lng, radius: 100 })
-      .then((list) => {
+    (async () => {
+      try {
+        // First try clinics that have a doctor in this specialty…
+        let list = await searchFacilities({ specialty, lat, lng, radius: 100 });
+        let usable = list.filter((f) => matchingDoctor(f, specialty, preferredDoctorId));
+        // …and if none, fall back to ANY enrolled clinic nearby (better than a dead end).
+        if (usable.length === 0) {
+          list = await searchFacilities({ lat, lng, radius: 100 });
+          usable = list.filter((f) => (f.doctors ?? []).length > 0);
+          if (!cancelled && usable.length > 0) setFallbackNote(true);
+        }
         if (cancelled) return;
-        // keep only clinics that actually have a usable doctor
-        const usable = list.filter((f) => matchingDoctor(f, specialty, preferredDoctorId));
         setFacilities(usable);
-        // Auto-advance if the agent already named a clinic
-        const pre = preferredFacilityId
-          ? usable.find((f) => f.id === preferredFacilityId)
-          : undefined;
+        const pre = preferredFacilityId ? usable.find((f) => f.id === preferredFacilityId) : undefined;
         if (pre) selectFacility(pre);
-        else if (usable.length === 0) setError('No in-network clinics found for this specialty nearby.');
-      })
-      .catch((e) => { if (!cancelled) setError(e.message || 'Could not load clinics'); })
-      .finally(() => { if (!cancelled) setLoading(false); });
+        else if (usable.length === 0) setError('No clinics are enrolled nearby yet.');
+      } catch (e: any) {
+        if (!cancelled) setError(e.message || 'Could not load clinics');
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [specialty]);
@@ -139,6 +150,7 @@ export default function BookingFlow(props: BookingFlowProps) {
         specialty,
         urgency:       urgency || 'see-clinician-soon',
         agentSummary,
+        agentAnalysis: imageReportId ? { imageReportId } : undefined,
         sessionId,
       });
       setStep('done');
@@ -197,6 +209,11 @@ export default function BookingFlow(props: BookingFlowProps) {
         {/* ── Step: pick clinic ─────────────────────────────────────── */}
         {step === 'clinic' && (
           <>
+            {fallbackNote && !loading && (
+              <p className="mb-2.5 rounded-lg border border-warn-500/25 bg-warn-500/10 px-3 py-2 text-[11px] text-warn-400">
+                No in-network <span className="font-medium">{specialty}</span> specialist yet — showing the nearest enrolled clinics. The clinic can refer you onward.
+              </p>
+            )}
             {loading ? (
               <div className="flex items-center gap-2 py-6 justify-center text-xs text-ink-400">
                 <Loader2 size={14} className="animate-spin" /> Finding clinics near you…

@@ -348,6 +348,7 @@ export async function getMyAppointments(patientPhone: string): Promise<Appointme
 // ---------- report analysis -------------------------------------------------
 
 export interface ReportAnalysisResult {
+  reportId?: string;   // saved ReportAnalysis _id — attach to a booking so the doctor sees it
   imageType: string;
   qualityNotes: string;
   keyObservations: string[];
@@ -373,6 +374,7 @@ export async function analyzeReport(
   const data = await res.json();
   const a = data.analysis ?? {};
   return {
+    reportId:          data.reportId,
     imageType:         a.imageType         ?? '',
     qualityNotes:      a.qualityNotes      ?? '',
     keyObservations:   a.keyObservations   ?? [],
@@ -429,6 +431,7 @@ export interface BookAppointmentPayload {
   urgency?: string;
   maAgentSummary?: string;  // old field name
   agentSummary?: string;    // new field name
+  agentAnalysis?: { symptomsId?: string; triageId?: string; imageReportId?: string };
   sessionId?: string;
 }
 
@@ -457,6 +460,7 @@ export async function bookAppointment(payload: BookAppointmentPayload): Promise<
     scheduledDate: payload.scheduledDate || payload.date || '',
     scheduledTime: payload.scheduledTime || payload.startTime || '',
     agentSummary:  payload.agentSummary || payload.maAgentSummary,
+    agentAnalysis: payload.agentAnalysis,
     sessionId:     payload.sessionId,
   };
   const res = await fetch(`${BASE}/api/appointments`, {

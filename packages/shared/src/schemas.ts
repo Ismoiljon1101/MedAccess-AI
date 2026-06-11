@@ -195,6 +195,11 @@ export const BookAppointmentSchema = z.object({
   scheduledDate: z.string().min(1),
   scheduledTime: z.string().min(1),
   agentSummary: z.string().max(4000).optional(),
+  agentAnalysis: z.object({
+    symptomsId:    z.string().optional(),
+    triageId:      z.string().optional(),
+    imageReportId: z.string().optional(),
+  }).optional(),
   sessionId: z.string().optional(),
   slotId: z.string().optional(),
 });

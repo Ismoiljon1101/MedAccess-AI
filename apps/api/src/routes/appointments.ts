@@ -28,6 +28,7 @@ router.post('/', async (req, res, next) => {
       scheduledTime:       parsed.scheduledTime,
       consultationMinutes: (doctor as any).consultationMinutes ?? 30,
       agentSummary:        parsed.agentSummary,
+      agentAnalysis:       parsed.agentAnalysis,
       sessionId:           parsed.sessionId,
     });
 
