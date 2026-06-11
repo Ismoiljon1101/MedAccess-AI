@@ -1,34 +1,24 @@
-﻿/**
- * VoiceMode — hands-free, continuous voice conversation with MA Agent.
+/**
+ * VoiceMode — push-to-talk voice conversation with MA Agent.
  *
- * Flow:
- *   1. Page opens → automatically starts listening (no button tap required)
- *   2. User speaks → live transcript shown (interimResults)
- *   3. User PAUSES → browser detects silence → auto-submits to LLM
- *   4. LLM streams → TTS reads response aloud
- *   5. TTS finishes → automatically starts listening again (loop)
+ * Flow (hold-to-speak, release-to-send — prevents interruptions):
+ *   1. Hold the mic button → records (MediaRecorder) + live transcript (Web Speech)
+ *   2. Release → audio goes to Whisper STT (server); browser transcript is the fallback
+ *   3. Transcript → chat LLM (streamed) → spoken aloud via browser TTS
+ *   4. Back to idle — hold again to talk. No auto-loop, no barge-in races.
  *
- * Silence detection: handled natively by the browser.
- *   continuous=false → stops after one utterance (user's natural pause)
- *   interimResults=true → live transcript while speaking
- *   No manual silence timer needed.
- *
- * VAD/interruption: if user starts speaking while AI is talking,
- *   TTS is cancelled and we go back to listening.
+ * LiveKit realtime was intentionally removed: push-to-talk is far more reliable
+ * to demo and needs no realtime media server.
  */
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { X, Mic, MicOff, Volume2, VolumeX, ChevronDown, Loader2 } from 'lucide-react';
-import { LiveKitRoom, RoomAudioRenderer } from '@livekit/components-react';
+import { X, Mic, Volume2, VolumeX, ChevronDown, Loader2 } from 'lucide-react';
 import { AiAvatar } from '@/components/AiAvatar';
 import type { AvatarState } from '@/components/AiAvatar';
-import { getVoiceToken, getVoiceStatus, streamChatRequest, transcribeAudio } from '@/lib/api';
-import type { VoiceToken } from '@/lib/api';
+import { streamChatRequest, transcribeAudio } from '@/lib/api';
 import { useAppStore } from '@/store/app';
 
-// ── Voice models — matches the project's chosen stack (cheap Chinese LLMs).
-// id '' = use the server's configured default (OPENROUTER_CHAT_MODEL = Qwen),
-// so the default always tracks whatever the team set in .env.
+// id '' = server's configured default (OPENROUTER_CHAT_MODEL).
 const VOICE_MODELS = [
   { id: '',                               label: 'MA Agent · default'  },
   { id: 'deepseek/deepseek-chat-v3-0324', label: 'DeepSeek V3'         },
@@ -46,7 +36,7 @@ function toLangTag(lang: string): string {
   return map[lang] ?? lang;
 }
 
-type VoiceState = 'idle' | 'listening' | 'thinking' | 'speaking';
+type VoiceState = 'idle' | 'recording' | 'thinking' | 'speaking';
 
 // ── Animated waveform ─────────────────────────────────────────────────────────
 function Waveform({ active, color = 'brand' }: { active: boolean; color?: string }) {
@@ -56,9 +46,7 @@ function Waveform({ active, color = 'brand' }: { active: boolean; color?: string
       {Array.from({ length: bars }).map((_, i) => (
         <div
           key={i}
-          className={`w-[3px] rounded-full transition-all duration-150 ${
-            active ? `bg-${color}-400` : 'bg-ink-700'
-          }`}
+          className={`w-[3px] rounded-full transition-all duration-150 ${active ? `bg-${color}-400` : 'bg-ink-700'}`}
           style={
             active
               ? {
@@ -90,20 +78,20 @@ function VoiceUI({
   const [aiText, setAiText]         = useState('');
   const [muted, setMuted]           = useState(false);
   const [liveSession, setLiveSession] = useState(sessionId);
+  const [errMsg, setErrMsg]         = useState<string | null>(null);
 
   // Refs so closure callbacks always see current values
   const voiceStateRef = useRef<VoiceState>('idle');
-  const mutedRef      = useRef(false);
-  const transcriptRef = useRef('');       // captured transcript from current utterance
-  const shouldLoopRef = useRef(true);     // keep auto-restarting
-  const mediaRef      = useRef<MediaRecorder | null>(null);
-  const chunksRef     = useRef<Blob[]>([]);
-  const abortRef      = useRef<AbortController | null>(null);
-  const speechRef     = useRef<SpeechRecognition | null>(null);
+  const mutedRef       = useRef(false);
+  const srTranscriptRef = useRef('');           // browser transcript (live + fallback)
+  const mediaRef       = useRef<MediaRecorder | null>(null);
+  const streamRef      = useRef<MediaStream | null>(null);
+  const chunksRef      = useRef<Blob[]>([]);
+  const abortRef       = useRef<AbortController | null>(null);
+  const srRef          = useRef<SpeechRecognition | null>(null);
   const liveSessionRef = useRef(sessionId);
   const modelRef       = useRef(model);
 
-  // Keep refs in sync
   function setVoiceStateSynced(s: VoiceState) {
     voiceStateRef.current = s;
     setVoiceState(s);
@@ -115,52 +103,32 @@ function VoiceUI({
 
   // ── Cleanup on unmount ────────────────────────────────────────────────
   useEffect(() => {
-    shouldLoopRef.current = true;
-    // Auto-start after brief delay so the page renders first
-    const timer = setTimeout(() => startListening(), 600);
     return () => {
-      clearTimeout(timer);
-      shouldLoopRef.current = false;
-      speechRef.current?.abort();
+      srRef.current?.abort();
       abortRef.current?.abort();
       window.speechSynthesis?.cancel();
       mediaRef.current?.stop();
+      streamRef.current?.getTracks().forEach((t) => t.stop());
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // ── TTS speak ──────────────────────────────────────────────────────────
   function speak(text: string) {
-    if (!text || !window.speechSynthesis) {
-      // No TTS → go straight back to listening
+    if (!text || !window.speechSynthesis || mutedRef.current) {
       setVoiceStateSynced('idle');
-      if (shouldLoopRef.current) setTimeout(() => startListening(), 400);
-      return;
-    }
-    if (mutedRef.current) {
-      setVoiceStateSynced('idle');
-      if (shouldLoopRef.current) setTimeout(() => startListening(), 400);
       return;
     }
     window.speechSynthesis.cancel();
     const utt = new SpeechSynthesisUtterance(text);
     utt.rate = 1.05;
     const voices = window.speechSynthesis.getVoices();
-    const best = voices.find(
-      (v) => v.lang.startsWith('en') && (v.name.includes('Google') || v.name.includes('Natural') || v.name.includes('Premium')),
-    ) ?? voices.find((v) => v.lang.startsWith('en'));
+    const best =
+      voices.find((v) => v.lang.startsWith('en') && /Google|Natural|Premium/.test(v.name)) ??
+      voices.find((v) => v.lang.startsWith('en'));
     if (best) utt.voice = best;
-
     utt.onstart = () => setVoiceStateSynced('speaking');
-    utt.onend   = () => {
-      setVoiceStateSynced('idle');
-      // Auto-restart listening after AI finishes speaking
-      if (shouldLoopRef.current) setTimeout(() => startListening(), 400);
-    };
-    utt.onerror = () => {
-      setVoiceStateSynced('idle');
-      if (shouldLoopRef.current) setTimeout(() => startListening(), 400);
-    };
+    utt.onend   = () => setVoiceStateSynced('idle');
+    utt.onerror = () => setVoiceStateSynced('idle');
     window.speechSynthesis.speak(utt);
   }
 
@@ -187,8 +155,6 @@ function VoiceUI({
           break;
         } else if (ev.type === 'done') break;
       }
-      // Don't loop silently when the AI is unreachable (e.g. OPENROUTER_API_KEY
-      // unset) — say so out loud so the user knows why nothing came back.
       if (streamError || !assembled.trim()) {
         const msg = "Sorry — I can't reach the AI service right now. Please try again in a moment.";
         setAiText(msg);
@@ -206,143 +172,105 @@ function VoiceUI({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [language]);
 
-  // ── Main listening logic (Web Speech API) ─────────────────────────────
-  // Uses continuous=false: browser auto-detects when user pauses and fires
-  // the final result + onend event. No manual silence timer needed.
-  function startListening() {
-    if (!shouldLoopRef.current) return;
-    if (voiceStateRef.current !== 'idle') return; // already active
-
-    transcriptRef.current = '';
+  // ── Push-to-talk: start recording on press ────────────────────────────
+  async function startRecording() {
+    if (voiceStateRef.current === 'thinking') return;     // busy — ignore
+    window.speechSynthesis?.cancel();                     // interrupt any TTS
+    setErrMsg(null);
     setUserText('');
+    setAiText('');
+    srTranscriptRef.current = '';
 
+    // Browser STT — live transcript while holding + fallback if Whisper is down
     const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (SR) {
       const sr: SpeechRecognition = new SR();
       sr.lang = toLangTag(language);
-      sr.continuous = false;      // stop after user's natural pause → triggers onend
-      sr.interimResults = true;   // show live transcript while speaking
+      sr.continuous = true;
+      sr.interimResults = true;
       sr.maxAlternatives = 1;
-      speechRef.current = sr;
-
-      sr.onstart = () => setVoiceStateSynced('listening');
-
       sr.onresult = (e: SpeechRecognitionEvent) => {
         let interim = '';
         for (let i = e.resultIndex; i < e.results.length; i++) {
-          if (e.results[i].isFinal) {
-            transcriptRef.current += e.results[i][0].transcript;
-          } else {
-            interim += e.results[i][0].transcript;
-          }
+          if (e.results[i].isFinal) srTranscriptRef.current += e.results[i][0].transcript;
+          else interim += e.results[i][0].transcript;
         }
-        setUserText(transcriptRef.current || interim);
+        setUserText(srTranscriptRef.current || interim);
       };
-
-      (sr as any).onerror = (e: any) => {
-        if (e.error === 'no-speech') {
-          // Silence timeout — restart silently to keep listening
-          setVoiceStateSynced('idle');
-          if (shouldLoopRef.current) setTimeout(() => startListening(), 300);
-        } else if (e.error !== 'aborted') {
-          setVoiceStateSynced('idle');
-        }
-      };
-
-      sr.onend = () => {
-        const transcript = transcriptRef.current.trim();
-        if (transcript) {
-          // User said something → send to LLM
-          askLLM(transcript);
-        } else {
-          // Nothing captured (e.g. no-speech already handled) → restart
-          if (voiceStateRef.current === 'listening') {
-            setVoiceStateSynced('idle');
-          }
-          // Don't restart here — no-speech onerror already schedules it
-        }
-      };
-
-      sr.start();
-      return;
+      (sr as any).onerror = () => { /* non-fatal — Whisper still runs */ };
+      srRef.current = sr;
+      try { sr.start(); } catch { /* already started */ }
     }
 
-    // ── Fallback: MediaRecorder → backend Whisper ─────────────────────
-    navigator.mediaDevices.getUserMedia({ audio: true }).then((stream) => {
+    // Audio capture for Whisper (primary, most accurate)
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      streamRef.current = stream;
       const mr = new MediaRecorder(stream);
       chunksRef.current = [];
-      mr.ondataavailable = (e) => chunksRef.current.push(e.data);
-      mr.onstop = async () => {
-        stream.getTracks().forEach((t) => t.stop());
-        setVoiceStateSynced('thinking');
-        const blob = new Blob(chunksRef.current, { type: 'audio/webm' });
-        try {
-          const text = await transcribeAudio(blob, language);
-          if (text) { setUserText(text); await askLLM(text); }
-          else {
-            setVoiceStateSynced('idle');
-            if (shouldLoopRef.current) setTimeout(() => startListening(), 300);
-          }
-        } catch {
-          setVoiceStateSynced('idle');
-          if (shouldLoopRef.current) setTimeout(() => startListening(), 300);
-        }
-      };
+      mr.ondataavailable = (e) => { if (e.data.size) chunksRef.current.push(e.data); };
       mr.start();
       mediaRef.current = mr;
-      setVoiceStateSynced('listening');
-      // Auto-stop MediaRecorder after 8 seconds (no browser VAD for it)
-      setTimeout(() => { if (mr.state === 'recording') mr.stop(); }, 8000);
-    }).catch(() => { /* mic denied */ });
+    } catch {
+      if (!SR) setErrMsg('Microphone unavailable. Please allow mic access.');
+    }
+
+    setVoiceStateSynced('recording');
   }
 
-  // ── Manual toggle (tap button to interrupt or stop) ───────────────────
-  function handleMicTap() {
-    if (voiceState === 'speaking') {
-      // Interrupt AI — stop TTS, start listening
-      window.speechSynthesis?.cancel();
+  // ── Push-to-talk: stop + send on release ──────────────────────────────
+  function stopAndSend() {
+    if (voiceStateRef.current !== 'recording') return;
+    srRef.current?.stop();
+
+    const mr = mediaRef.current;
+    if (mr && mr.state !== 'inactive') {
+      mr.onstop = async () => {
+        streamRef.current?.getTracks().forEach((t) => t.stop());
+        const blob = new Blob(chunksRef.current, { type: 'audio/webm' });
+        await transcribeAndSend(blob);
+      };
+      mr.stop();
+    } else {
+      transcribeAndSend(null);
+    }
+  }
+
+  async function transcribeAndSend(blob: Blob | null) {
+    setVoiceStateSynced('thinking');
+    let text = '';
+
+    // Primary: server Whisper
+    if (blob && blob.size > 1200) {
+      try { text = (await transcribeAudio(blob, language)).trim(); } catch { /* fall back below */ }
+    }
+    // Fallback: browser transcript captured while holding
+    if (!text) text = srTranscriptRef.current.trim();
+
+    if (!text) {
+      setErrMsg('Didn’t catch that — hold the mic and speak clearly.');
       setVoiceStateSynced('idle');
-      setTimeout(() => startListening(), 200);
       return;
     }
-    if (voiceState === 'thinking') {
-      // Abort LLM — cancel and restart
-      abortRef.current?.abort();
-      setVoiceStateSynced('idle');
-      setTimeout(() => startListening(), 200);
-      return;
-    }
-    if (voiceState === 'listening') {
-      // Manual stop — abort current recognition, stay idle
-      shouldLoopRef.current = false;
-      speechRef.current?.abort();
-      mediaRef.current?.stop();
-      setVoiceStateSynced('idle');
-      // Re-enable loop after 2s so next tap auto-starts again
-      setTimeout(() => { shouldLoopRef.current = true; }, 2000);
-      return;
-    }
-    // Was idle — manually start
-    shouldLoopRef.current = true;
-    startListening();
+    setUserText(text);
+    await askLLM(text);
   }
 
   const avatarState: AvatarState =
-    voiceState === 'listening' ? 'listening' :
+    voiceState === 'recording' ? 'listening' :
     voiceState === 'thinking'  ? 'thinking'  : 'idle';
 
   const isBusy      = voiceState === 'thinking';
-  const isListening = voiceState === 'listening';
+  const isRecording = voiceState === 'recording';
   const isSpeaking  = voiceState === 'speaking';
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-[#060c18] overflow-hidden">
-
+    <div className="fixed inset-0 z-50 flex flex-col bg-[#060c18] overflow-hidden select-none">
       {/* Radial glow */}
       <div
         className="pointer-events-none absolute inset-0"
         style={{
-          background: isListening
+          background: isRecording
             ? 'radial-gradient(ellipse 60% 50% at 50% 45%, rgba(34,184,163,0.18) 0%, transparent 70%)'
             : isSpeaking
             ? 'radial-gradient(ellipse 60% 50% at 50% 45%, rgba(34,197,94,0.12) 0%, transparent 70%)'
@@ -367,16 +295,13 @@ function VoiceUI({
         <div className="text-center">
           <p className="text-xs font-semibold tracking-widest uppercase text-ink-400">MA Agent · Voice</p>
           <p className="text-[10px] text-ink-600 mt-0.5">
-            {isListening ? 'Speak now…' : isSpeaking ? 'Tap mic to interrupt' : isBusy ? 'Processing…' : 'Listening starts automatically'}
+            {isRecording ? 'Listening…' : isSpeaking ? 'Speaking…' : isBusy ? 'Processing…' : 'Hold the mic to talk'}
           </p>
         </div>
 
         <button
           type="button"
-          onClick={() => {
-            setMuted((m) => !m);
-            if (!muted) window.speechSynthesis?.cancel();
-          }}
+          onClick={() => { setMuted((m) => !m); if (!muted) window.speechSynthesis?.cancel(); }}
           aria-label={muted ? 'Unmute audio' : 'Mute audio'}
           className="flex h-11 w-11 items-center justify-center rounded-full bg-white/8 text-ink-400 hover:text-white transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/60 active:scale-95"
         >
@@ -390,7 +315,7 @@ function VoiceUI({
           <div
             className="absolute -inset-8 rounded-full pointer-events-none"
             style={{
-              background: isListening
+              background: isRecording
                 ? 'radial-gradient(circle, rgba(34,184,163,0.25) 0%, transparent 70%)'
                 : isSpeaking
                 ? 'radial-gradient(circle, rgba(34,197,94,0.20) 0%, transparent 70%)'
@@ -403,31 +328,29 @@ function VoiceUI({
 
         <div className="text-center space-y-1">
           <p className={`text-base font-semibold tracking-wide transition-colors ${
-            isListening ? 'text-brand-400' :
-            isBusy      ? 'text-ink-400' :
-            isSpeaking  ? 'text-ok-400'    :
-                          'text-ink-500'
+            isRecording ? 'text-brand-400' :
+            isBusy      ? 'text-ink-400'   :
+            isSpeaking  ? 'text-ok-400'    : 'text-ink-500'
           }`}>
-            {isListening ? 'Listening…'     :
-             isBusy      ? 'Thinking…'      :
-             isSpeaking  ? 'Speaking…'      :
-                           'Ready'}
+            {isRecording ? 'Listening…' : isBusy ? 'Thinking…' : isSpeaking ? 'Speaking…' : 'Ready'}
           </p>
           {isBusy && (
             <div className="flex items-center justify-center gap-1.5 text-xs text-ink-600">
               <Loader2 size={12} className="animate-spin" /> Powered by OpenRouter
             </div>
           )}
-          {voiceState === 'idle' && !isBusy && (
-            <p className="text-[11px] text-ink-600">Listening restarts automatically</p>
-          )}
         </div>
 
-        <Waveform active={isListening || isSpeaking} color={isSpeaking ? 'ok' : 'brand'} />
+        <Waveform active={isRecording || isSpeaking} color={isSpeaking ? 'ok' : 'brand'} />
       </div>
 
       {/* ── Transcript ───────────────────────────────────────────────── */}
       <div className="shrink-0 min-h-[80px] px-6 flex flex-col items-center gap-2 justify-end pb-2">
+        {errMsg && (
+          <div className="w-full max-w-sm rounded-2xl bg-warn-500/10 border border-warn-500/20 px-4 py-2 text-xs text-warn-400 text-center">
+            {errMsg}
+          </div>
+        )}
         {userText && (
           <div className="w-full max-w-sm rounded-2xl bg-brand-600/15 border border-brand-500/20 px-4 py-2.5 text-sm text-brand-300 text-center">
             {userText}
@@ -440,64 +363,41 @@ function VoiceUI({
         )}
       </div>
 
-      {/* ── Mic button ───────────────────────────────────────────────── */}
+      {/* ── Push-to-talk mic button (hold to speak, release to send) ──── */}
       <div
         className="shrink-0 flex flex-col items-center gap-3 py-8"
         style={{ paddingBottom: 'max(32px, env(safe-area-inset-bottom, 0px))' }}
       >
         <button
           type="button"
-          onClick={handleMicTap}
-          aria-label={
-            isListening ? 'Stop (tap to pause)' :
-            isSpeaking  ? 'Interrupt AI'        :
-            isBusy      ? 'Cancel'              :
-                          'Start speaking'
-          }
-          className={`voice-mic-btn ${isListening ? 'voice-mic-active' : ''}`}
+          onPointerDown={(e) => { e.preventDefault(); startRecording(); }}
+          onPointerUp={(e) => { e.preventDefault(); stopAndSend(); }}
+          onPointerLeave={() => { if (voiceStateRef.current === 'recording') stopAndSend(); }}
+          onPointerCancel={() => { if (voiceStateRef.current === 'recording') stopAndSend(); }}
+          onContextMenu={(e) => e.preventDefault()}
+          disabled={isBusy}
+          aria-label="Hold to speak, release to send"
+          className={`voice-mic-btn touch-none select-none ${isRecording ? 'voice-mic-active scale-110' : ''} ${isBusy ? 'opacity-50' : ''}`}
         >
-          {isListening ? <MicOff size={30} /> : <Mic size={30} />}
+          <Mic size={30} />
         </button>
         <p className="text-xs text-ink-600">
-          {isListening ? 'Pause to send'   :
-           isSpeaking  ? 'Tap to interrupt':
-           isBusy      ? 'Please wait…'    :
-                         'Tap to speak now'}
+          {isRecording ? 'Release to send' : isBusy ? 'Please wait…' : isSpeaking ? 'Hold to interrupt & talk' : 'Hold to speak'}
         </p>
       </div>
     </div>
   );
 }
 
-// ── Root: optionally wrap in LiveKitRoom ──────────────────────────────────────
+// ── Root ──────────────────────────────────────────────────────────────────────
 export default function VoiceMode() {
   const { language }   = useAppStore();
   const navigate       = useNavigate();
   const [searchParams] = useSearchParams();
   const sessionId      = searchParams.get('s') ?? undefined;
 
-  const [roomToken, setRoomToken]         = useState<VoiceToken | null>(null);
-  const [livekitReady, setLivekitReady]   = useState(false);
   const [selectedModel, setSelectedModel] = useState(VOICE_MODELS[0].id);
   const [showPicker, setShowPicker]       = useState(false);
-
-  useEffect(() => {
-    getVoiceStatus().then(({ configured }) => {
-      if (!configured) return;
-      getVoiceToken(sessionId)
-        .then((t) => { setRoomToken(t); setLivekitReady(true); })
-        .catch(() => { /* standalone fallback */ });
-    });
-  }, [sessionId]);
-
-  const voiceUI = (
-    <VoiceUI
-      model={selectedModel}
-      sessionId={sessionId}
-      language={language}
-      onEnd={() => navigate(-1)}
-    />
-  );
 
   return (
     <>
@@ -518,9 +418,7 @@ export default function VoiceMode() {
                 key={m.id}
                 type="button"
                 onClick={() => { setSelectedModel(m.id); setShowPicker(false); }}
-                className={`w-full px-4 py-3 text-left text-xs transition hover:bg-white/5 ${
-                  selectedModel === m.id ? 'text-brand-400' : 'text-ink-200'
-                }`}
+                className={`w-full px-4 py-3 text-left text-xs transition hover:bg-white/5 ${selectedModel === m.id ? 'text-brand-400' : 'text-ink-200'}`}
               >
                 {m.label}
                 {selectedModel === m.id && <span className="float-right text-brand-500">✓</span>}
@@ -530,21 +428,12 @@ export default function VoiceMode() {
         )}
       </div>
 
-      {livekitReady && roomToken ? (
-        <LiveKitRoom
-          token={roomToken.token}
-          serverUrl={roomToken.url}
-          connect
-          audio
-          video={false}
-          onDisconnected={() => navigate(-1)}
-        >
-          <RoomAudioRenderer />
-          {voiceUI}
-        </LiveKitRoom>
-      ) : (
-        voiceUI
-      )}
+      <VoiceUI
+        model={selectedModel}
+        sessionId={sessionId}
+        language={language}
+        onEnd={() => navigate(-1)}
+      />
     </>
   );
 }
