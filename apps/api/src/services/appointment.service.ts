@@ -157,7 +157,9 @@ export async function getQueue(filter: {
 // ── Patient appointment history ───────────────────────────────────────────────
 export async function getPatientAppointments(patientId: string): Promise<any[]> {
   if (dbReady()) {
-    return Appointment.find({ patientId })
+    // Same resilience as getQueue: skip corrupt legacy rows so one bad doctor/
+    // facility ref can't 500 the patient's whole history via .populate().
+    return Appointment.find({ patientId, doctorId: { $type: 'objectId' }, facilityId: { $type: 'objectId' } })
       .populate('doctorId', 'name specialty')
       .populate('facilityId', 'name city address phone')
       .sort({ scheduledDate: -1 })
