@@ -8,15 +8,22 @@ const LANGUAGES = [
   'Russian', 'Chinese', 'Indonesian', 'Turkish',
 ];
 
+const TINTS = {
+  brand:  'bg-brand-500/12 text-brand-400 ring-1 ring-brand-500/20',
+  danger: 'bg-danger-500/12 text-danger-400 ring-1 ring-danger-500/20',
+  neutral:'bg-ink-700 text-ink-300 ring-1 ring-ink-600/50',
+} as const;
+
 /** Row — min 44px height (HIG). Interactive rows get role+tabIndex for keyboard nav. */
 function Row({
-  icon, label, sublabel, children, onClick,
+  icon, label, sublabel, children, onClick, tint = 'brand',
 }: {
   icon: React.ReactNode;
   label: string;
   sublabel?: string;
   children?: React.ReactNode;
   onClick?: () => void;
+  tint?: keyof typeof TINTS;
 }) {
   const interactive = typeof onClick === 'function';
   return (
@@ -29,7 +36,7 @@ function Row({
       tabIndex={interactive ? 0 : undefined}
       onKeyDown={interactive ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick?.(); } } : undefined}
     >
-      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-ink-700 text-ink-400">
+      <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${TINTS[tint]}`}>
         {icon}
       </div>
       <div className="flex-1 min-w-0">
@@ -90,9 +97,9 @@ export default function Settings() {
 
         {/* ── Language & Display ───────────────────────────────── */}
         <Section title="Language & Display">
-          <Row icon={<Globe2 size={18} />} label="Response language" sublabel="AI answers in this language">
+          <Row icon={<Globe2 size={18} />} label="Language" sublabel="AI answers in this language">
             <select
-              className="rounded-xl border border-ink-600 bg-ink-700 px-3 py-2 text-sm text-ink-100 outline-none cursor-pointer focus:border-brand-500"
+              className="shrink-0 max-w-[40vw] rounded-xl border border-ink-600 bg-ink-700 px-3 py-2.5 text-sm text-ink-100 outline-none cursor-pointer focus:border-brand-500 min-h-[44px]"
               value={language}
               onChange={(e) => setLanguage(e.target.value)}
               aria-label="Select response language"
@@ -108,11 +115,22 @@ export default function Settings() {
             label="Theme"
             sublabel={theme === 'light' ? 'Light mode' : 'Dark mode'}
           >
-            <Toggle
-              checked={theme === 'light'}
-              onChange={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-              label="Toggle light/dark theme"
-            />
+            <div className="flex rounded-xl border border-ink-600 overflow-hidden text-xs font-semibold">
+              {([['dark', Moon, 'Dark'], ['light', Sun, 'Light']] as const).map(([val, Icon, lbl]) => (
+                <button
+                  key={val}
+                  type="button"
+                  onClick={() => setTheme(val)}
+                  aria-label={`${lbl} mode`}
+                  aria-pressed={theme === val}
+                  className={`flex min-w-[44px] min-h-[44px] items-center justify-center px-3 transition focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-500 ${
+                    theme === val ? 'bg-brand-600 text-white' : 'bg-ink-700 text-ink-400 hover:bg-ink-600'
+                  }`}
+                >
+                  <Icon size={15} />
+                </button>
+              ))}
+            </div>
           </Row>
 
           <Row icon={<Type size={18} />} label="Text size" sublabel="Adjusts chat bubble text size">
@@ -158,6 +176,7 @@ export default function Settings() {
         <Section title="Data & History">
           <Row
             icon={<Trash2 size={18} />}
+            tint="danger"
             label="Clear chat history"
             sublabel={`${chatHistory.length} saved conversation${chatHistory.length !== 1 ? 's' : ''}`}
           >
@@ -202,6 +221,7 @@ export default function Settings() {
 
           <Row
             icon={<LogOut size={18} />}
+            tint="danger"
             label="Reset & start over"
             sublabel="Clears profile and all local data"
           >

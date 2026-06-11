@@ -37,10 +37,10 @@ export function interviewSystemPrompt(ctx: PromptContext = {}): string {
 ENROLLED DOCTORS (you can suggest to book):
 ${enrolledDoctors.map((d) => `- Dr. ${d.name} (${d.specialty} at ${d.facilityName}) — speaks ${d.languages.join(', ')}`).join('\n')}
 
-When you reach a point where the patient needs specialized care, suggest ONE matching doctor by emitting:
-<<BOOK:{doctorId:"${enrolledDoctors[0]?.id || 'doctor-id'}",doctorName:"Dr. Name",facilityId:"${enrolledDoctors[0]?.facilityId || 'facility-id'}",specialty:"Specialty",reason:"brief reason for referral"}>>
+When you reach a point where the patient needs specialized care, suggest ONE matching doctor by emitting a marker whose payload is STRICT JSON with double-quoted keys:
+<<BOOK:{"doctorId":"${enrolledDoctors[0]?.id || 'doctor-id'}","doctorName":"Dr. Name","facilityId":"${enrolledDoctors[0]?.facilityId || 'facility-id'}","specialty":"Specialty","reason":"brief reason for referral"}>>
 
-IMPORTANT: The booking marker must be on its own line at the END of your message. The patient will see a booking card.` : '';
+IMPORTANT: The booking marker must be on its own line at the END of your message, with all JSON keys double-quoted. The patient sees an in-chat booking card to pick a clinic and time — do not write out the raw marker text yourself.` : '';
 
   return `${SAFETY_PREAMBLE}
 

@@ -1,11 +1,12 @@
 ﻿import { useState, useRef, useEffect, useCallback } from 'react';
-import { Send, Phone, Plus, Headphones, BookText, Image as ImageIcon, MapPin, X, Mic, MicOff, Brain, CalendarCheck, Building2, Loader2, CheckCircle } from 'lucide-react';
+import { Send, Phone, Plus, Headphones, BookText, Image as ImageIcon, MapPin, X, Brain, CalendarCheck, Building2, Loader2, CheckCircle } from 'lucide-react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { AiAvatar, type AvatarState } from '@/components/AiAvatar';
 import ImageCaptureFlow from '@/components/ImageCaptureFlow';
 import type { ImageModality } from '@/components/ImageCaptureFlow';
+import BookingFlow from '@/components/BookingFlow';
 import { streamChatRequest, loadSession, analyzeReport, confirmAgentBooking, type AgentBookingProposal } from '@/lib/api';
 import { useAppStore } from '@/store/app';
 
@@ -57,11 +58,18 @@ export default function Chat() {
 
   const [ctaSpec, setCtaSpec] = useState<{ specialty: string; urgency: string } | null>(null);
   const [pendingBooking, setPendingBooking] = useState<BookingAction | null>(null);
+  // In-chat booking picker (clinic + time). Opened from a care CTA or a <<BOOK>> suggestion.
+  const [bookingSession, setBookingSession] = useState<{
+    specialty: string;
+    urgency: string;
+    reason?: string;
+    preferredDoctorId?: string;
+    preferredFacilityId?: string;
+  } | null>(null);
   const [agentProposal, setAgentProposal] = useState<AgentBookingProposal | null>(null);
   const [bookingLoading, setBookingLoading] = useState(false);
   const [bookingConfirmed, setBookingConfirmed] = useState<{ date: string; time: string } | null>(null);
   const [showCapture, setShowCapture] = useState(false);
-  const [micActive, setMicActive]     = useState(false);
   const [isReasoning, setIsReasoning] = useState(false);
 
   // Geolocation — acquired once on mount, passed with every chat request
@@ -70,7 +78,6 @@ export default function Chat() {
   const bottomRef    = useRef<HTMLDivElement>(null);
   const textareaRef  = useRef<HTMLTextAreaElement>(null);
   const abortRef     = useRef<AbortController | null>(null);
-  const inlineSrRef  = useRef<SpeechRecognition | null>(null);
   // Track first user message for history preview
   const previewRef  = useRef<string>('');
   const msgCountRef = useRef<number>(0);
@@ -81,22 +88,32 @@ export default function Chat() {
   function parseBookingMarker(text: string): { cleanText: string; booking?: BookingAction } {
     const match = text.match(/<<BOOK:([\s\S]*?)>>/);
     if (!match) return { cleanText: text };
+    // Always strip the marker from the visible message, even if the payload is malformed.
+    const cleanText = text.replace(/<<BOOK:[\s\S]*?>>/, '').trim();
+
+    let payload: any;
     try {
-      const payload = JSON.parse(match[1]);
-      const cleanText = text.replace(/<<BOOK:[\s\S]*?>>/, '').trim();
-      return {
-        cleanText,
-        booking: {
-          doctorId: payload.doctorId,
-          doctorName: payload.doctorName,
-          facilityId: payload.facilityId,
-          specialty: payload.specialty,
-          reason: payload.reason,
-        },
-      };
+      payload = JSON.parse(match[1]);
     } catch {
-      return { cleanText: text };
+      // Models routinely emit JS-object style with unquoted keys — normalize then retry.
+      try {
+        payload = JSON.parse(match[1].replace(/([{,]\s*)([A-Za-z_][\w]*)\s*:/g, '$1"$2":'));
+      } catch {
+        return { cleanText };
+      }
     }
+
+    if (!payload?.doctorId || !payload?.facilityId) return { cleanText };
+    return {
+      cleanText,
+      booking: {
+        doctorId: payload.doctorId,
+        doctorName: payload.doctorName,
+        facilityId: payload.facilityId,
+        specialty: payload.specialty,
+        reason: payload.reason,
+      },
+    };
   }
 
   // ── Clinical Snapshot CTA detection ──────────────────────────────────
@@ -324,66 +341,56 @@ export default function Chat() {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(input); }
   }
 
-  // ── Inline voice: tap mic → speak → pause → auto-send ────────────────
-  function toggleInlineMic() {
-    if (micActive) {
-      inlineSrRef.current?.abort();
-      setMicActive(false);
-      return;
-    }
-
-    const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (!SR) {
-      // No Web Speech API — open full VoiceMode instead
-      navigate(`/voice${sessionId ? `?s=${sessionId}` : ''}`);
-      return;
-    }
-
-    const sr: SpeechRecognition = new SR();
-    sr.lang           = language === 'auto' || !language ? 'en-US' : language;
-    sr.continuous     = false;    // stop after user pauses (browser VAD)
-    sr.interimResults = true;     // show transcript live
-    sr.maxAlternatives = 1;
-    inlineSrRef.current = sr;
-    setMicActive(true);
-
-    let interim = '';
-
-    sr.onresult = (e: SpeechRecognitionEvent) => {
-      let final = '';
-      interim = '';
-      for (let i = e.resultIndex; i < e.results.length; i++) {
-        if (e.results[i].isFinal) final += e.results[i][0].transcript;
-        else interim += e.results[i][0].transcript;
-      }
-      // Show interim in textarea as user speaks
-      setInput(final || interim);
-      if (textareaRef.current) {
-        textareaRef.current.style.height = 'auto';
-        textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 128)}px`;
-      }
-    };
-
-    sr.onend = () => {
-      setMicActive(false);
-      inlineSrRef.current = null;
-      // Auto-send whatever was captured
-      setInput((current) => {
-        const text = current.trim();
-        if (text) sendMessage(text);
-        return '';
-      });
-    };
-
-    (sr as any).onerror = (e: any) => {
-      if (e.error !== 'aborted') setMicActive(false);
-    };
-
-    sr.start();
-  }
+  // ── Inline mic intentionally removed ─────────────────────────────────
+  // DO NOT re-add an inline Web Speech mic button to the chat bar. Browser
+  // SpeechRecognition was unreliable across devices/locales (Korea, mobile
+  // Safari). Hands-free voice lives in the dedicated VoiceMode screen
+  // (headphones button) which uses the server pipeline. Keep text + that.
 
   // Store latest image analysis for attaching to referral
   const lastImageAnalysisRef = useRef<import('@/lib/api').ReportAnalysisResult | null>(null);
+
+  // ── Build a rich, clinician-facing summary from the whole conversation ──
+  // This is what the doctor sees on the Patient Queue — keep it substantive.
+  function buildAgentSummary(specialty: string, reason?: string): string {
+    const parts: string[] = [`MA Agent referral · ${specialty}`];
+    if (reason) parts.push(`Reason: ${reason}`);
+
+    const convo = messages.filter((m) => m.id !== 'greeting');
+    const patientLines = convo
+      .filter((m) => m.role === 'user' && m.content.trim())
+      .map((m) => m.content.trim());
+    if (patientLines.length) {
+      parts.push('', 'Patient described:');
+      patientLines.forEach((l) => parts.push(`• ${l}`));
+    }
+
+    const lastAssistant = [...convo].reverse().find((m) => m.role === 'assistant' && m.content.trim());
+    if (lastAssistant) {
+      parts.push('', 'Agent assessment:', lastAssistant.content.trim());
+    }
+
+    const a = lastImageAnalysisRef.current;
+    if (a) {
+      parts.push('', `AI image analysis — ${a.imageType}:`);
+      a.findings.forEach((f) => parts.push(`• ${f.finding} (${f.confidence})${f.notes ? ': ' + f.notes : ''}`));
+      if (a.suggestedFollowUp.length) parts.push(`Follow-up: ${a.suggestedFollowUp.join('; ')}`);
+    }
+
+    return parts.join('\n').slice(0, 4000);
+  }
+
+  // ── Open the in-chat booking picker (clears competing cards) ──────────
+  function openBooking(spec: { specialty: string; urgency: string; reason?: string; preferredDoctorId?: string; preferredFacilityId?: string }) {
+    setCtaSpec(null);
+    setPendingBooking(null);
+    setAgentProposal(null);
+    setBookingSession(spec);
+  }
+
+  function handleBooked(result: { date: string; time: string; doctorName: string; facilityName: string }) {
+    setBookingConfirmed({ date: result.date, time: result.time });
+  }
 
   async function handleCaptureConfirm(file: File, _modality: ImageModality) {
     setShowCapture(false);
@@ -585,8 +592,25 @@ export default function Chat() {
         <div ref={bottomRef} className="h-1" />
       </div>
 
+      {/* ── In-chat booking picker (clinic + time) ────────────────── */}
+      {bookingSession && !bookingConfirmed && (
+        <BookingFlow
+          specialty={bookingSession.specialty}
+          urgency={bookingSession.urgency}
+          lat={locationRef.current?.lat}
+          lng={locationRef.current?.lng}
+          patientPhone={patientPhone}
+          sessionId={sessionId}
+          agentSummary={buildAgentSummary(bookingSession.specialty, bookingSession.reason)}
+          preferredDoctorId={bookingSession.preferredDoctorId}
+          preferredFacilityId={bookingSession.preferredFacilityId}
+          onBooked={handleBooked}
+          onClose={() => setBookingSession(null)}
+        />
+      )}
+
       {/* ── Booking card (inline agent-suggested doctor) ──────────── */}
-      {pendingBooking && !isThinking && (
+      {pendingBooking && !bookingSession && !isThinking && (
         <div className="shrink-0 mx-3 mb-1 rounded-xl border border-brand-500/30 bg-brand-500/10 px-3 py-2.5 flex items-center gap-2">
           <div className="flex-1 min-w-0">
             <p className="text-xs font-semibold text-brand-300">{pendingBooking.doctorName}</p>
@@ -597,16 +621,13 @@ export default function Chat() {
           </div>
           <button
             type="button"
-            onClick={() => {
-              // Pre-fill FindCare with doctor/facility and session summary
-              const params = new URLSearchParams();
-              params.set('doctorId', pendingBooking.doctorId);
-              params.set('facilityId', pendingBooking.facilityId);
-              params.set('specialty', pendingBooking.specialty);
-              if (sessionId) params.set('s', sessionId);
-              if (previewRef.current) params.set('summary', previewRef.current);
-              navigate(`/find-care?${params.toString()}`);
-            }}
+            onClick={() => openBooking({
+              specialty: pendingBooking.specialty,
+              urgency: 'see-clinician-soon',
+              reason: pendingBooking.reason,
+              preferredDoctorId: pendingBooking.doctorId,
+              preferredFacilityId: pendingBooking.facilityId,
+            })}
             className="shrink-0 rounded-xl border border-brand-500/40 bg-brand-600/20 px-3 py-1.5 text-xs font-semibold text-brand-400 hover:bg-brand-600/30 transition whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/60 active:scale-95"
           >
             Book Now →
@@ -623,7 +644,7 @@ export default function Chat() {
       )}
 
       {/* ── Agent booking proposal (server-found facility + doctor) ── */}
-      {agentProposal && !isThinking && !bookingConfirmed && (
+      {agentProposal && !isThinking && !bookingConfirmed && !bookingSession && (
         <div className="shrink-0 mx-3 mb-1 rounded-2xl border border-brand-500/40 bg-gradient-to-b from-brand-500/12 to-brand-500/6 backdrop-blur-sm shadow-lg shadow-brand-900/20">
           <div className="px-4 pt-3 pb-2">
             <div className="flex items-start justify-between gap-2 mb-2.5">
@@ -676,7 +697,7 @@ export default function Chat() {
                   const result = await confirmAgentBooking({
                     proposalKey: agentProposal.proposalKey,
                     patientPhone,
-                    agentSummary: previewRef.current || undefined,
+                    agentSummary: buildAgentSummary(agentProposal.specialty),
                     sessionId,
                   });
                   setBookingConfirmed({ date: result.scheduledDate, time: result.scheduledTime });
@@ -735,7 +756,7 @@ export default function Chat() {
       )}
 
       {/* ── Connect to Care CTA ──────────────────────────────────── */}
-      {ctaSpec && !isThinking && (
+      {ctaSpec && !isThinking && !bookingSession && (
         <div className="shrink-0 mx-3 mb-1 rounded-xl border border-brand-500/30 bg-brand-500/10 px-3 py-2.5 flex items-center gap-2">
           <MapPin size={16} className="text-brand-400 shrink-0" />
           <div className="flex-1 min-w-0">
@@ -744,29 +765,10 @@ export default function Chat() {
           </div>
           <button
             type="button"
-            onClick={() => {
-              const params = new URLSearchParams();
-              params.set('specialty', ctaSpec.specialty);
-              params.set('urgency', ctaSpec.urgency);
-              if (sessionId) params.set('s', sessionId);
-              // CONNECTION 2: Include image analysis in referral summary
-              const analysis = lastImageAnalysisRef.current;
-              if (analysis) {
-                const imgSummary = [
-                  `[AI Image Analysis — ${analysis.imageType}]`,
-                  ...analysis.findings.map((f) => `• ${f.finding} (${f.confidence}): ${f.notes}`),
-                  `Follow-up: ${analysis.suggestedFollowUp.join('; ')}`,
-                ].join('\n');
-                params.set('summary', imgSummary);
-                params.set('imageReport', 'true');
-              } else if (previewRef.current) {
-                params.set('summary', previewRef.current);
-              }
-              navigate(`/find-care?${params.toString()}`);
-            }}
+            onClick={() => openBooking({ specialty: ctaSpec.specialty, urgency: ctaSpec.urgency })}
             className="shrink-0 rounded-xl border border-brand-500/40 bg-brand-600/20 px-3 py-1.5 text-xs font-semibold text-brand-400 hover:bg-brand-600/30 transition whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/60 active:scale-95"
           >
-            Find Care →
+            Book Care →
           </button>
           <button
             type="button"
@@ -811,20 +813,7 @@ export default function Chat() {
           disabled={isThinking}
         />
 
-        {/* Inline mic: tap → speak → pause = auto-send */}
-        <button
-          type="button"
-          onClick={toggleInlineMic}
-          aria-label={micActive ? 'Stop recording' : 'Speak your message'}
-          title={micActive ? 'Listening — pause to send' : 'Tap to speak'}
-          className={`chat-mic-btn transition ${
-            micActive
-              ? 'border-brand-400 text-brand-400 animate-pulse'
-              : ''
-          }`}
-        >
-          {micActive ? <MicOff size={20} /> : <Mic size={20} />}
-        </button>
+        {/* Inline mic removed — see note above toggleInlineMic. Use VoiceMode. */}
 
         {/* Full immersive voice mode */}
         <button

@@ -238,10 +238,10 @@ export default function Login() {
   );
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center px-4 py-12">
+    <div className="min-h-[100dvh] flex flex-col items-center justify-start sm:justify-center px-4 py-6 sm:py-12">
 
       {/* Logo */}
-      <div className="flex items-center gap-3 mb-10">
+      <div className="flex items-center gap-3 mb-6 sm:mb-10">
         <div className="grid h-12 w-12 place-items-center rounded-2xl bg-gradient-to-br from-accent-400 to-accent-600 shadow-glow">
           <Stethoscope size={22} strokeWidth={2.5} className="text-ink-950" />
         </div>
@@ -257,25 +257,27 @@ export default function Login() {
         {!selected ? (
           <>
             <h1 className="font-display text-2xl text-white text-center mb-1 tracking-tight">Who are you?</h1>
-            <p className="text-sm text-ink-400 text-center mb-8">Select your role to continue</p>
-            <div className="grid gap-4 sm:grid-cols-3">
+            <p className="text-sm text-ink-400 text-center mb-6 sm:mb-8">Select your role to continue</p>
+            <div className="grid gap-3 sm:gap-4 sm:grid-cols-3">
               {ROLES.map((r) => (
                 <button
                   key={r.role}
                   type="button"
                   onClick={() => setSelected(r.role)}
-                  className={`relative text-left rounded-2xl border border-ink-700/60 p-6 transition-all duration-200 ${r.ring} ${r.bg} cursor-pointer`}
+                  className={`relative text-left rounded-2xl border border-ink-700/60 p-5 sm:p-6 transition-all duration-200 ${r.ring} ${r.bg} cursor-pointer flex sm:block items-center gap-4`}
                 >
-                  <div className={`mb-4 ${r.color}`}>{r.icon}</div>
-                  <h3 className="text-base font-semibold text-white mb-2">{r.title}</h3>
-                  <p className="text-xs leading-relaxed text-ink-300">{r.desc}</p>
-                  <div className={`mt-4 flex items-center gap-1 text-xs font-medium ${r.color}`}>
-                    Select <ArrowRight size={12} />
+                  <div className={`mb-0 sm:mb-4 shrink-0 ${r.color}`}>{r.icon}</div>
+                  <div className="min-w-0">
+                    <h3 className="text-base font-semibold text-white mb-1 sm:mb-2">{r.title}</h3>
+                    <p className="text-xs leading-relaxed text-ink-300">{r.desc}</p>
+                    <div className={`mt-2 sm:mt-4 flex items-center gap-1 text-xs font-medium ${r.color}`}>
+                      Select <ArrowRight size={12} />
+                    </div>
                   </div>
                 </button>
               ))}
             </div>
-            <p className="text-center text-[11px] text-ink-500 mt-8">
+            <p className="text-center text-[11px] text-ink-500 mt-6 sm:mt-8">
               No account needed for v0.1 — authentication coming in v0.2
             </p>
           </>
