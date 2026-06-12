@@ -3,6 +3,18 @@ import type { ChatMessage } from '@medaccess/shared';
 import { HttpError } from '../middleware/error.js';
 
 let _client: OpenAI | null = null;
+let _fallbackClient: OpenAI | null = null;
+
+function buildClient(apiKey: string): OpenAI {
+  return new OpenAI({
+    apiKey,
+    baseURL: process.env.OPENROUTER_BASE_URL || 'https://openrouter.ai/api/v1',
+    defaultHeaders: {
+      'HTTP-Referer': process.env.OPENROUTER_APP_URL || 'http://localhost:5173',
+      'X-Title': process.env.OPENROUTER_APP_NAME || 'MedAccess AI',
+    },
+  });
+}
 
 export function openrouter(): OpenAI {
   if (_client) return _client;
@@ -14,34 +26,62 @@ export function openrouter(): OpenAI {
         'No LLM provider configured. Set OPENROUTER_API_KEY in .env at the repo root.',
     });
   }
-  _client = new OpenAI({
-    apiKey,
-    baseURL: process.env.OPENROUTER_BASE_URL || 'https://openrouter.ai/api/v1',
-    defaultHeaders: {
-      'HTTP-Referer': process.env.OPENROUTER_APP_URL || 'http://localhost:5173',
-      'X-Title': process.env.OPENROUTER_APP_NAME || 'MedAccess AI',
-    },
-  });
+  _client = buildClient(apiKey);
   return _client;
 }
 
+/** Secondary key used only when the primary returns 402 (out of credits). */
+function openrouterFallback(): OpenAI | null {
+  const key = process.env.OPENROUTER_API_KEY_FALLBACK;
+  if (!key) return null;
+  if (!_fallbackClient) _fallbackClient = buildClient(key);
+  return _fallbackClient;
+}
+
+/**
+ * Both keys are free-tier. The primary is "used up" when OpenRouter returns
+ * 402 (credits) or 429 (daily free-model rate/quota limit) — in either case we
+ * fail over to the second free key.
+ */
+function isExhaustedError(err: any): boolean {
+  return err?.status === 402 || err?.status === 429
+    || /402|429|more credits|can only afford|insufficient|rate limit|quota/i.test(err?.message ?? '');
+}
+
+/**
+ * Run an OpenRouter call on the primary key; if it's exhausted (402/429),
+ * transparently retry the same call on the fallback key if one is configured.
+ */
+async function withFallback<T>(fn: (client: OpenAI) => Promise<T>): Promise<T> {
+  try {
+    return await fn(openrouter());
+  } catch (err) {
+    const fb = openrouterFallback();
+    if (isExhaustedError(err) && fb) {
+      console.warn('[llm] primary key exhausted (402/429) — retrying on fallback key');
+      return await fn(fb);
+    }
+    throw err;
+  }
+}
+
 export function defaultChatModel(): string {
-  return process.env.OPENROUTER_CHAT_MODEL || 'deepseek/deepseek-r1:free';
+  return process.env.OPENROUTER_CHAT_MODEL || 'qwen/qwen3.6-flash';
 }
 
 export function defaultStreamModel(): string {
   return process.env.OPENROUTER_STREAM_MODEL
     || process.env.OPENROUTER_FAST_MODEL
-    || 'deepseek/deepseek-r1:free';
+    || 'qwen/qwen3.6-flash';
 }
 
 /** Cheap/fast model for triage, symptoms quick-parse, and high-volume calls. */
 export function defaultFastModel(): string {
-  return process.env.OPENROUTER_FAST_MODEL || 'deepseek/deepseek-chat-v3-0324:free';
+  return process.env.OPENROUTER_FAST_MODEL || 'qwen/qwen3.6-flash';
 }
 
 export function defaultVisionModel(): string {
-  return process.env.OPENROUTER_VISION_MODEL || 'google/gemini-2.0-flash-exp:free';
+  return process.env.OPENROUTER_VISION_MODEL || 'qwen/qwen3.6-flash';
 }
 
 export interface ChatOptions {
@@ -59,20 +99,19 @@ export interface ChatResult {
 }
 
 export async function chat(opts: ChatOptions): Promise<ChatResult> {
-  const client = openrouter();
   const model = opts.model || defaultChatModel();
   const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [
     ...(opts.system ? [{ role: 'system' as const, content: opts.system }] : []),
     ...opts.messages.map((m) => ({ role: m.role, content: m.content })),
   ];
 
-  const resp = await client.chat.completions.create({
+  const resp = await withFallback((client) => client.chat.completions.create({
     model,
     temperature: opts.temperature ?? 0.3,
     max_tokens: opts.maxTokens ?? 1200,
     response_format: opts.json ? { type: 'json_object' } : undefined,
     messages,
-  });
+  }));
   const text = resp.choices?.[0]?.message?.content ?? '';
   return { text, model };
 }
@@ -83,20 +122,20 @@ export type StreamChunk =
   | { type: 'thinking_end' };
 
 export async function* chatStream(opts: ChatOptions): AsyncGenerator<StreamChunk> {
-  const client = openrouter();
   const model = opts.model || defaultStreamModel();
   const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [
     ...(opts.system ? [{ role: 'system' as const, content: opts.system }] : []),
     ...opts.messages.map((m) => ({ role: m.role, content: m.content })),
   ];
 
-  const stream = await client.chat.completions.create({
+  // 402 surfaces when the stream is opened, so the fallback retry wraps creation.
+  const stream = await withFallback((client) => client.chat.completions.create({
     model,
     temperature: opts.temperature ?? 0.3,
     max_tokens: opts.maxTokens ?? 1200,
     stream: true,
     messages,
-  });
+  }));
 
   // reason: reasoning models surface chain-of-thought in two ways:
   //   1. <think>...</think> tags inside delta.content  (DeepSeek R1 content-mode)

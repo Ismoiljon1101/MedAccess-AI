@@ -28,6 +28,13 @@
       "runtimeArgs": ["-m", "uvicorn", "main:app", "--host", "127.0.0.1", "--port", "5001", "--app-dir", "services/image-ml"],
       "port": 5001,
       "autoPort": false
+    },
+    {
+      "name": "qr-web",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["scripts/lan-qr-server.mjs"],
+      "port": 5180,
+      "autoPort": false
     }
   ]
 }

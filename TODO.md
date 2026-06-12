@@ -461,6 +461,8 @@ For each endpoint: 2xx on happy path, structured error on bad input, < 8s with t
 
 All bugs live in [`docs/qa/issues.md`](./docs/qa/issues.md). Format and severity scale in [`docs/team/mirsaid.md`](./docs/team/mirsaid.md).
 
+**New dependency (justified):** `qrcode-terminal` (root devDependency, MIT). Dev-only, never shipped. Powers `pnpm qr` — prints scannable QR codes for the current WiFi IP so students open the apps on their phones without typing. Both Vite servers run `host: true`, so they follow whatever IP the WiFi assigns; re-running `pnpm qr` after a network change is the only step.
+
 | Severity | Owner pool |
 |---|---|
 | SEV-1 (blocker) | Ismail |

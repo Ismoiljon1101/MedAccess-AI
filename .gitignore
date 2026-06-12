@@ -58,3 +58,6 @@ services/image-ml/models/
 
 # Screenshots (taken separately, not tracked in code commits)
 docs/screenshots/
+
+# QR tunnel runtime URLs (ephemeral)
+scripts/.tunnels.json

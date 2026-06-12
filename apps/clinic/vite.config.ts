@@ -60,6 +60,8 @@ export default defineConfig({
     }),
   ],
   server: {
+    host: true, // bind 0.0.0.0 so phones/laptops on the same WiFi can open it
+    allowedHosts: ['.trycloudflare.com'], // accept the Cloudflare quick-tunnel host (HTTPS for voice/camera/GPS)
     port: 5173,
     proxy: {
       '/api': {
