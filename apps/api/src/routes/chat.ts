@@ -55,7 +55,9 @@ async function getBookableDoctors(specialty: string, lat?: number, lng?: number)
     const slots = await getUpcomingSlots(doc.id, f.id, 5);
     options.push({
       id:           String(doc.id),
-      name:         doc.name,
+      // prompts.ts renders names as `Dr. ${name}` — strip any stored title so
+      // seeded "Dr. Min-jun Kim" doesn't become "Dr. Dr. Min-jun Kim" in chat.
+      name:         String(doc.name).replace(/^dr\.?\s+/i, ''),
       specialty:    doc.specialty,
       facilityId:   String(f.id),
       facilityName: f.name,
