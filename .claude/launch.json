@@ -35,6 +35,13 @@
       "runtimeArgs": ["scripts/lan-qr-server.mjs"],
       "port": 5180,
       "autoPort": false
+    },
+    {
+      "name": "pitch-deck",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["-m", "http.server", "4321", "--directory", "docs/presentation"],
+      "port": 4321,
+      "autoPort": false
     }
   ]
 }
