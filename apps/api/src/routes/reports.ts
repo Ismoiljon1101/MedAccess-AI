@@ -41,7 +41,10 @@ router.post('/analyze', imageUpload.single('image'), async (req, res, next) => {
           imageSizeBytes:    req.file!.size,
         });
         reportId = String(doc._id);
-      } catch { /* non-fatal — analysis still returned to the patient */ }
+      } catch (e) {
+        // non-fatal — analysis still returned to the patient
+        console.warn('[reports/analyze] ReportAnalysis save failed:', e);
+      }
     }
 
     res.json({

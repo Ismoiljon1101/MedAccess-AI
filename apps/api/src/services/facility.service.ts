@@ -216,7 +216,8 @@ export async function getUpcomingSlots(
     const d = new Date();
     d.setDate(d.getDate() + i);
     if (d.getDay() === 0) continue; // Sunday — closed
-    const dateStr = d.toISOString().slice(0, 10);
+    // Local YYYY-MM-DD — toISOString() is UTC and would slip a day in KST (UTC+9).
+    const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
     const slots = await getAvailableSlots(doctorId, facilityId, dateStr);
     if (!slots) continue;
     for (const s of slots) {

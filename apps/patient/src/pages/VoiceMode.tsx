@@ -41,12 +41,14 @@ type VoiceState = 'idle' | 'recording' | 'thinking' | 'speaking';
 // ── Animated waveform ─────────────────────────────────────────────────────────
 function Waveform({ active, color = 'brand' }: { active: boolean; color?: string }) {
   const bars = 11;
+  // Static classes so Tailwind's JIT keeps them — `bg-${color}-400` would be purged.
+  const activeClass = color === 'ok' ? 'bg-ok-400' : 'bg-brand-400';
   return (
     <div className="flex items-center justify-center gap-[3px] h-10">
       {Array.from({ length: bars }).map((_, i) => (
         <div
           key={i}
-          className={`w-[3px] rounded-full transition-all duration-150 ${active ? `bg-${color}-400` : 'bg-ink-700'}`}
+          className={`w-[3px] rounded-full transition-all duration-150 ${active ? activeClass : 'bg-ink-700'}`}
           style={
             active
               ? {
@@ -174,12 +176,16 @@ function VoiceUI({
 
   // ── Push-to-talk: start recording on press ────────────────────────────
   async function startRecording() {
-    if (voiceStateRef.current === 'thinking') return;     // busy — ignore
+    if (voiceStateRef.current === 'thinking')  return;    // busy — ignore
+    if (voiceStateRef.current === 'recording') return;    // already recording
     window.speechSynthesis?.cancel();                     // interrupt any TTS
     setErrMsg(null);
     setUserText('');
     setAiText('');
     srTranscriptRef.current = '';
+    // Set state before the async getUserMedia so a fast release is seen by
+    // stopAndSend (otherwise it returns early and the UI sticks on "recording").
+    setVoiceStateSynced('recording');
 
     // Browser STT — live transcript while holding + fallback if Whisper is down
     const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
@@ -205,6 +211,12 @@ function VoiceUI({
     // Audio capture for Whisper (primary, most accurate)
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      // Released while we were awaiting? Abort cleanly — don't leave an orphan recorder.
+      // Cast: the ref mutates via setVoiceStateSynced, which TS can't see across the await.
+      if ((voiceStateRef.current as string) !== 'recording') {
+        stream.getTracks().forEach((t) => t.stop());
+        return;
+      }
       streamRef.current = stream;
       const mr = new MediaRecorder(stream);
       chunksRef.current = [];
@@ -212,10 +224,12 @@ function VoiceUI({
       mr.start();
       mediaRef.current = mr;
     } catch {
-      if (!SR) setErrMsg('Microphone unavailable. Please allow mic access.');
+      // No mic AND no browser STT → nothing to record; revert so the UI isn't stuck.
+      if (!SR) {
+        setErrMsg('Microphone unavailable. Please allow mic access.');
+        setVoiceStateSynced('idle');
+      }
     }
-
-    setVoiceStateSynced('recording');
   }
 
   // ── Push-to-talk: stop + send on release ──────────────────────────────

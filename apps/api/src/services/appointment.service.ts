@@ -125,15 +125,17 @@ export async function getQueue(filter: {
 }): Promise<any[]> {
   if (dbReady()) {
     const q: Record<string, unknown> = {};
-    if (filter.facilityId) q['facilityId'] = filter.facilityId;
     if (filter.status)     q['status']     = filter.status;
 
     // Resilience: skip legacy/corrupt rows whose doctorId/facilityId are not real
     // ObjectIds (e.g. "d14" from the old fake-data era). A single such row would
     // otherwise make .populate() throw a Cast error and 500 the whole queue.
-    if (filter.doctorId) q['doctorId'] = filter.doctorId;
-    else                 q['doctorId'] = { $type: 'objectId' };
-    if (!filter.facilityId) q['facilityId'] = { $type: 'objectId' };
+    // A malformed *filter* value would do the same, so validate before using it.
+    const isObjectId = (s: string) => /^[a-fA-F0-9]{24}$/.test(s);
+    if (filter.facilityId && isObjectId(filter.facilityId)) q['facilityId'] = filter.facilityId;
+    else                                                     q['facilityId'] = { $type: 'objectId' };
+    if (filter.doctorId && isObjectId(filter.doctorId)) q['doctorId'] = filter.doctorId;
+    else                                                 q['doctorId'] = { $type: 'objectId' };
 
     return Appointment.find(q)
       .populate('patientId', 'fullName phone email sex dateOfBirth knownAllergies chronicConditions currentMedications emergencyContact')

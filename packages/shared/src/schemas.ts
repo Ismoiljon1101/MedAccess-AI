@@ -186,6 +186,11 @@ export const MapPlaceSchema = z.object({
 
 export const AppointmentStatusSchema = z.enum(['pending', 'confirmed', 'cancelled', 'completed']);
 
+// 24-char hex Mongo ObjectId — agentAnalysis refs are server-generated document
+// ids, so reject non-ObjectId-shaped values at the boundary instead of letting
+// them reach the DB layer.
+const ObjectIdString = z.string().regex(/^[a-fA-F0-9]{24}$/, 'Invalid id');
+
 export const BookAppointmentSchema = z.object({
   patientPhone: z.string().default(''),
   facilityId: z.string().min(1),
@@ -196,9 +201,9 @@ export const BookAppointmentSchema = z.object({
   scheduledTime: z.string().min(1),
   agentSummary: z.string().max(4000).optional(),
   agentAnalysis: z.object({
-    symptomsId:    z.string().optional(),
-    triageId:      z.string().optional(),
-    imageReportId: z.string().optional(),
+    symptomsId:    ObjectIdString.optional(),
+    triageId:      ObjectIdString.optional(),
+    imageReportId: ObjectIdString.optional(),
   }).optional(),
   sessionId: z.string().optional(),
   slotId: z.string().optional(),
