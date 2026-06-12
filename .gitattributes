@@ -1,0 +1,10 @@
+# Keep binary assets byte-exact — never apply CRLF/LF line-ending conversion.
+*.pdf  binary
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.webp binary
+*.mp4  binary
+*.onnx binary
+*.pt   binary
+*.pth  binary
