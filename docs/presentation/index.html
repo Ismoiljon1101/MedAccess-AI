@@ -243,9 +243,75 @@
   .slide.active .chat .bubble:nth-of-type(5) { transition-delay: 2.55s }
   .slide.active .chat .small  { transition-delay: 3.1s }
 
+  /* Card grids / scorecard / roadmap ripple in — one motion language everywhere */
+  .grid > .card, .score .item, .road .ms { opacity: 0; transform: translateY(12px); }
+  .slide.active :is(.grid > .card, .score .item, .road .ms) {
+    opacity: 1; transform: none; transition: opacity .45s ease, transform .45s ease;
+  }
+  .slide.active :is(.grid, .score, .road) > *:nth-child(1)  { transition-delay: .42s }
+  .slide.active :is(.grid, .score, .road) > *:nth-child(2)  { transition-delay: .49s }
+  .slide.active :is(.grid, .score, .road) > *:nth-child(3)  { transition-delay: .56s }
+  .slide.active :is(.grid, .score, .road) > *:nth-child(4)  { transition-delay: .63s }
+  .slide.active :is(.grid, .score, .road) > *:nth-child(5)  { transition-delay: .70s }
+  .slide.active :is(.grid, .score, .road) > *:nth-child(6)  { transition-delay: .77s }
+  .slide.active :is(.grid, .score, .road) > *:nth-child(7)  { transition-delay: .84s }
+  .slide.active :is(.grid, .score, .road) > *:nth-child(8)  { transition-delay: .91s }
+  .slide.active :is(.grid, .score, .road) > *:nth-child(9)  { transition-delay: .98s }
+  .slide.active :is(.grid, .score, .road) > *:nth-child(10) { transition-delay: 1.05s }
+
+  /* Competitor table: rows tick in, our row lands last with a flash (slide 4) */
+  .cmp tbody tr { opacity: 0; transform: translateX(-10px); }
+  .slide.active .cmp tbody tr { opacity: 1; transform: none; transition: opacity .4s ease, transform .4s ease; }
+  .slide.active .cmp tbody tr:nth-child(1) { transition-delay: .55s }
+  .slide.active .cmp tbody tr:nth-child(2) { transition-delay: .75s }
+  .slide.active .cmp tbody tr:nth-child(3) { transition-delay: .95s }
+  .slide.active .cmp tbody tr:nth-child(4) { transition-delay: 1.15s }
+  .slide.active .cmp tbody tr.us { transition-delay: 1.55s; animation: us-flash 1.2s ease 1.65s backwards; }
+  @keyframes us-flash {
+    0% { background: var(--teal-tint); }
+    35% { background: #c9f0e8; box-shadow: inset 0 0 0 2px rgba(20,160,142,.35); }
+    100% { background: var(--teal-tint); box-shadow: none; }
+  }
+
+  /* ---------- Dark "act" slides — visual punctuation every few slides ---------- */
+  .slide.dark { background: linear-gradient(165deg, #122b27 0%, #0c1d1a 55%, #0a1614 100%); }
+  .slide.dark h1, .slide.dark h2, .slide.dark h3 { color: #fff; }
+  .slide.dark .lede, .slide.dark .small { color: #b9cbc7; }
+  .slide.dark .kicker { color: #2bd0b6; }
+  .slide.dark .kicker::before { background: #2bd0b6; }
+  .slide.dark .grad {
+    background: linear-gradient(120deg, #2bd0b6, #8cead9, #2bd0b6);
+    background-size: 300% 100%;
+    -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+  }
+  .slide.dark .hero-logo .word { color: #fff; }
+  .slide.dark .hero-logo .word b { color: #2bd0b6; }
+  .slide.dark .pill { background: rgba(255,255,255,.06); border-color: rgba(255,255,255,.14); color: #cfe0dd; }
+  .slide.dark .card { background: rgba(255,255,255,.05); border-color: rgba(255,255,255,.12); box-shadow: none; }
+  .slide.dark .card p { color: #aec0bc; }
+  .slide.dark .flow .step { background: rgba(255,255,255,.055); border-color: rgba(255,255,255,.12); box-shadow: none; }
+  .slide.dark .flow .step p { color: #aec0bc; }
+  .slide.dark .flow .step .s-num, .slide.dark .flow .arrow { color: #2bd0b6; }
+  .slide.dark .stat .lbl { color: #aec0bc; }
+  .slide.dark .dotgrid { background-image: radial-gradient(rgba(255,255,255,.10) 1px, transparent 1.4px); opacity: .5; }
+  .slide.dark .bg-orb { opacity: .28; }
+
+  /* ---------- Giant slide-number watermark (wayfinding + per-slide identity) ---------- */
+  .deck { counter-reset: slide; }
+  .slide { counter-increment: slide; }
+  .slide::after {
+    content: counter(slide, decimal-leading-zero);
+    position: absolute; top: 26px; right: 38px; line-height: 1; pointer-events: none;
+    font-size: clamp(64px, 8vw, 112px); font-weight: 900; letter-spacing: -.05em;
+    color: var(--ink); opacity: .05;
+  }
+  .slide.dark::after { color: #fff; opacity: .07; }
+  .slide:first-of-type::after, .slide:last-of-type::after { content: none; }
+
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after { animation: none !important; transition-duration: .01ms !important; transition-delay: 0s !important; }
-    .reveal, .flow .step, .flow .arrow, .chat .bubble, .chat .small { filter: none; opacity: 1; transform: none; }
+    .reveal, .flow .step, .flow .arrow, .chat .bubble, .chat .small,
+    .grid > .card, .score .item, .road .ms, .cmp tbody tr { filter: none; opacity: 1; transform: none; }
   }
 
   @media (max-width: 820px) {
@@ -263,7 +329,7 @@
 <div class="deck" id="deck">
 
   <!-- 1 · TITLE -->
-  <section class="slide active">
+  <section class="slide active dark">
     <div class="bg-orb orb-1"></div><div class="bg-orb orb-2"></div><div class="dotgrid"></div>
     <div class="hero-logo reveal">
       <span class="mark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8v8M8 12h8"/><path d="M3.5 12a8.5 8.5 0 1 0 17 0 8.5 8.5 0 0 0-17 0Z"/></svg></span>
@@ -347,7 +413,7 @@
   </section>
 
   <!-- 6 · THE BIG IDEA: CLOSE THE LOOP -->
-  <section class="slide">
+  <section class="slide dark">
     <div class="kicker reveal">Our Killer Feature</div>
     <h2 class="reveal">Most clinical AI stops at the read. <span class="grad">We close the loop.</span></h2>
     <p class="lede reveal" style="margin-top:14px">The read isn't the product — the <b>booking</b> is. The AI's clinical snapshot becomes a real referral in a real clinic's queue.</p>
@@ -486,7 +552,7 @@
   </section>
 
   <!-- 14 · MARKET & IMPACT -->
-  <section class="slide">
+  <section class="slide dark">
     <div class="bg-orb orb-2" style="opacity:.4"></div>
     <div class="kicker reveal">Impact at Scale</div>
     <h2 class="reveal" style="max-width:20ch">If we reach even a fraction, the math is enormous.</h2>
@@ -550,7 +616,7 @@
   </section>
 
   <!-- 18 · CLOSE -->
-  <section class="slide">
+  <section class="slide dark">
     <div class="bg-orb orb-1"></div><div class="bg-orb orb-2"></div><div class="dotgrid"></div>
     <div class="kicker reveal">Live Demo</div>
     <h1 class="reveal" style="font-size:clamp(34px,5.6vw,76px)">Let's watch it<br><span class="grad">close the loop.</span></h1>
@@ -559,7 +625,7 @@
       <div class="card"><h3>Clinic</h3><p style="margin-top:4px">localhost <b>:5173</b></p></div>
       <div class="card" style="background:var(--teal-tint); border-color:#bfe6df"><h3 class="grad">Your phone</h3><p style="margin-top:4px">scan the live QR · <b>:5180</b></p></div>
     </div>
-    <p class="lede serif reveal" style="margin-top:44px; font-size:clamp(20px,2.4vw,30px); color:var(--ink)">"Built for the next billion patients."</p>
+    <p class="lede serif reveal" style="margin-top:44px; font-size:clamp(20px,2.4vw,30px)">"Built for the next billion patients."</p>
     <div class="tags reveal" style="margin-top:22px"><span class="pill"><span class="dot"></span> Thank you — questions?</span></div>
   </section>
 
