@@ -117,6 +117,11 @@
   .bg-orb { position: absolute; border-radius: 50%; filter: blur(60px); opacity: .5; pointer-events: none; }
   .orb-1 { width: 520px; height: 520px; background: radial-gradient(circle, #c7f0e8, transparent 70%); top: -160px; right: -120px; }
   .orb-2 { width: 420px; height: 420px; background: radial-gradient(circle, #d8f3ed, transparent 70%); bottom: -180px; left: -80px; }
+  .dotgrid { position: absolute; inset: 0; pointer-events: none; opacity: .55;
+    background-image: radial-gradient(var(--line) 1px, transparent 1.4px); background-size: 26px 26px;
+    -webkit-mask-image: radial-gradient(ellipse 75% 70% at 50% 40%, #000 0%, transparent 100%);
+    mask-image: radial-gradient(ellipse 75% 70% at 50% 40%, #000 0%, transparent 100%); }
+  ::selection { background: var(--teal-soft); color: var(--teal-deep); }
 
   /* ---------- Table ---------- */
   table.cmp { width: 100%; border-collapse: collapse; font-size: clamp(12px, 1.05vw, 16px); }
@@ -176,7 +181,7 @@
   .road .ms li::before { content: ""; position: absolute; left: 0; top: 7px; width: 6px; height: 6px; border-radius: 50%; background: var(--teal-bright); }
 
   /* ---------- Chrome ---------- */
-  .progress { position: fixed; top: 0; left: 0; height: 3px; background: linear-gradient(90deg, var(--teal), #2bd0b6); z-index: 50; transition: width .4s ease; }
+  .progress { position: fixed; top: 0; left: 0; height: 3px; background: linear-gradient(90deg, var(--teal), #2bd0b6); z-index: 50; transition: width .4s ease; box-shadow: 0 0 10px rgba(34,184,163,.45); }
   .counter { position: fixed; bottom: 24px; right: 28px; z-index: 50; font-size: 13px; font-weight: 700; color: var(--ink-faint); background: rgba(255,255,255,.82); backdrop-filter: blur(8px); border: 1px solid var(--line); padding: 6px 12px; border-radius: 999px; }
   .counter b { color: var(--ink); }
   .brand-foot { position: fixed; bottom: 24px; left: 28px; z-index: 50; font-size: 12px; font-weight: 700; color: var(--ink-faint); }
@@ -205,7 +210,7 @@
 
   <!-- 1 · TITLE -->
   <section class="slide active">
-    <div class="bg-orb orb-1"></div><div class="bg-orb orb-2"></div>
+    <div class="bg-orb orb-1"></div><div class="bg-orb orb-2"></div><div class="dotgrid"></div>
     <div class="hero-logo reveal">
       <span class="mark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8v8M8 12h8"/><path d="M3.5 12a8.5 8.5 0 1 0 17 0 8.5 8.5 0 0 0-17 0Z"/></svg></span>
       <span class="word">Med<b>Access</b> AI</span>
@@ -231,7 +236,7 @@
       clinicians, in English, on fast internet, behind Epic. We took the opposite bet:</p>
     <div class="stat-row reveal" style="margin-top:48px">
       <div class="stat"><div class="big grad">4.5B</div><div class="lbl">people lack access to essential health services (WHO)</div></div>
-      <div class="stat"><div class="big grad">1 : 1000s</div><div class="lbl">one rural nurse to thousands of patients, many languages</div></div>
+      <div class="stat"><div class="big grad">10M+</div><div class="lbl">projected global health-worker shortfall by 2030 (WHO)</div></div>
       <div class="stat"><div class="big grad">0</div><div class="lbl">major clinical-AI products target this segment today</div></div>
     </div>
     <p class="lede serif reveal" style="margin-top:44px; color:var(--ink); font-size:clamp(18px,2vw,26px)">That gap is our wedge.</p>
@@ -394,7 +399,7 @@
       <div class="card"><h3 class="grad">BM25, not embeddings</h3><p>At 31 docs, keyword + IDF matches cosine similarity — no vector store, no extra API call.</p></div>
       <div class="card"><h3 class="grad">PWA, not native</h3><p>Installs in 5s from a Chrome address bar on Android Go. 95% of native feel, 0% store overhead.</p></div>
       <div class="card"><h3 class="grad">Python sidecar</h3><p>Medical models ship PyTorch weights. Keep the Node API stateless; scale CV independently.</p></div>
-      <div class="card"><h3 class="grad">No PII stored</h3><p>Patient chat lives in localStorage only. No account, no sign-up. Phone-based identity to book.</p></div>
+      <div class="card"><h3 class="grad">No accounts, minimal PII</h3><p>Patient chat lives in localStorage only. No sign-up, no passwords — a phone number is the only identity needed to book.</p></div>
     </div>
   </section>
 
@@ -434,10 +439,11 @@
     <div class="stat-row reveal" style="margin-top:42px">
       <div class="stat"><div class="big grad">~40%</div><div class="lbl">of pediatric outpatient visits are malaria in endemic sub-Saharan regions</div></div>
       <div class="stat"><div class="big grad">~15%</div><div class="lbl">of under-5 visits are pneumonia in rural South Asia</div></div>
+      <div class="stat"><div class="big grad">~80%</div><div class="lbl">of target-clinic visits covered by our five Pareto diseases</div></div>
       <div class="stat"><div class="big grad">$200</div><div class="lbl">one mid-tier laptop per clinic serves every phone on local WiFi</div></div>
     </div>
-    <p class="lede reveal" style="margin-top:40px">Our five Pareto diseases cover the majority of what walks into a rural clinic. Every screening that catches a
-      red flag early — or routes a patient to the right doctor today instead of next month — is a life-trajectory changed.</p>
+    <p class="lede reveal" style="margin-top:40px">Every screening that catches a red flag early — or routes a patient to the right doctor
+      <i>today</i> instead of next month — is a life-trajectory changed.</p>
   </section>
 
   <!-- 15 · GO-TO-MARKET -->
@@ -468,7 +474,7 @@
     <h2 class="reveal">A credible path from demo to deployment.</h2>
     <div class="road reveal" style="margin-top:32px">
       <div class="ms now"><div class="ver">v1.0</div><div class="when">Now · Demo</div><ul><li>Full closed loop</li><li>3 live image models</li><li>Voice + RAG + PWA</li><li>Typecheck clean</li></ul></div>
-      <div class="ms"><div class="ver">v0.2</div><div class="when">Next weeks</div><ul><li>Auth + RBAC</li><li>Pharmacy referral loop</li><li>Malaria + skin upgrade</li><li>SMS/push on confirm</li></ul></div>
+      <div class="ms"><div class="ver">v1.1</div><div class="when">Next weeks</div><ul><li>Auth + RBAC</li><li>Pharmacy referral loop</li><li>Malaria + skin upgrade</li><li>SMS/push on confirm</li></ul></div>
       <div class="ms"><div class="ver">v1.x</div><div class="when">Months</div><ul><li>pgvector RAG, 5k docs</li><li>Clinician-signed summaries</li><li>Reverse patient matching</li><li>Cost & observability</li></ul></div>
       <div class="ms"><div class="ver">v2.0</div><div class="when">With funding</div><ul><li>HIPAA / GDPR work</li><li>Native mobile (RN, 70% shared)</li><li>On-device offline STT</li><li>EHR / FHIR write-back</li></ul></div>
     </div>
@@ -491,13 +497,13 @@
 
   <!-- 18 · CLOSE -->
   <section class="slide">
-    <div class="bg-orb orb-1"></div><div class="bg-orb orb-2"></div>
+    <div class="bg-orb orb-1"></div><div class="bg-orb orb-2"></div><div class="dotgrid"></div>
     <div class="kicker reveal">Live Demo</div>
     <h1 class="reveal" style="font-size:clamp(34px,5.6vw,76px)">Let's watch it<br><span class="grad">close the loop.</span></h1>
     <div class="grid cols-3 reveal" style="margin-top:42px; max-width:840px">
       <div class="card"><h3>Patient</h3><p style="margin-top:4px">localhost <b>:5174</b></p></div>
       <div class="card"><h3>Clinic</h3><p style="margin-top:4px">localhost <b>:5173</b></p></div>
-      <div class="card"><h3>API</h3><p style="margin-top:4px">localhost <b>:4000</b></p></div>
+      <div class="card" style="background:var(--teal-tint); border-color:#bfe6df"><h3 class="grad">Your phone</h3><p style="margin-top:4px">scan the live QR · <b>:5180</b></p></div>
     </div>
     <p class="lede serif reveal" style="margin-top:44px; font-size:clamp(20px,2.4vw,30px); color:var(--ink)">"Built for the next billion patients."</p>
     <div class="tags reveal" style="margin-top:22px"><span class="pill"><span class="dot"></span> Thank you — questions?</span></div>
