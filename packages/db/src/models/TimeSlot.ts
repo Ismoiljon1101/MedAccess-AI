@@ -22,5 +22,7 @@ const TimeSlotSchema = new Schema<ITimeSlot>({
 
 TimeSlotSchema.index({ doctorId: 1, date: 1, isBooked: 1 });
 TimeSlotSchema.index({ facilityId: 1, date: 1 });
+// One physical slot per doctor/date/time — backstops the double-booking race in book().
+TimeSlotSchema.index({ doctorId: 1, date: 1, startTime: 1 }, { unique: true });
 
 export const TimeSlot = model<ITimeSlot>('TimeSlot', TimeSlotSchema);

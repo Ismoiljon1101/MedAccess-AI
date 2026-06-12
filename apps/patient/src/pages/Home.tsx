@@ -112,7 +112,7 @@ export default function Home() {
         <section className="card card-pad border-danger-500/25 bg-danger-500/5 text-center space-y-1.5">
           <p className="text-sm font-semibold text-danger-400">Life-threatening emergency?</p>
           <p className="text-xs text-ink-400">
-            Don't use this app. Call <strong className="text-white">112 / 911 / 999</strong> immediately.
+            Don't use this app. Call <strong className="text-white">119 · 911 · 999</strong> immediately.
           </p>
         </section>
 

@@ -50,6 +50,16 @@ export async function book(input: BookingInput) {
   if (booked.has(input.scheduledTime)) throw new Error('SLOT_TAKEN');
 
   if (dbReady()) {
+    // The in-memory gate above is inert in DB mode, so guard against a taken slot
+    // here too. The unique index on (doctorId,date,startTime) is the race backstop.
+    const existing = await TimeSlot.findOne({
+      doctorId:   input.doctorId,
+      date:       input.scheduledDate,
+      startTime:  input.scheduledTime,
+      isBooked:   true,
+    }).lean();
+    if (existing) throw new Error('SLOT_TAKEN');
+
     const slot = await TimeSlot.create({
       doctorId:   input.doctorId,
       facilityId: input.facilityId,
@@ -57,6 +67,10 @@ export async function book(input: BookingInput) {
       startTime:  input.scheduledTime,
       endTime,
       isBooked:   true,
+    }).catch((e: any) => {
+      // Duplicate-key from the unique index = a concurrent booking won the race.
+      if (e?.code === 11000) throw new Error('SLOT_TAKEN');
+      throw e;
     });
 
     const appt = await Appointment.create({

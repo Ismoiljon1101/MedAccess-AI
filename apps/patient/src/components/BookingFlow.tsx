@@ -28,6 +28,12 @@ interface BookingFlowProps {
 
 type Step = 'clinic' | 'time' | 'booking' | 'done';
 
+// Local YYYY-MM-DD — toISOString() is UTC and slips a day in KST (UTC+9),
+// desyncing the value from the visible label and the Sunday-skip check.
+function toLocalISO(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
 // Next 7 calendar days, excluding Sundays (clinics closed) — matches server slot rules.
 function upcomingDates(count = 6): { value: string; label: string; weekday: string }[] {
   const out: { value: string; label: string; weekday: string }[] = [];
@@ -37,7 +43,7 @@ function upcomingDates(count = 6): { value: string; label: string; weekday: stri
     day.setDate(d.getDate() + i);
     if (day.getDay() === 0) continue; // Sunday — closed
     out.push({
-      value:   day.toISOString().slice(0, 10),
+      value:   toLocalISO(day),
       label:   day.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
       weekday: day.toLocaleDateString(undefined, { weekday: 'short' }),
     });

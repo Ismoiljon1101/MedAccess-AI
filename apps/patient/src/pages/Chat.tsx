@@ -181,7 +181,13 @@ export default function Chat() {
       .then((msgs) => {
         if (!msgs.length) return;
         setMessages(
-          msgs.map((m) => ({ id: crypto.randomUUID(), role: m.role, content: m.content })),
+          // Defense for sessions saved before the server-side strip landed: never
+          // render a stray <<BOOK>> marker to the patient on resume.
+          msgs.map((m) => ({
+            id: crypto.randomUUID(),
+            role: m.role,
+            content: m.role === 'assistant' ? parseBookingMarker(m.content).cleanText : m.content,
+          })),
         );
         msgCountRef.current = msgs.length;
         const firstUser = msgs.find((m) => m.role === 'user');
@@ -836,7 +842,7 @@ export default function Chat() {
       <div className="flex items-center justify-center gap-1.5 py-1.5 text-[10px] shrink-0">
         <Phone size={11} className="text-danger-400 shrink-0" />
         <span className="text-ink-500">Life-threatening?</span>
-        <a href="tel:112" className="font-semibold text-danger-400">112 / 911 / 999</a>
+        <a href="tel:119" className="font-semibold text-danger-400">119 · 911 · 999</a>
       </div>
 
       {/* ── Input bar ────────────────────────────────────────────── */}

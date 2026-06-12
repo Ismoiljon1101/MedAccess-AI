@@ -237,7 +237,8 @@ export async function findNextAvailableSlot(
     const d = new Date();
     d.setDate(d.getDate() + i);
     if (d.getDay() === 0) continue;
-    const dateStr = d.toISOString().slice(0, 10);
+    // Local YYYY-MM-DD — toISOString() is UTC and slips a day in KST (UTC+9).
+    const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
     const slots = await getAvailableSlots(doctorId, facilityId, dateStr);
     if (slots && slots.length > 0) return { date: dateStr, ...slots[0] };
   }

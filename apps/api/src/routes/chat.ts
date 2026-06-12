@@ -10,6 +10,13 @@ import { HttpError } from '../middleware/error.js';
 
 const router: Router = Router();
 
+// Strip the hidden conversational-booking marker before persisting so it never
+// leaks back to the patient on session resume (the live stream still emits the
+// raw marker so the client can auto-book; we only clean what we store).
+function stripBookingMarker(text: string): string {
+  return text.replace(/<<BOOK:[\s\S]*?>>/g, '').trim();
+}
+
 // ── Specialty detection from conversation ─────────────────────────────────────
 function detectSpecialty(messages: Array<{ role: string; content: string }>): string {
   const combined = messages.map((m) => m.content).join(' ').toLowerCase();
@@ -95,7 +102,8 @@ router.post('/', async (req, res, next) => {
       maxTokens: 900,
     });
 
-    appendMessage(sessionId, { role: 'assistant', content: text });
+    const cleanText = stripBookingMarker(text);
+    appendMessage(sessionId, { role: 'assistant', content: cleanText });
 
     const patientId = parsed.patientPhone ? (await getIdByPhone(parsed.patientPhone) ?? undefined) : undefined;
 
@@ -110,7 +118,7 @@ router.post('/', async (req, res, next) => {
 
     res.json({
       sessionId,
-      message: { role: 'assistant', content: text },
+      message: { role: 'assistant', content: cleanText },
       model,
       citations: toCitations(results),
       ragStatus: ragStatus(),
@@ -178,7 +186,8 @@ router.post('/stream', async (req, res, next) => {
       res.write(`event: error\ndata: ${JSON.stringify({ message: err.message })}\n\n`);
     }
 
-    appendMessage(sessionId, { role: 'assistant', content: assembled });
+    // Persist the cleaned text (no <<BOOK>> marker) so resume never leaks it.
+    appendMessage(sessionId, { role: 'assistant', content: stripBookingMarker(assembled) });
 
     const patientId = parsed.patientPhone ? (await getIdByPhone(parsed.patientPhone) ?? undefined) : undefined;
 
