@@ -107,6 +107,12 @@ function typeBadgeClass(type: FacilityResult['type']): string {
   return 'bg-ok-500/15 text-ok-400 border border-ok-500/30';
 }
 
+// Local YYYY-MM-DD — toISOString() is UTC and slips a day in KST (UTC+9),
+// which would desync the date value from the visible label and the slot fetch.
+function toLocalISO(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
 // Generate next 7 non-Sunday days
 function getNextDays(count = 7): Array<{ date: string; day: string; label: string }> {
   const result: Array<{ date: string; day: string; label: string }> = [];
@@ -118,7 +124,7 @@ function getNextDays(count = 7): Array<{ date: string; day: string; label: strin
     cursor = new Date(cursor.getTime() + 86_400_000);
     if (cursor.getDay() === 0) continue; // skip Sunday
     result.push({
-      date:  cursor.toISOString().slice(0, 10),
+      date:  toLocalISO(cursor),
       day:   cursor.toLocaleDateString('en-US', { weekday: 'short' }),
       label: cursor.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
     });
@@ -399,6 +405,9 @@ export default function FindCare() {
   async function handleBook() {
     if (!bookDoctor || !selectedSlot) return;
     if (!pName.trim()) { setFormError('Your name is required.'); return; }
+    // Booking needs a phone — it's the server identity key. Without it the
+    // appointment has no patientId and the API rejects it; ask up front.
+    if (!pPhone.trim()) { setFormError('A phone number is required to book.'); return; }
 
     setSubmitting(true);
     setFormError('');
