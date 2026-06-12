@@ -517,3 +517,29 @@ All bugs live in [`docs/qa/issues.md`](./docs/qa/issues.md). Format and severity
 - **Clinic API client:** `apps/clinic/src/lib/api.ts`
 - **Env contract:** `.env.example`
 - **Why decisions:** [`README.md`](./README.md)
+
+---
+
+## 12 · Code Audit — full-stack pass (2026-06-12, Ismail)
+
+> Autonomous audit of the whole flow: patient chat → booking → clinic queue, plus backend services, schemas, and UI/UX. `pnpm typecheck` is **clean** across all 5 workspaces (no mechanical type errors). Findings below are logic / UX / data-integrity issues found by reading the source.
+
+### 🔴 Bugs being fixed this pass
+
+| # | Severity | Area | Finding | Fix | Status |
+|---|---|---|---|---|---|
+| A1 | SEV-2 | patient/api | **Booking marker leak on resume.** Server stores the assistant message with the raw `<<BOOK:{…}>>` marker (`chat.ts` appendMessage + Interview push). On `GET /chat/session/:id` resume, `Chat.tsx` renders it verbatim → the hidden booking marker shows to the patient. Live stream strips it, resume does not. | Strip the marker before persisting to session + Interview (server side, in both `/` and `/stream`). | ✅ Fixed |
+| A2 | SEV-2 | patient/api | **UTC date slip in the booking date picker.** `BookingFlow.upcomingDates()` and `facility.service.findNextAvailableSlot()` build dates with `toISOString().slice(0,10)` (UTC). In KST (UTC+9) the evening rolls the date back a day — the visible label (local) and the value (UTC) disagree, and the Sunday-skip check runs on the wrong day. `getUpcomingSlots` already does this correctly (local format). | Use a local `YYYY-MM-DD` formatter everywhere date strings are generated. | ✅ Fixed |
+| A3 | SEV-2 | api/db | **Slot double-booking possible in DB mode.** `TimeSlot` has no unique index on `(doctorId,date,startTime)`, and `book()`'s in-memory `inMemoryBookedSlots` gate is never populated when `dbReady()` — so two concurrent confirms of the same slot both create a TimeSlot + Appointment. Comment claims "enforced by DB uniqueness" but no such constraint exists. | Pre-create check in the DB path (throw `SLOT_TAKEN` → 409) + unique index on `TimeSlot(doctorId,date,startTime)`. | ✅ Fixed |
+| A4 | SEV-3 | patient | **Wrong emergency number for Korea.** Chat emergency pill dials `tel:112` (police) labeled "112 / 911 / 999". Korea medical/ambulance is **119**. Product is Korea-first. | Dial `119`, relabel "119 (KR) · 911 (US) · 999 (UK)". | ✅ Fixed |
+
+### 🟡 Known gaps / cleanup (not fixed this pass — flagged for decision)
+
+| # | Severity | Area | Finding | Recommendation |
+|---|---|---|---|---|
+| B1 | SEV-3 | api | **Dead conversational-proposal code path.** `agent-booking.service.findBestOption` + the `proposals` Map + `POST /api/appointments/confirm` + client `confirmAgentBooking` + the `agentProposal` / `booking_proposal` UI in `Chat.tsx` are all dead — chat booking now goes through the `<<BOOK>>` marker → `POST /api/appointments`. `/confirm` would 400 (proposals never populated). | Remove in a dedicated cleanup PR (touches working files; out of scope for a bug pass per the no-refactor rule). |
+| B2 | SEV-4 | api | **`POST /api/chat` (non-stream) ignores `lat`/`lng`** so bookable doctors aren't distance-sorted. Patient app only uses `/stream`, so no live impact. | Pass lat/lng through for parity, or drop the non-stream route if unused. |
+| B3 | SEV-3 | patient | **`autoBook` writes blank `facilityName`/`doctorName`** into the local store when the `<<BOOK>>` marker omits names. Self-heals on next `getMyAppointments` (server populates), so only a transient blank in Records. | Enrich from the proposal/lookup, or refetch appointments right after booking. |
+| B4 | SEV-3 | api | **In-memory (no-DB) queue/records aren't populated.** `getQueue`/`getPatientAppointments` in-memory return raw `doctorId`/`facilityId` strings, so the clinic queue & patient records show no names without Mongo. Demo runs with DB, so low impact. | Hydrate names from the in-memory doctor/facility stores in the no-DB path. |
+
+> Update the Status column as fixes land. B1–B4 are intentionally deferred (cleanup / no-DB-only) — pick up in a follow-up once the demo is locked.
