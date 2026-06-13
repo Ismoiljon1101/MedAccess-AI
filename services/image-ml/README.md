@@ -26,6 +26,13 @@ pip install -r requirements.txt
 python main.py   # boots on :5001, auto-downloads missing weights
 ```
 
+> **Windows only:** TorchXRayVision's download progress bar uses Unicode block characters that
+> Windows cp1252 can't encode. Set `PYTHONUTF8=1` before starting the server, or the first
+> X-ray inference call will crash while downloading weights (~135 MB):
+> ```
+> $env:PYTHONUTF8 = "1"; python main.py
+> ```
+
 Then verify:
 ```bash
 curl http://localhost:5001/healthz

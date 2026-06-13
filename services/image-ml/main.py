@@ -23,7 +23,14 @@ from __future__ import annotations
 import io
 import os
 import ssl
+import sys
 import time
+
+# Windows console defaults to cp1252 which can't encode Unicode progress bars
+# (e.g. TorchXRayVision tqdm uses █ █). Force UTF-8 so downloads don't crash.
+if sys.platform == "win32":
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")  # type: ignore
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")  # type: ignore
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Literal
