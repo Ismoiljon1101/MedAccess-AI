@@ -62,10 +62,12 @@ const TYPE_TABS: { id: FacilityType; label: string; icon: React.ReactNode }[] = 
   { id: 'pharmacy', label: 'Pharmacy',  icon: <Pill size={12} /> },
 ];
 
+// Canonical specialty vocabulary — must match seed-demo.mjs + chat.ts detectSpecialty
+// so a chip (or an MA Agent recommendation) always resolves to a real doctor (C9).
 const SPECIALTY_CHIPS = [
-  'All', 'General Practice', 'Family Medicine', 'Emergency Medicine',
-  'Cardiology', 'Pediatrics', 'Obstetrics & Gynecology', 'Orthopedics',
-  'Neurology', 'Psychiatry', 'Dermatology', 'ENT', 'Oncology', 'Pharmacy',
+  'All', 'General Practice', 'Cardiology', 'Neurology', 'Pulmonology',
+  'Respiratory', 'Dermatology', 'Ophthalmology', 'Pediatrics', 'Mental Health',
+  'Emergency', 'Orthopedics', 'Obstetrics & Gynecology', 'Gastroenterology',
 ] as const;
 
 /** One-tap navigation deep-link — Naver Maps first (Korea), Google fallback. */

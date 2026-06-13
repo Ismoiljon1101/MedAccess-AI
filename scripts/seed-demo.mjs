@@ -57,10 +57,21 @@ const FACILITIES = [
     name: 'Asan Medical Center', type: 'hospital',
     address: '88 Olympic-ro 43-gil, Songpa-gu', city: 'Seoul', lat: 37.5267, lng: 127.1080,
     phone: '+82 2-1688-7575',
-    specialties: ['Cardiology', 'Neurology', 'Pediatrics', 'Emergency'],
+    specialties: ['Cardiology', 'Neurology', 'Pediatrics', 'Emergency', 'Orthopedics', 'Gastroenterology'],
     doctors: [
       { name: 'Dr. Hyun-woo Kang', specialty: 'Pediatrics', languages: ['Korean'] },
       { name: 'Dr. Na-rae Shin', specialty: 'Cardiology', languages: ['Korean', 'English'] },
+      { name: 'Dr. Jae-won Lim', specialty: 'Orthopedics', languages: ['Korean'] },
+      { name: 'Dr. Bo-ram Yoo', specialty: 'Gastroenterology', languages: ['Korean', 'English'] },
+    ],
+  },
+  {
+    name: 'Cheil Women’s Health Clinic', type: 'clinic',
+    address: '17 Seochojungang-ro, Seocho-gu', city: 'Seoul', lat: 37.4923, lng: 127.0078,
+    phone: '+82 2-2000-7000',
+    specialties: ['Obstetrics & Gynecology', 'General Practice'],
+    doctors: [
+      { name: 'Dr. Hye-jin Moon', specialty: 'Obstetrics & Gynecology', languages: ['Korean', 'English'] },
     ],
   },
   {
