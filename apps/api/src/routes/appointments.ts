@@ -106,10 +106,11 @@ router.patch('/:id', async (req, res, next) => {
   try {
     const { status, doctorNotes } = req.body;
 
-    if (status) {
-      const parsed = AppointmentStatusSchema.safeParse(status);
-      if (!parsed.success) return next(new HttpError(400, 'Invalid status value'));
-    }
+    // Require a valid status — without it updateStatus would write `undefined`
+    // and corrupt the in-memory record (C12).
+    if (!status) return next(new HttpError(400, 'A status value is required'));
+    const parsed = AppointmentStatusSchema.safeParse(status);
+    if (!parsed.success) return next(new HttpError(400, 'Invalid status value'));
 
     const appointment = await updateStatus(req.params.id, status, doctorNotes);
     if (!appointment) return next(new HttpError(404, 'Appointment not found'));

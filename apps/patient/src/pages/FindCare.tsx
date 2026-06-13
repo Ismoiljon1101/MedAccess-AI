@@ -908,7 +908,9 @@ export default function FindCare() {
                   </div>
                 </div>
                 <a
-                  href={p.navUrl}
+                  // Use a web map URL (not the nmap:// app deep link, which is dead
+                  // in a desktop browser) — works on both desktop and mobile (C13).
+                  href={navUrl(mapProvider, p.lat, p.lng, p.name, '')}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="shrink-0 flex items-center gap-1 rounded-xl border border-ink-700 bg-ink-800 px-3 py-2 text-xs font-medium text-ink-300 hover:border-brand-500/50 hover:text-ink-100 transition"
