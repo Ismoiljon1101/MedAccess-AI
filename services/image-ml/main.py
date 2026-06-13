@@ -24,6 +24,7 @@ import io
 import os
 import ssl
 import time
+from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Literal
 
@@ -51,15 +52,17 @@ EYE_DR_ONNX_PATH    = MODELS_DIR / "eye-dr-detect.onnx"        # diabetic retino
 # Skin_Disease_AI 6-class labels (Xception, 92% accuracy, NadavIs56/Skin_Disease_AI)
 SKIN_XCEPTION_CLASSES = ["acne", "carcinoma", "eczema", "keratosis", "millia", "rosacea"]
 
-# HAM10000 7-class skin lesion labels (matches training order)
+# HAM10000 7-class skin lesion labels.
+# Order matches PyTorch ImageFolder alphabetical sort of the HAM10000 dx folder names:
+# akiec → bcc → bkl → df → mel → nv → vasc
 HAM10000_CLASSES = [
-    "melanoma",
-    "melanocytic nevus",
-    "basal cell carcinoma",
-    "actinic keratosis",
-    "benign keratosis",
-    "dermatofibroma",
-    "vascular lesion",
+    "actinic keratosis",    # akiec (index 0)
+    "basal cell carcinoma", # bcc   (index 1)
+    "benign keratosis",     # bkl   (index 2)
+    "dermatofibroma",       # df    (index 3)
+    "melanoma",             # mel   (index 4)
+    "melanocytic nevus",    # nv    (index 5)
+    "vascular lesion",      # vasc  (index 6)
 ]
 
 # BlairFerg DR ONNX is a binary classifier — output shape [1, 2]:
@@ -207,15 +210,45 @@ def preprocess_xray(img: np.ndarray):
 
 # ── Image type detection ──────────────────────────────────────────────────────
 
+def _looks_like_fundus(img: np.ndarray) -> bool:
+    """Fundus photos have two distinctive properties:
+    1. Dark circular vignette — the camera FOV limiter makes corners much darker than center.
+    2. Reddish/orange dominant hue — retinal tissue is red, optic disc is orange-yellow.
+    Both must be true to avoid misclassifying warm-toned skin lesions as fundus.
+    """
+    h, w = img.shape[:2]
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+
+    # Corner darkness: sample 1/6 of the shorter dimension from each corner
+    c = min(h, w) // 6
+    corner_mean = float(np.mean([
+        gray[:c, :c].mean(), gray[:c, -c:].mean(),
+        gray[-c:, :c].mean(), gray[-c:, -c:].mean(),
+    ]))
+    center_mean = float(gray[h // 4: 3 * h // 4, w // 4: 3 * w // 4].mean())
+    has_vignette = center_mean > 0 and (corner_mean / center_mean) < 0.35
+
+    if not has_vignette:
+        return False
+
+    # Red/orange hue check (OpenCV HSV hue range 0–180; red wraps at 0 and 180)
+    hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
+    hue = hsv[:, :, 0]
+    red_orange_ratio = float(((hue < 25) | (hue > 155)).mean())
+    return red_orange_ratio > 0.30
+
+
 def detect_image_type(hint: str, img: np.ndarray) -> Literal["skin", "xray", "eye", "malaria", "other", "unknown"]:
     h = hint.lower().strip()
     if h in {"skin", "xray", "eye", "malaria"}:
         return h  # type: ignore
-    # Heuristic: X-rays are near-grayscale (low saturation)
     hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
     mean_sat = float(np.mean(hsv[:, :, 1]))
     if mean_sat < 20:
         return "xray"
+    # Check fundus before skin — both are high-saturation but fundus has vignette + red hue
+    if mean_sat > 45 and _looks_like_fundus(img):
+        return "eye"
     if mean_sat > 45:
         return "skin"
     return "unknown"
@@ -223,18 +256,8 @@ def detect_image_type(hint: str, img: np.ndarray) -> Literal["skin", "xray", "ey
 
 # ── FastAPI ───────────────────────────────────────────────────────────────────
 
-app = FastAPI(title="MedAccess Image ML", version="0.3.0")
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["http://localhost:4000"],
-    allow_methods=["POST", "GET"],
-    allow_headers=["*"],
-)
-
-
-@app.on_event("startup")
-def _pull_weights_on_startup() -> None:
+@asynccontextmanager
+async def lifespan(app: FastAPI):
     """Auto-download any missing managed weights on boot.
 
     Set SKIP_MODEL_DOWNLOADS=1 to disable (e.g. CI, air-gapped deployments).
@@ -243,11 +266,22 @@ def _pull_weights_on_startup() -> None:
     """
     if os.environ.get("SKIP_MODEL_DOWNLOADS") == "1":
         print("[startup] SKIP_MODEL_DOWNLOADS=1 — skipping weight auto-download")
-        return
-    try:
-        ensure_all()
-    except Exception as exc:
-        print(f"[startup] weight auto-download error (continuing): {exc}")
+    else:
+        try:
+            ensure_all()
+        except Exception as exc:
+            print(f"[startup] weight auto-download error (continuing): {exc}")
+    yield
+
+
+app = FastAPI(title="MedAccess Image ML", version="0.3.0", lifespan=lifespan)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:4000"],
+    allow_methods=["POST", "GET"],
+    allow_headers=["*"],
+)
 
 
 class Finding(BaseModel):
@@ -507,9 +541,14 @@ async def analyze(
             inp = np.transpose(img_norm, (2, 0, 1))[np.newaxis, ...].astype(np.float32)
             input_name = sess.get_inputs()[0].name  # type: ignore
             out = sess.run(None, {input_name: inp})[0][0]  # type: ignore
-            # Apply softmax in numpy
-            exps = np.exp(out - np.max(out))
-            probs = exps / exps.sum()
+            # BlairFerg ONNX already applies softmax internally (outputs sum to ~1.0).
+            # Do NOT apply softmax again — it compresses confident predictions incorrectly.
+            already_prob = bool(np.all(out >= 0) and np.all(out <= 1) and 0.98 <= float(out.sum()) <= 1.02)
+            if already_prob:
+                probs = out
+            else:
+                exps = np.exp(out - np.max(out))
+                probs = exps / exps.sum()
             findings = []
             for idx, conf in enumerate(probs):
                 if idx >= len(DR_CLASSES):
