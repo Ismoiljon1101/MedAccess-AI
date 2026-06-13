@@ -87,6 +87,9 @@ export default function Chat() {
   const msgCountRef = useRef<number>(0);
   // Count user turns (not counting greeting)
   const userTurnRef = useRef<number>(0);
+  // Track created object URLs so we can revoke them on unmount (C11a) — a cleanup
+  // effect that closes over `messages` would only ever see the initial empty array.
+  const objectUrlsRef = useRef<string[]>([]);
 
   // ── Parse booking marker from text ───────────────────────────────
   function parseBookingMarker(text: string): { cleanText: string; booking?: BookingAction } {
@@ -192,6 +195,9 @@ export default function Chat() {
           })),
         );
         msgCountRef.current = msgs.length;
+        // Restore the user-turn count so the care CTA can still appear without
+        // forcing 3 brand-new turns after a resume (C11b).
+        userTurnRef.current = msgs.filter((m) => m.role === 'user').length;
         const firstUser = msgs.find((m) => m.role === 'user');
         if (firstUser) previewRef.current = firstUser.content.slice(0, 80);
       })
@@ -216,11 +222,8 @@ export default function Chat() {
   // ── Revoke object URLs on unmount (memory cleanup) ────────────────────
   useEffect(() => {
     return () => {
-      messages.forEach((m) => {
-        if (m.imageUrl) URL.revokeObjectURL(m.imageUrl);
-      });
+      objectUrlsRef.current.forEach((url) => URL.revokeObjectURL(url));
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // ── Auto-resize textarea ─────────────────────────────────────────────
@@ -477,6 +480,7 @@ export default function Chat() {
     const userId   = crypto.randomUUID();
     const imageName = file.name || 'image.jpg';
     const imageUrl  = URL.createObjectURL(file);
+    objectUrlsRef.current.push(imageUrl);
     setMessages((prev) => [...prev, { id: userId, role: 'user', content: '', imageUrl, imageName }]);
 
     const aiId = crypto.randomUUID();

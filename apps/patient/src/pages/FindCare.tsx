@@ -134,12 +134,14 @@ function getNextDays(count = 7): Array<{ date: string; day: string; label: strin
   return result;
 }
 
-const DAYS = getNextDays();
-
 // ── Component ─────────────────────────────────────────────────────────────────
 export default function FindCare() {
   const [searchParams] = useSearchParams();
   const { patientProfile, addAppointment } = useAppStore();
+
+  // Compute the date strip once per mount (not at module load) so a long-lived
+  // tab doesn't show stale dates after midnight (C11c).
+  const [DAYS] = useState(() => getNextDays());
 
   // Query param pre-fill from MA Agent CTA
   const preSpecialty    = searchParams.get('specialty')   || 'All';
