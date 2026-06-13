@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { BookAppointmentSchema, AppointmentStatusSchema } from '@medaccess/shared';
 import { book, getQueue, updateStatus, getPatientAppointments } from '../services/appointment.service.js';
 import { findDoctorById } from '../services/facility.service.js';
-import { getIdByPhone } from '../services/patient.service.js';
+import { getIdByPhone, findOrCreate } from '../services/patient.service.js';
 import { confirmFromProposal } from '../services/agent-booking.service.js';
 import { HttpError } from '../middleware/error.js';
 
@@ -13,7 +13,27 @@ router.post('/', async (req, res, next) => {
   try {
     const parsed = BookAppointmentSchema.parse(req.body);
 
-    const patientId = await getIdByPhone(parsed.patientPhone) ?? undefined;
+    // Resolve the patient id. Prefer an existing record by phone; otherwise, if
+    // the Find Care form supplied a name + phone, create the Patient now so the
+    // appointment always has a valid patientId (C1: avoids a 500 + orphaned slot).
+    let patientId = parsed.patientPhone ? (await getIdByPhone(parsed.patientPhone) ?? undefined) : undefined;
+    if (!patientId && parsed.patientPhone && parsed.patientName) {
+      const patient = await findOrCreate({
+        fullName:          parsed.patientName,
+        phone:             parsed.patientPhone,
+        email:             parsed.patientEmail || undefined,
+        sex:               parsed.patientSex,
+        country:           'South Korea',
+        preferredLanguage: 'Korean',
+        knownAllergies:    [],
+        chronicConditions: [],
+        currentMedications: [],
+      });
+      patientId = String(patient._id);
+    }
+    if (!patientId) {
+      return next(new HttpError(400, 'A registered phone number (or name + phone) is required to book.'));
+    }
 
     const doctor = await findDoctorById(parsed.facilityId, parsed.doctorId);
     if (!doctor) return next(new HttpError(404, 'Doctor not found at this facility'));

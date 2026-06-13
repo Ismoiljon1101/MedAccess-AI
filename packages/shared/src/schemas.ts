@@ -193,6 +193,12 @@ const ObjectIdString = z.string().regex(/^[a-fA-F0-9]{24}$/, 'Invalid id');
 
 export const BookAppointmentSchema = z.object({
   patientPhone: z.string().default(''),
+  // Optional patient details — used to create/enrich the Patient record when the
+  // booking comes from the Find Care form for someone who hasn't onboarded.
+  patientName: z.string().max(200).optional(),
+  patientEmail: z.string().email().optional().or(z.literal('')),
+  patientAge: z.number().int().min(0).max(130).optional(),
+  patientSex: z.enum(['male', 'female', 'other']).optional(),
   facilityId: z.string().min(1),
   doctorId: z.string().min(1),
   specialty: z.string().min(1),

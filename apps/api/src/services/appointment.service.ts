@@ -73,20 +73,28 @@ export async function book(input: BookingInput) {
       throw e;
     });
 
-    const appt = await Appointment.create({
-      patientId:     input.patientId,
-      doctorId:      input.doctorId,
-      facilityId:    input.facilityId,
-      slotId:        slot._id,
-      specialty:     input.specialty,
-      urgency:       input.urgency ?? 'see-clinician-soon',
-      agentSummary:  input.agentSummary?.slice(0, 4000),
-      agentAnalysis: input.agentAnalysis,
-      sessionId:     input.sessionId,
-      scheduledDate: input.scheduledDate,
-      scheduledTime: input.scheduledTime,
-      status:        'pending',
-    });
+    let appt;
+    try {
+      appt = await Appointment.create({
+        patientId:     input.patientId,
+        doctorId:      input.doctorId,
+        facilityId:    input.facilityId,
+        slotId:        slot._id,
+        specialty:     input.specialty,
+        urgency:       input.urgency ?? 'see-clinician-soon',
+        agentSummary:  input.agentSummary?.slice(0, 4000),
+        agentAnalysis: input.agentAnalysis,
+        sessionId:     input.sessionId,
+        scheduledDate: input.scheduledDate,
+        scheduledTime: input.scheduledTime,
+        status:        'pending',
+      });
+    } catch (e) {
+      // Appointment failed (e.g. validation) — free the slot we just reserved so
+      // it isn't blocked forever (C1: no orphaned TimeSlot).
+      await TimeSlot.findByIdAndDelete(slot._id).catch(() => {});
+      throw e;
+    }
 
     await TimeSlot.findByIdAndUpdate(slot._id, { appointmentId: appt._id });
 

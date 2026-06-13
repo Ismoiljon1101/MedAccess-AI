@@ -453,6 +453,12 @@ export async function bookAppointment(payload: BookAppointmentPayload): Promise<
   // Normalize to server schema
   const body = {
     patientPhone:  payload.patientPhone || '',
+    // Patient details from the Find Care form — server uses these to create the
+    // Patient record when the phone isn't onboarded yet (so the doctor sees them).
+    patientName:   payload.patientName || undefined,
+    patientEmail:  payload.patientEmail || undefined,
+    patientAge:    payload.patientAge,
+    patientSex:    payload.patientSex || undefined,
     doctorId:      payload.doctorId,
     facilityId:    payload.facilityId,
     specialty:     payload.specialty,
