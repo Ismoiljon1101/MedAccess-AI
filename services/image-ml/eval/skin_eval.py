@@ -1,6 +1,8 @@
 """
 HAM10000 skin lesion eval harness — MedAccess image-ml sidecar.
 
+Author:  Temirlan
+Created: 2026-06-14
 Evaluates the currently loaded skin model (ConvNeXt / Xception ONNX / HAM10000 YOLO)
 against the HAM10000 validation split (same 20% held-out split used by train_skin.py).
 
