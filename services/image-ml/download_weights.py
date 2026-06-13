@@ -1,6 +1,11 @@
 """
 Download pre-trained model weights for MedAccess image-ml sidecar.
 
+Owner:        Temirlan
+Last modified: 2026-06-14  Temirlan
+Changes:      Rewrote — old script pointed to dead keremberke URL.
+              Now delegates entirely to model_manager.ensure_all().
+
 Run: python download_weights.py
      python download_weights.py --force   # re-download even if present
 
