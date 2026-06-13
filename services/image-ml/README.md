@@ -28,7 +28,7 @@ python main.py   # boots on :5001, auto-downloads missing weights
 
 > **Windows only:** TorchXRayVision's download progress bar uses Unicode block characters that
 > Windows cp1252 can't encode. Set `PYTHONUTF8=1` before starting the server, or the first
-> X-ray inference call will crash while downloading weights (~135 MB):
+> X-ray inference call will crash while downloading weights (~27 MB):
 > ```
 > $env:PYTHONUTF8 = "1"; python main.py
 > ```
@@ -52,7 +52,7 @@ On first boot, `model_manager.py` auto-downloads any missing weights from Huggin
 | Modality | Model | Source | Size | Status |
 |---|---|---|---|---|
 | **Skin lesions** (7 classes) | ConvNeXt-Base HAM10000 | `Ratnakar01/convnext_ham10000_best` | 334 MB | Live — auto-downloads |
-| **Chest X-ray** (18 pathologies) | TorchXRayVision DenseNet121-all | txrv CDN (Apache 2.0) | ~135 MB | Live — downloads on first inference |
+| **Chest X-ray** (18 pathologies) | TorchXRayVision DenseNet121-all | txrv CDN (Apache 2.0) | ~27 MB | Live — downloads on first inference, self-heals corrupt cache |
 | **Diabetic retinopathy** (binary) | DR ONNX classifier | `BlairFerg/diabetic-retinopathy-detection` | 214 MB | Live — auto-downloads |
 | **Malaria** blood smear | YOLOv8s | ~~keremberke/yolov8s-malaria-detection~~ | — | Broken — HF source 401. Blocked on Temirlan picking replacement or training. |
 
