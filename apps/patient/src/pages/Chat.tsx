@@ -273,6 +273,7 @@ export default function Chat() {
       try {
         let assembled = '';
         let resolvedSid = sessionId;
+        let streamError: string | null = null;
 
         let resolvedCitations: RagCitation[] = [];
 
@@ -304,7 +305,10 @@ export default function Chat() {
             );
           } else if (event.type === 'booking_proposal') {
             setAgentProposal(event.data as AgentBookingProposal);
-          } else if (event.type === 'done' || event.type === 'error') {
+          } else if (event.type === 'error') {
+            streamError = event.data?.message ?? 'error';
+            break;
+          } else if (event.type === 'done') {
             break;
           }
         }
@@ -312,10 +316,15 @@ export default function Chat() {
         // Parse booking marker from final text
         const { cleanText, booking } = parseBookingMarker(assembled);
 
+        // Stream failed with nothing usable → show an error, not an empty bubble.
+        const finalContent = (streamError && !cleanText.trim())
+          ? "Sorry — I couldn't reach the AI service. Please try again in a moment."
+          : cleanText;
+
         setMessages((prev) =>
           prev.map((m) =>
             m.id === aiId
-              ? { ...m, streaming: false, citations: resolvedCitations.length ? resolvedCitations : undefined, content: cleanText, bookingAction: booking }
+              ? { ...m, streaming: false, citations: resolvedCitations.length ? resolvedCitations : undefined, content: finalContent, bookingAction: booking }
               : m,
           ),
         );

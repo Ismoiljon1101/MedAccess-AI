@@ -187,7 +187,13 @@ router.post('/stream', async (req, res, next) => {
     }
 
     // Persist the cleaned text (no <<BOOK>> marker) so resume never leaks it.
-    appendMessage(sessionId, { role: 'assistant', content: stripBookingMarker(assembled) });
+    // Skip empty assistant turns (e.g. the LLM stream errored) so resumes don't
+    // show blank bubbles (C6).
+    const cleanAssembled = stripBookingMarker(assembled);
+    const persistedCount = cleanAssembled ? 2 : 1; // user always; assistant only if non-empty
+    if (cleanAssembled) {
+      appendMessage(sessionId, { role: 'assistant', content: cleanAssembled });
+    }
 
     const patientId = parsed.patientPhone ? (await getIdByPhone(parsed.patientPhone) ?? undefined) : undefined;
 
@@ -195,7 +201,7 @@ router.post('/stream', async (req, res, next) => {
       const msgs = getSession(sessionId)!.messages;
       Interview.findOneAndUpdate(
         { sessionId },
-        { $set: { language: parsed.language, patientId }, $push: { messages: { $each: msgs.slice(-2) } } },
+        { $set: { language: parsed.language, patientId }, $push: { messages: { $each: msgs.slice(-persistedCount) } } },
         { upsert: true, new: true },
       ).catch(() => {});
     }
