@@ -214,7 +214,7 @@ export async function loadSession(sessionId: string): Promise<StoredMessage[]> {
 // ---------- chat stream ------------------------------------------------------
 
 export interface ChatStreamEvent {
-  type: 'meta' | 'token' | 'thinking_start' | 'thinking_end' | 'booking_proposal' | 'done' | 'error' | string;
+  type: 'meta' | 'token' | 'thinking_start' | 'thinking_end' | 'done' | 'error' | string;
   data: Record<string, any>;
 }
 
@@ -280,47 +280,6 @@ export async function* streamChatRequest(
   }
 }
 
-// ---------- agent booking ---------------------------------------------------
-
-export interface AgentBookingProposal {
-  proposalKey: string;
-  facilityId: string;
-  facilityName: string;
-  facilityAddress?: string;
-  facilityPhone?: string;
-  doctorId: string;
-  doctorName: string;
-  doctorSpecialty: string;
-  proposedDate: string;
-  proposedTime: string;
-  proposedEndTime: string;
-  specialty: string;
-  urgency: string;
-  distanceKm?: number;
-}
-
-export interface ConfirmBookingResult {
-  appointmentId: string;
-  scheduledDate: string;
-  scheduledTime: string;
-  scheduledEndTime: string;
-  status: string;
-}
-
-export async function confirmAgentBooking(opts: {
-  proposalKey: string;
-  patientPhone: string;
-  agentSummary?: string;
-  sessionId?: string;
-}): Promise<ConfirmBookingResult> {
-  const res = await fetch(`${BASE}/api/appointments/confirm`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(opts),
-  });
-  if (!res.ok) throw await safeError(res);
-  return res.json();
-}
 
 export interface AppointmentRecord {
   _id: string;

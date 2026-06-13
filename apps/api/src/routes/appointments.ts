@@ -3,7 +3,6 @@ import { BookAppointmentSchema, AppointmentStatusSchema } from '@medaccess/share
 import { book, getQueue, updateStatus, getPatientAppointments } from '../services/appointment.service.js';
 import { findDoctorById } from '../services/facility.service.js';
 import { getIdByPhone, findOrCreate } from '../services/patient.service.js';
-import { confirmFromProposal } from '../services/agent-booking.service.js';
 import { HttpError } from '../middleware/error.js';
 
 const router = Router();
@@ -58,28 +57,6 @@ router.post('/', async (req, res, next) => {
     if (err.name === 'ZodError') {
       return next(new HttpError(400, 'Invalid request', { publicMessage: err.errors?.[0]?.message }));
     }
-    next(err);
-  }
-});
-
-// POST /api/appointments/confirm — confirm an agent booking proposal
-router.post('/confirm', async (req, res, next) => {
-  try {
-    const { proposalKey, patientPhone, agentSummary, agentAnalysis, sessionId } = req.body;
-    const patientId = patientPhone ? (await getIdByPhone(patientPhone) ?? undefined) : undefined;
-
-    const result = await confirmFromProposal({
-      proposalKey,
-      patientId,
-      agentSummary,
-      agentAnalysis,
-      sessionId,
-    });
-
-    res.status(201).json(result);
-  } catch (err: any) {
-    if (err.message === 'SLOT_TAKEN') return next(new HttpError(409, 'This slot is already booked'));
-    if (err.message === 'Missing required booking fields') return next(new HttpError(400, err.message));
     next(err);
   }
 });
