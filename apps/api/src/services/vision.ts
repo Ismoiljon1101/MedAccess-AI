@@ -61,13 +61,6 @@ export async function analyzeImageFull(
 ): Promise<AnalyzeImageFullResult> {
   if (!opts.buffer?.length) throw new HttpError(400, 'No image buffer provided');
 
-  const mlUrl = process.env.IMAGE_ML_URL;
-  if (!mlUrl) {
-    throw new HttpError(503,
-      'Image analysis requires the local ML sidecar. Set IMAGE_ML_URL (e.g. http://localhost:5001) and start services/image-ml.'
-    );
-  }
-
   const rawHint = (opts.userNote || '').toLowerCase();
   const hint =
     /xray|x-ray|chest|lung|pneumon/.test(rawHint) ? 'xray' :
@@ -76,7 +69,35 @@ export async function analyzeImageFull(
     undefined;
 
   // ── Step 1: local specialist models ───────────────────────────────
-  const sidecarResult = await analyzeImageViaSidecar(mlUrl, opts.buffer, hint);
+  // If the sidecar is unset or unreachable, degrade to the text-only guidance
+  // path below instead of hard-failing (B6). The image is NEVER sent to a cloud
+  // LLM — we only fall back to general text guidance, preserving the privacy rule.
+  const mlUrl = process.env.IMAGE_ML_URL;
+  let sidecarResult: MLAnalyzeResponse;
+  if (mlUrl) {
+    try {
+      sidecarResult = await analyzeImageViaSidecar(mlUrl, opts.buffer, hint);
+    } catch (err: any) {
+      console.warn('[vision] sidecar unavailable — degrading to text-only guidance:', err?.message);
+      sidecarResult = {
+        image_type: (hint as MLAnalyzeResponse['image_type']) || 'unknown',
+        skipped: true,
+        skipped_reason: 'sidecar unavailable',
+        findings: [],
+        model_used: 'none',
+        processing_ms: 0,
+      };
+    }
+  } else {
+    sidecarResult = {
+      image_type: (hint as MLAnalyzeResponse['image_type']) || 'unknown',
+      skipped: true,
+      skipped_reason: 'IMAGE_ML_URL not set',
+      findings: [],
+      model_used: 'none',
+      processing_ms: 0,
+    };
+  }
 
   // ── Step 2: sidecar has real findings → text LLM explains them ────
   if (!sidecarResult.skipped && sidecarResult.findings.length > 0) {
@@ -124,7 +145,9 @@ export async function analyzeImageFull(
   }
 
   // ── Step 3: sidecar running but model skipped (not trained yet) ────
-  const imgType = sidecarResult.image_type || 'medical';
+  const imgType = (!sidecarResult.image_type || sidecarResult.image_type === 'unknown')
+    ? 'medical'
+    : sidecarResult.image_type;
   const prompt = [
     `You are MA Agent, a warm and friendly health assistant. A patient uploaded a ${imgType} image.`,
     `Our specialist AI model for this image type is still being set up, so we can't do automated detection yet.`,
