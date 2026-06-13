@@ -1,6 +1,7 @@
-﻿import { useState } from 'react';
+﻿import { useState, useEffect } from 'react';
 import { useAppStore } from '@/store/app';
 import { useNavigate } from 'react-router-dom';
+import { getMyAppointments } from '@/lib/api';
 import {
   FileText, Clock, ChevronRight, Trash2, AlertCircle,
   Calendar, CheckCircle, XCircle, Loader2, MapPin,
@@ -43,9 +44,27 @@ function StatusBadge({ status }: { status: string }) {
 }
 
 export default function MyRecords() {
-  const { chatHistory, removeSession, appointments } = useAppStore();
+  const { chatHistory, removeSession, appointments, patientProfile, updateAppointmentStatus } = useAppStore();
   const navigate = useNavigate();
   const [tab, setTab] = useState<'consultations' | 'appointments'>('consultations');
+
+  // Reconcile local appointment status with the server — the clinic confirms/
+  // cancels there, so the locally-stored "pending" goes stale (C4).
+  useEffect(() => {
+    const phone = patientProfile?.phone;
+    if (!phone) return;
+    getMyAppointments(phone)
+      .then((server) => {
+        for (const s of server) {
+          const local = appointments.find((a) => a.appointmentId === s._id);
+          if (local && local.status !== s.status) {
+            updateAppointmentStatus(s._id, s.status);
+          }
+        }
+      })
+      .catch(() => {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [patientProfile?.phone]);
 
   const sortedChats = [...chatHistory].sort((a, b) => b.createdAt - a.createdAt);
   const sortedAppts = [...appointments].sort((a, b) => b.bookedAt - a.bookedAt);
