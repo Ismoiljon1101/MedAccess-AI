@@ -25,6 +25,15 @@
 | melanocytic nevus | 80.6% | 732/908 |
 | vascular lesion | 57.1% | 20/35 |
 
+## Safety caveat — melanoma
+
+Top-1 recall for **melanoma is only 60.2%** (103/171) — roughly 40% of melanomas are not the
+single highest prediction. Top-3 recall is much higher (the correct class is usually within the
+top 3), so the UI must surface the **top-3 differentials**, never a single definitive label.
+The majority class (melanocytic nevus, 80.6% recall) dominates because it is ~60% of the test
+set; the model is biased toward it. This is the strongest argument for the locked EfficientNet-B0
+upgrade. Treat every skin output as a differential, not a diagnosis.
+
 ## Notes
 
 - Test set is the official ISIC 2018 Task 3 held-out set (not used in HAM10000 training).

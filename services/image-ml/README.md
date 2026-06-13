@@ -11,6 +11,13 @@
 
 Generic multimodal LLMs read medical images at roughly **70–90% accuracy** on common tasks. For specific conditions — skin lesions, chest X-ray findings, diabetic retinopathy — purpose-built CV models reach **92–95%+** on the same datasets. We want specialist accuracy on the conditions that matter, with the LLM as a generalist fallback and natural-language explainer.
 
+> **Current vs. target — read this before quoting numbers.** The 92–95% figure is the achievable
+> ceiling that motivates this service, *not* what our current checkpoints deliver. Our live skin
+> model (a ConvNeXt community checkpoint) measures **74.2% top-1 / 96.6% top-3** on the ISIC 2018
+> held-out test set — see [Eval harness](#eval-harness). The locked EfficientNet-B0 upgrade is the
+> path toward the 90%+ range. Eye and X-ray accuracy are **not yet benchmarked** (harnesses are
+> ready; labelled datasets pending). Don't present these as cleared, validated, or 90%+ today.
+
 The Node API always calls the LLM **and** (when this sidecar is reachable) the specialist model. The patient sees both reads. Disagreements are surfaced, never silently overridden — clinical safety floor.
 
 ---
@@ -114,22 +121,37 @@ If no `hint` is passed, the sidecar auto-detects image type using:
 
 ## Eval harness
 
-Run accuracy benchmarks against the official ISIC 2018 Task 3 held-out test set (1512 images, no Kaggle required):
+Three eval scripts in `eval/`, one per modality. Each replicates the exact preprocessing the
+live `/analyze` endpoint uses, so the numbers reflect production behaviour. Every script has a
+`--smoke-test` (or `--skip-download`) path so you can verify the harness runs before sourcing data.
 
+### Skin — ISIC 2018 (no Kaggle required)
 ```bash
-# Download test set + run eval (one command)
-python eval/download_sample.py
-
-# Re-run eval on already-downloaded images
-python eval/download_sample.py --skip-download
-
-# Full HAM10000 eval (if you have the dataset)
+python eval/download_sample.py                 # download ISIC 2018 Task 3 test set + run eval
+python eval/download_sample.py --skip-download  # re-run on already-downloaded images
 python eval/skin_eval.py --raw-dir data/ham10000_raw --meta-csv data/ham10000_metadata.csv
 ```
+Writes `eval/results_skin.md`. **Current: 74.2% top-1, 96.6% top-3** on 1511 held-out images.
 
-Results are written to `eval/results_skin.md` — commit this file after each eval run.
+### Eye (diabetic retinopathy) — bring your own dataset
+```bash
+python eval/eye_eval.py --smoke-test           # verify harness, no dataset needed
+python eval/eye_eval.py --images-dir data/aptos/train_images --labels-csv data/aptos/train.csv
+```
+Dataset-agnostic (APTOS / EyePACS / Messidor columns auto-detected). Binary metrics: accuracy,
+sensitivity, specificity, PPV, NPV, AUROC. Writes `eval/results_eye.md`. **No numbers yet** — there's
+no clean no-auth DR set; run it once you have APTOS (needs Kaggle) or any local folder + labels CSV.
 
-**Accuracy note:** The skin (ConvNeXt) and eye (DR ONNX) checkpoints are open-weight community models. See `eval/results_skin.md` for current benchmark numbers. None are FDA/CE cleared.
+### Chest X-ray — bring your own dataset
+```bash
+python eval/xray_eval.py --smoke-test          # verify harness, no dataset needed
+python eval/xray_eval.py --images-dir data/nih/images --labels-csv data/nih/Data_Entry_2017.csv
+```
+Multi-label per-pathology AUROC (NIH ChestX-ray14 "Finding Labels" or per-pathology columns
+auto-detected). Writes `eval/results_xray.md`. **No numbers yet** — same dataset-access reason as eye.
+
+**Accuracy note:** All three checkpoints are open-weight community models; none are FDA/CE cleared.
+Only skin is benchmarked so far — see `eval/results_*.md`. Commit the `results_*.md` after each run.
 
 ---
 
@@ -171,11 +193,12 @@ Some ONNX models (e.g. the DR eye classifier) bake softmax into the graph. Alway
 ### Your lane (Temirlan)
 | # | Issue | Priority |
 |---|---|---|
-| 1 | **Malaria model** — HF source dead, no replacement wired. Pick checkpoint or train from `electricsheepafrica/malaria-parasite-detection-yolo` dataset. | High |
-| 2 | **EfficientNet-B0 skin model** — blocked on ONNX conversion on x86/Mac (Ismail's machine). Once `models/skin-xception.onnx` arrives, sidecar auto-loads it. | Blocked on Ismail |
-| 3 | **Eye eval harness** — no `eval/eye_eval.py` yet. DR ONNX accuracy unverified. | Medium |
-| 4 | **X-ray eval harness** — no `eval/xray_eval.py` yet. TorchXRayVision AUROC on VinDr-CXR unverified. | Medium |
-| 5 | **Docker verify** — run `docker build` and confirm container starts clean. | Medium |
+| 1 | **Malaria model** — HF source dead, no replacement wired. Currently *unreachable* via the Node flow (no `malaria` hint is sent), so it's dormant and degrades to `skipped:true` — not breaking anything. Pick a checkpoint / train only if malaria becomes a demo target. | Low |
+| 2 | **EfficientNet-B0 skin model** — blocked on ONNX conversion on x86/Mac (Ismail's machine). Once `models/skin-xception.onnx` arrives, sidecar auto-loads it. This is the path to closing the 74.2% → 90%+ gap. | Blocked on Ismail |
+| 3 | **Eye DR accuracy** — `eval/eye_eval.py` built + smoke-tested; accuracy still unverified. Needs a labelled fundus set (APTOS / EyePACS / Messidor). | Medium |
+| 4 | **X-ray accuracy** — `eval/xray_eval.py` built + smoke-tested; per-pathology AUROC still unverified. Needs NIH ChestX-ray14 / VinDr-CXR. | Medium |
+| 5 | **Skin melanoma recall** — top-1 melanoma recall is only 60.2% (see `eval/results_skin.md`). Surface top-3 differentials in the UI, never a single label. Mitigated by the EfficientNet-B0 upgrade (#2). | Medium |
+| 6 | **Docker verify** — run `docker build` and confirm the container boots clean (validates the `COPY model_manager.py` fix). | Low |
 
 ### Node side (Ismail's lane — flag in PR)
 | # | Issue |
