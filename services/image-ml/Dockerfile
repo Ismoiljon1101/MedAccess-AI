@@ -1,5 +1,6 @@
 # MedAccess Image ML — sidecar container
 # Lean Python 3.11 base. Add CUDA layer later if GPU inference is needed.
+# Last modified: 2026-06-14  Temirlan — added COPY model_manager.py (was missing, caused boot crash)
 
 FROM python:3.11-slim
 
