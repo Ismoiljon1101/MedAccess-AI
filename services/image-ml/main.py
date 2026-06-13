@@ -84,12 +84,16 @@ DR_CLASSES = [
     "diabetic retinopathy detected",
 ]
 
-# TorchXRayVision pathology labels (DenseNet121-all outputs 18 pathologies)
+# TorchXRayVision DenseNet121-all reports 18 pathologies. This allow-list MUST
+# stay in sync with model.pathologies — anything not here is dropped from the
+# response. Previously only 14 were listed, silently discarding Lung Opacity,
+# Lung Lesion, Fracture, and Enlarged Cardiomediastinum (all clinically real).
 XRAY_PATHOLOGIES = [
     "Atelectasis", "Cardiomegaly", "Consolidation", "Edema",
     "Effusion", "Emphysema", "Fibrosis", "Hernia",
     "Infiltration", "Mass", "Nodule", "Pleural_Thickening",
     "Pneumonia", "Pneumothorax",
+    "Lung Lesion", "Fracture", "Lung Opacity", "Enlarged Cardiomediastinum",
 ]
 
 # Lazy model cache
@@ -178,17 +182,63 @@ def get_eye_model() -> tuple[object | None, str, str]:
     return _models["eye"]  # type: ignore
 
 
-def get_xray_model() -> object | None:
-    """TorchXRayVision DenseNet121-all — auto-downloads on first call (~135 MB)."""
-    if "xray" not in _models:
+_XRAY_CORRUPTION_MARKERS = (
+    "unexpected eof", "corrupt", "pytorchstreamreader",
+    "central directory", "invalid load key", "ran out of input",
+)
+
+
+def _clear_torchxrayvision_cache() -> int:
+    """Delete cached TorchXRayVision DenseNet weights so the next load re-downloads.
+
+    A download interrupted midway (e.g. the Windows cp1252 crash we hit) leaves a
+    truncated .pt that fails to load forever. We remove it so the package can
+    re-fetch a clean copy. Returns the number of files deleted.
+    """
+    cache_dir = Path.home() / ".torchxrayvision" / "models_data"
+    if not cache_dir.exists():
+        return 0
+    deleted = 0
+    for f in cache_dir.glob("*densenet121*.pt"):
         try:
-            import torchxrayvision as xrv  # type: ignore
-            import torch  # type: ignore
-            model = xrv.models.DenseNet(weights="densenet121-res224-all")
-            model.eval()
-            _models["xray"] = model
-            print("[image-ml] TorchXRayVision loaded")
-        except Exception as exc:
+            f.unlink()
+            print(f"[image-ml] removed corrupt xray weight: {f.name}")
+            deleted += 1
+        except OSError as exc:
+            print(f"[image-ml] could not remove {f.name}: {exc}")
+    return deleted
+
+
+def get_xray_model() -> object | None:
+    """TorchXRayVision DenseNet121-all — auto-downloads on first call (~27 MB).
+
+    Self-heals one class of failure: if a previous download was truncated, the
+    cached .pt is corrupt and load raises an EOF-style error. We detect that,
+    clear the cache, and retry the download exactly once.
+    """
+    if "xray" in _models:
+        return _models["xray"]
+
+    def _load() -> object:
+        import torchxrayvision as xrv  # type: ignore
+        model = xrv.models.DenseNet(weights="densenet121-res224-all")
+        model.eval()
+        return model
+
+    try:
+        _models["xray"] = _load()
+        print("[image-ml] TorchXRayVision loaded")
+    except Exception as exc:
+        is_corruption = any(m in str(exc).lower() for m in _XRAY_CORRUPTION_MARKERS)
+        if is_corruption and _clear_torchxrayvision_cache():
+            print(f"[image-ml] xray weights were corrupt ({exc}); re-downloading...")
+            try:
+                _models["xray"] = _load()
+                print("[image-ml] TorchXRayVision loaded after re-download")
+            except Exception as exc2:
+                print(f"[image-ml] TorchXRayVision load failed after retry: {exc2}")
+                _models["xray"] = None
+        else:
             print(f"[image-ml] TorchXRayVision load failed: {exc}")
             _models["xray"] = None
     return _models["xray"]
