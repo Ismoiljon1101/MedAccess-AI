@@ -15,7 +15,8 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { X, Mic, Volume2, VolumeX, ChevronDown, Loader2 } from 'lucide-react';
 import { AiAvatar } from '@/components/AiAvatar';
 import type { AvatarState } from '@/components/AiAvatar';
-import { streamChatRequest, transcribeAudio } from '@/lib/api';
+import { streamChatRequest, transcribeAudio, bookAppointment } from '@/lib/api';
+import { parseBookingMarker, type BookingMarker } from '@/lib/booking';
 import { useAppStore } from '@/store/app';
 
 // id '' = server's configured default (OPENROUTER_CHAT_MODEL).
@@ -75,12 +76,54 @@ function VoiceUI({
   language: string;
   onEnd: () => void;
 }) {
+  const { patientProfile, addAppointment } = useAppStore();
+  const patientPhone = patientProfile?.phone;
+
   const [voiceState, setVoiceState] = useState<VoiceState>('idle');
   const [userText, setUserText]     = useState('');
   const [aiText, setAiText]         = useState('');
   const [muted, setMuted]           = useState(false);
   const [liveSession, setLiveSession] = useState(sessionId);
   const [errMsg, setErrMsg]         = useState<string | null>(null);
+  const [bookedMsg, setBookedMsg]   = useState<string | null>(null);
+
+  // Turn an agreed <<BOOK>> marker into a real appointment (silent, like Chat).
+  const autoBook = useCallback(async (b: BookingMarker) => {
+    if (!b.date || !b.time || !patientPhone) return;
+    try {
+      const result = await bookAppointment({
+        patientPhone,
+        doctorId:      b.doctorId,
+        facilityId:    b.facilityId,
+        specialty:     b.specialty || 'General Practice',
+        urgency:       'see-clinician-soon',
+        scheduledDate: b.date,
+        scheduledTime: b.time,
+        agentSummary:  `MA Agent voice booking · ${b.specialty || ''}${b.reason ? ` — ${b.reason}` : ''}`,
+        sessionId:     liveSessionRef.current,
+      });
+      addAppointment({
+        appointmentId:    result.appointmentId,
+        facilityId:       b.facilityId,
+        facilityName:     b.facilityName ?? '',
+        doctorId:         b.doctorId,
+        doctorName:       b.doctorName ?? '',
+        specialty:        b.specialty || 'General Practice',
+        date:             result.scheduledDate,
+        startTime:        result.scheduledTime,
+        endTime:          result.scheduledEndTime,
+        scheduledDate:    result.scheduledDate,
+        scheduledTime:    result.scheduledTime,
+        scheduledEndTime: result.scheduledEndTime,
+        status:           'pending',
+        bookedAt:         Date.now(),
+      });
+      setBookedMsg(`Appointment booked · ${result.scheduledDate} at ${result.scheduledTime}`);
+    } catch {
+      /* slot taken / offline — non-fatal in voice; patient can rebook in Find Care */
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [patientPhone]);
 
   // Refs so closure callbacks always see current values
   const voiceStateRef = useRef<VoiceState>('idle');
@@ -151,18 +194,24 @@ function VoiceUI({
           liveSessionRef.current = ev.data.sessionId;
         } else if (ev.type === 'token') {
           assembled += ev.data.delta ?? '';
-          setAiText(assembled);
+          // Never show the raw <<BOOK>> marker in the transcript.
+          setAiText(parseBookingMarker(assembled).cleanText);
         } else if (ev.type === 'error') {
           streamError = ev.data?.message ?? 'error';
           break;
         } else if (ev.type === 'done') break;
       }
-      if (streamError || !assembled.trim()) {
+      const { cleanText, booking } = parseBookingMarker(assembled);
+      if (streamError || !cleanText.trim()) {
         const msg = "Sorry — I can't reach the AI service right now. Please try again in a moment.";
         setAiText(msg);
         speak(msg);
       } else {
-        speak(assembled);
+        setAiText(cleanText);
+        // Speak only the spoken sentence, never the marker.
+        speak(cleanText);
+        // Agent agreed a real slot → book it silently in the background.
+        if (booking?.date && booking?.time) autoBook(booking);
       }
     } catch (e: any) {
       if (e.name !== 'AbortError') {
@@ -363,6 +412,11 @@ function VoiceUI({
         {errMsg && (
           <div className="w-full max-w-sm rounded-2xl bg-warn-500/10 border border-warn-500/20 px-4 py-2 text-xs text-warn-400 text-center">
             {errMsg}
+          </div>
+        )}
+        {bookedMsg && (
+          <div className="w-full max-w-sm rounded-2xl bg-ok-500/10 border border-ok-500/25 px-4 py-2 text-xs text-ok-400 text-center">
+            ✓ {bookedMsg}
           </div>
         )}
         {userText && (
