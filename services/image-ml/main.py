@@ -1,7 +1,11 @@
 """
 MedAccess AI — Medical Image ML sidecar service.
 
-Owner: Temirlan (models, preprocessing, eval)
+Owner:        Temirlan (models, preprocessing, eval)
+Last modified: 2026-06-14  Temirlan
+Changes:      FastAPI lifespan migration, eye DR double-softmax fix,
+              fundus auto-detection heuristic, HAM10000 class label
+              order fix (5.8% → 74.2% accuracy), Windows UTF-8 fix.
 Interface contract jointly with Ismail.
 
 Pipeline:
