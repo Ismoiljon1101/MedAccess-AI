@@ -1,6 +1,8 @@
 """
 Quick inference sanity-check for skin (ConvNeXt) and eye (DR ONNX) models.
 
+Author:       Temirlan
+Created:      2026-06-14
 Does NOT test medical accuracy — tests that:
   1. Models loaded without silent partial-weight failures (strict=False risk)
   2. Preprocessing pipelines run without error
