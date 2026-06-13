@@ -78,6 +78,8 @@ async function getBookableDoctors(specialty: string, lat?: number, lng?: number)
 router.post('/', async (req, res, next) => {
   try {
     const parsed = ChatRequestSchema.parse(req.body);
+    const lat = req.body.lat ? parseFloat(req.body.lat) : undefined;
+    const lng = req.body.lng ? parseFloat(req.body.lng) : undefined;
     const sessionId = parsed.sessionId || newSessionId();
     const session = (await getOrLoadSession(sessionId)) || ensureSession(sessionId);
 
@@ -91,7 +93,7 @@ router.post('/', async (req, res, next) => {
 
     const s = getSession(sessionId)!;
     const specialty = detectSpecialty(s.messages);
-    const enrolledDoctors = await getBookableDoctors(specialty);
+    const enrolledDoctors = await getBookableDoctors(specialty, lat, lng);
     const system = interviewSystemPrompt({ context, language: parsed.language, enrolledDoctors });
 
     const { text, model } = await chat({

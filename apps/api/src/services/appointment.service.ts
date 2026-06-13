@@ -1,6 +1,7 @@
 import { Appointment, TimeSlot, dbReady } from '@medaccess/db';
 import type { AppointmentStatus } from '@medaccess/db';
-import { inMemoryBookedSlots } from './facility.service.js';
+import { inMemoryBookedSlots, inMemoryDoctors, inMemoryFacilities } from './facility.service.js';
+import { findPatientByIdInMemory } from './patient.service.js';
 
 // ── In-memory store ───────────────────────────────────────────────────────────
 interface MemAppointment {
@@ -139,6 +140,32 @@ export async function book(input: BookingInput) {
   };
 }
 
+// ── Hydrate an in-memory appointment with populated-like name objects ──────────
+// Mirrors the DB .populate() shape so the clinic queue / patient records show
+// real names even when running without Mongo (B4).
+function hydrateInMemory(a: MemAppointment): any {
+  const doctor   = inMemoryDoctors.find((d) => d.id === a.doctorId);
+  const facility = inMemoryFacilities.find((f) => f.id === a.facilityId);
+  const patient  = a.patientId ? findPatientByIdInMemory(a.patientId) : null;
+  return {
+    ...a,
+    doctorId: doctor
+      ? { _id: doctor.id, name: doctor.name, specialty: doctor.specialty }
+      : a.doctorId,
+    facilityId: facility
+      ? { _id: facility.id, name: facility.name, city: facility.city, address: facility.address, phone: facility.phone }
+      : a.facilityId,
+    patientId: patient
+      ? {
+          _id: patient._id, fullName: patient.fullName, phone: patient.phone, sex: patient.sex,
+          dateOfBirth: patient.dateOfBirth, knownAllergies: patient.knownAllergies,
+          chronicConditions: patient.chronicConditions, currentMedications: patient.currentMedications,
+          emergencyContact: patient.emergencyContact,
+        }
+      : a.patientId,
+  };
+}
+
 // ── Clinic queue ──────────────────────────────────────────────────────────────
 export async function getQueue(filter: {
   facilityId?: string;
@@ -175,7 +202,9 @@ export async function getQueue(filter: {
   if (filter.facilityId) results = results.filter((a) => a.facilityId === filter.facilityId);
   if (filter.doctorId)   results = results.filter((a) => a.doctorId === filter.doctorId);
   if (filter.status)     results = results.filter((a) => a.status === filter.status);
-  return results.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  return results
+    .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+    .map(hydrateInMemory);
 }
 
 // ── Patient appointment history ───────────────────────────────────────────────
@@ -191,7 +220,8 @@ export async function getPatientAppointments(patientId: string): Promise<any[]> 
   }
   return inMemoryAppointments
     .filter((a) => a.patientId === patientId)
-    .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+    .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+    .map(hydrateInMemory);
 }
 
 // ── Update status ─────────────────────────────────────────────────────────────

@@ -34,6 +34,14 @@ export async function getIdByPhone(phone: string): Promise<string | null> {
   return p ? String(p._id) : null;
 }
 
+/** In-memory patient lookup by _id — used to hydrate names in the no-DB path. */
+export function findPatientByIdInMemory(id: string): MemPatient | null {
+  for (const p of inMemoryPatients.values()) {
+    if (p._id === id) return p;
+  }
+  return null;
+}
+
 export async function findOrCreate(data: PatientCreate): Promise<any> {
   if (dbReady()) {
     const existing = await Patient.findOne({ phone: data.phone });
