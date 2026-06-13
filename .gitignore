@@ -36,6 +36,9 @@ logs/
 Thumbs.db
 *.swp
 
+# Claude Code — per-machine permission grants (machine-specific absolute paths)
+.claude/settings.local.json
+
 # Uploads / runtime
 apps/api/uploads/
 apps/api/tmp/

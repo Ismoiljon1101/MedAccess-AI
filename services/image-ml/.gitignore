@@ -16,6 +16,7 @@ models/*.h5
 *.onnx
 *.h5
 
-# Datasets
+# Datasets and downloaded eval images (large binaries — never commit)
 data/
 datasets/
+eval/sample_data/
