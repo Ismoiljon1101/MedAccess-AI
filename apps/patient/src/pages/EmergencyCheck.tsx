@@ -34,12 +34,21 @@ export default function EmergencyCheck() {
         stream.getTracks().forEach((t) => t.stop());
         setRecording(false);
         const blob = new Blob(chunksRef.current, { type: 'audio/webm' });
-        try { const text = await transcribeAudio(blob, language); if (text) setDescription(text); } catch {}
+        try {
+          const text = await transcribeAudio(blob, language);
+          if (text) setDescription(text);
+          else setError("Didn't catch that — try typing instead.");
+        } catch {
+          setError('Could not transcribe audio. Please type your description.');
+        }
       };
       mr.start();
       mediaRef.current = mr;
+      setError(null);
       setRecording(true);
-    } catch {}
+    } catch {
+      setError('Microphone unavailable. Please allow mic access or type instead.');
+    }
   }
 
   async function submit() {

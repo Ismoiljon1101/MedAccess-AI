@@ -2,10 +2,12 @@ import { Globe2, Type, Volume2, Trash2, Info, ChevronRight, LogOut, User, Sun, M
 import { useAppStore } from '@/store/app';
 import { useNavigate } from 'react-router-dom';
 
+// Keep Korea-first languages (Korean/Japanese/Chinese) here so a user who
+// onboarded in them on Welcome can still see/keep their choice in Settings (C16).
 const LANGUAGES = [
-  'English', 'Spanish', 'French', 'Portuguese', 'Arabic', 'Hindi',
-  'Bengali', 'Urdu', 'Swahili', 'Amharic', 'Hausa', 'Uzbek',
-  'Russian', 'Chinese', 'Indonesian', 'Turkish',
+  'English', 'Korean', 'Japanese', 'Chinese', 'Spanish', 'French',
+  'Portuguese', 'Arabic', 'Hindi', 'Bengali', 'Urdu', 'Swahili',
+  'Amharic', 'Hausa', 'Uzbek', 'Russian', 'Indonesian', 'Turkish',
 ];
 
 const TINTS = {

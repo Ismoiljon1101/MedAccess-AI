@@ -47,7 +47,7 @@ const GREETING: Message = {
 };
 
 export default function Chat() {
-  const { language, upsertSession, patientProfile, addAppointment } = useAppStore();
+  const { language, upsertSession, patientProfile, addAppointment, voiceAutoPlay } = useAppStore();
   const patientPhone = patientProfile?.phone;
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -336,6 +336,12 @@ export default function Chat() {
           else setPendingBooking(booking);
         }
 
+        // Optional: speak the answer aloud when auto-play is on (C17).
+        if (voiceAutoPlay && finalContent && !streamError && window.speechSynthesis) {
+          window.speechSynthesis.cancel();
+          window.speechSynthesis.speak(new SpeechSynthesisUtterance(finalContent));
+        }
+
         // Check for clinical snapshot → show Connect to Care CTA
         const snap = detectClinicalSnapshot(cleanText, userTurnRef.current);
         if (snap) setCtaSpec(snap);
@@ -462,8 +468,11 @@ export default function Chat() {
     }
   }
 
-  async function handleCaptureConfirm(file: File, _modality: ImageModality) {
+  async function handleCaptureConfirm(file: File, modality: ImageModality) {
     setShowCapture(false);
+    // Pass the chosen modality as a hint so the sidecar routes to the right
+    // specialist model instead of guessing (C15). 'general' = let it auto-detect.
+    const modalityNote = modality === 'general' ? undefined : modality;
 
     const userId   = crypto.randomUUID();
     const imageName = file.name || 'image.jpg';
@@ -474,7 +483,7 @@ export default function Chat() {
     setMessages((prev) => [...prev, { id: aiId, role: 'assistant', content: '', streaming: true }]);
 
     try {
-      const result = await analyzeReport(file, language, sessionId);
+      const result = await analyzeReport(file, language, sessionId, patientPhone, modalityNote);
       // Store for referral attachment
       lastImageAnalysisRef.current = result;
 
@@ -524,6 +533,7 @@ export default function Chat() {
 
   function startNewChat() {
     abortRef.current?.abort();
+    window.speechSynthesis?.cancel();
     previewRef.current = '';
     msgCountRef.current = 0;
     userTurnRef.current = 0;

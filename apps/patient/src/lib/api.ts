@@ -362,12 +362,14 @@ export async function analyzeReport(
   language?: string,
   sessionId?: string,
   patientPhone?: string,
+  note?: string,
 ): Promise<ReportAnalysisResult> {
   const form = new FormData();
   form.append('image', imageBlob, `report.${imageBlob.type.split('/')[1] || 'jpg'}`);
   if (language)     form.append('language',     language);
   if (sessionId)    form.append('sessionId',    sessionId);
   if (patientPhone) form.append('patientPhone', patientPhone);
+  if (note)         form.append('note',         note); // modality hint → sidecar routing
 
   const res = await fetch(`${BASE}/api/reports/analyze`, { method: 'POST', body: form });
   if (!res.ok) throw await safeError(res);
