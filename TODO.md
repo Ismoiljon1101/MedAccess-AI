@@ -477,7 +477,7 @@ All bugs live in [`docs/qa/issues.md`](./docs/qa/issues.md). Format and severity
 - HIPAA / SOC 2 compliance review and DPA workflow
 - Real EHR integration (HL7 / FHIR)
 - Production vector DB (pgvector / Qdrant) with curated corpus ≥ 5k docs
-- Auth, RBAC, multi-tenant deployment
+- ~~Auth, RBAC, multi-tenant deployment~~ **Provider auth + RBAC shipped (2026-06-13):** clinic portal has real email/password accounts (bcrypt + JWT), role middleware (`requireAuth`/`requireRole`), and the clinic queue is scoped to the account's facility (closes C14). Patient app stays phone-based by design. Full multi-tenant isolation (per-tenant data partitioning beyond facility scope) still deferred.
 - Fine-tuned medical model (Med-PaLM-style)
 - Native mobile (PWA is sufficient for v0.1)
 - Audit log + clinician override workflow + signed-off recommendations
@@ -570,7 +570,7 @@ All bugs live in [`docs/qa/issues.md`](./docs/qa/issues.md). Format and severity
 | C11 | SEV-4 | patient | Three small leaks/staleness: (a) Chat's object-URL cleanup effect closes over the initial empty `messages` → uploaded-image blob URLs never revoked; (b) session resume doesn't restore `userTurnRef`, so the care CTA needs 3 fresh turns again; (c) FindCare `DAYS` computed at module load → date strip goes stale if the tab lives past midnight. | Track URLs in a ref; restore turn count on resume; compute days on mount. | ✅ Fixed |
 | C12 | SEV-4 | api | `PATCH /api/appointments/:id` without `status` writes `status: undefined` — in-memory path corrupts the record (DB path no-ops by luck). | Require/validate `status` before calling `updateStatus`. | ✅ Fixed |
 | C13 | SEV-4 | patient | Tier-2 Naver "Navigate" links are `nmap://` deep links → dead click on desktop browsers (fine on phones with the Naver app). | Use the Naver web URL when not on mobile. | ✅ Fixed |
-| C14 | NOTE | clinic | Clinic queue is unscoped — `getReferrals()` is called without `facilityId`, so every clinic login sees ALL facilities' appointments. Acceptable for the single-clinic demo; must scope before any multi-clinic pilot. | Pass the logged-in facility id once clinic identity exists. | deferred |
+| C14 | ~~NOTE~~ ✅ | clinic | ~~Clinic queue is unscoped — every clinic login sees ALL facilities' appointments.~~ **Fixed (2026-06-13) via the auth work:** the provider queue requires a JWT and is scoped to the account's `facilityId` (doctors/pharmacists pinned to their clinic; admins may pass an explicit facility). | Done. |
 | C15 | SEV-3 | patient | **Image modality picker is decorative.** `ImageCaptureFlow` makes the user choose Skin/X-ray/Eye and shows the matching alignment overlay, but `Chat.handleCaptureConfirm(file, _modality)` discards the modality — it's never sent as `note`/hint to `/reports/analyze`, so the sidecar must guess the image type (research: misrouting costs 15–25% accuracy). | Send the modality as the `note` form field (vision.ts already derives the hint from it). | ✅ Fixed |
 | C16 | SEV-3 | patient | **Settings language list omits Korean.** Welcome offers Korean/Japanese/Chinese; the Settings picker uses a different 16-language list with NO Korean or Japanese. A Korea-first user who onboarded in Korean opens Settings → the select can't display their language and one tap silently switches them off it. | Use one shared LANGUAGES list (with Korean) in both screens. | ✅ Fixed |
 | C17 | SEV-4 | patient | **"Auto-play AI responses" toggle is dead.** `voiceAutoPlay` is written by Settings but read by no component — Chat never speaks responses. DoD explicitly lists "voice auto-play toggle". | Wire TTS auto-play in Chat (speak on stream end) or remove the toggle. | ✅ Fixed |
@@ -590,3 +590,20 @@ All bugs live in [`docs/qa/issues.md`](./docs/qa/issues.md). Format and severity
 | Closing-the-loop beat | ⚠️ works via FindCare "My Appointments" (live status); **do NOT show My Records → Appointments for the confirm beat until C4 is fixed** (status frozen at pending) |
 
 **Suggested fix order before the demo:** C3 (voice booking) → C4 (records sync) → C1+C2 (booking robustness) → C5 → C9 → C6. C7/C8/C10–C13 are post-demo unless time allows.
+
+---
+
+## 12.6 · Clinic auth + "shows 500" pass (2026-06-13, Ismail)
+
+> Reverses the locked "no-auth" decision for the **provider portal only** (patient PWA stays phone-based). Built real authentication + authorization and traced the reported "500 error."
+
+**Authentication & authorization (provider portal):**
+- `Account` model (email, bcrypt `passwordHash`, role, facility/doctor links) + in-memory fallback.
+- `POST /api/auth/register`, `POST /api/auth/login`, `GET /api/auth/me` (JWT, 7-day expiry, `JWT_SECRET` env).
+- `requireAuth` / `requireRole` / `optionalAuth` middleware.
+- Clinic queue `GET /api/appointments` (no `patientPhone`) now requires a JWT and is **facility-scoped** (closes C14); `PATCH /api/appointments/:id` requires a provider role. Patient self-service (`?patientPhone=`) and booking stay open.
+- Clinic frontend: real Sign in / Create account (email + password), token persistence, bearer header on provider calls, 401 auto-logout, token bootstrap/validation on load. Profile + Settings now show the real account; stale "auth coming in v0.2" copy removed.
+
+**The "500 error" (diagnosed):** the clinic's endpoints are healthy (`/api/appointments` 200, populated). The 500s came from the AI modules (Interview/Symptoms/Reports/Triage) when the **free LLM tier returns 429** or an upstream parse/SDK error bubbles up as an unmapped 5xx — the clinic printed the raw message. Fixed by mapping 429/502/503/5xx to clean, retry-able messages in the central error handler (and never leaking raw internals on a true 500). Endpoints verified: register/login/me, 401 gates on the queue + PATCH, patient self-service still open.
+
+> Still genuinely shallow (honest "v0.2" copy retained, not a bug): Prescriptions = referral view (no medication model yet); Admin staff-management panel is a placeholder.
