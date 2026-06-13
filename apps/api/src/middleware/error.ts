@@ -30,16 +30,28 @@ export function errorHandler(
   res: Response,
   _next: NextFunction
 ): void {
-  const e = err as Partial<HttpError> & { message?: string };
+  const e = err as Partial<HttpError> & { message?: string; status?: number };
+  // OpenAI/OpenRouter SDK errors carry `.status`; surface 429/5xx as the right
+  // code so the clinic never shows a raw "500" for an upstream LLM hiccup.
   const status = e.status || 500;
-  const code = e.code || (status === 503 ? 'ProviderUnavailable' : 'InternalError');
+  const code = e.code
+    || (status === 429 ? 'RateLimited'
+      : status === 503 ? 'ProviderUnavailable'
+      : status === 502 ? 'UpstreamError'
+      : 'InternalError');
 
   if (status >= 500) {
     console.error('[error]', err);
   }
 
-  res.status(status).json({
-    error: code,
-    message: e.publicMessage || e.message || 'Unexpected server error',
-  });
+  // Friendly, retry-able messages for the common AI-service failure modes.
+  // For unexpected 500s, never leak the raw internal message to the client.
+  const friendly =
+    status === 429 ? 'The AI service is busy right now. Please wait a moment and try again.'
+    : status === 503 ? (e.publicMessage || 'A required service is unavailable. Please try again shortly.')
+    : status === 502 ? 'The AI service returned an unexpected response. Please try again.'
+    : status >= 500  ? 'Something went wrong on our end. Please try again.'
+    : (e.publicMessage || e.message || 'Request failed');
+
+  res.status(status).json({ error: code, message: friendly });
 }

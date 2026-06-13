@@ -29,7 +29,10 @@ function RoleGuard({ allow, children }: { allow: string[]; children: React.React
 }
 
 export default function App() {
-  const user  = useAuthStore((s) => s.user);
+  const user         = useAuthStore((s) => s.user);
+  const token        = useAuthStore((s) => s.token);
+  const bootstrapped = useAuthStore((s) => s.bootstrapped);
+  const bootstrap    = useAuthStore((s) => s.bootstrap);
   const theme = useAppStore((s) => s.theme);
 
   // Sync theme to <html data-theme="...">
@@ -38,6 +41,18 @@ export default function App() {
     // Remove legacy 'dark' class if present
     document.documentElement.classList.remove('dark');
   }, [theme]);
+
+  // Validate any persisted token against the server once on load.
+  useEffect(() => { bootstrap(); }, [bootstrap]);
+
+  // Avoid flashing the login screen while a persisted token is being validated.
+  if (token && !bootstrapped) {
+    return (
+      <div className="min-h-[100dvh] grid place-items-center text-ink-400 text-sm">
+        Loading…
+      </div>
+    );
+  }
 
   return (
     <Routes>

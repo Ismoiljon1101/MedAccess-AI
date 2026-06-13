@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Moon, Sun, LogOut, Building2, CheckCircle, Loader2 } from 'lucide-react';
+import { Moon, Sun, LogOut, Building2, CheckCircle, Loader2, ShieldCheck } from 'lucide-react';
 import { useAuthStore } from '@/store/auth';
 import { useAppStore } from '@/store/app';
 
@@ -160,8 +160,10 @@ export default function Settings() {
             {user?.role}
           </span>
         </Row>
-        <Row label="Authentication" sub="Email/password auth coming in v0.2">
-          <span className="text-[11px] text-ink-500">v0.2</span>
+        <Row label="Authentication" sub={user?.email ? `Email/password · ${user.email}` : 'Email/password'}>
+          <span className="text-[11px] text-ok-400 inline-flex items-center gap-1">
+            <ShieldCheck size={11} /> Active
+          </span>
         </Row>
         <div className="pt-2 border-t border-ink-700/40">
           <button

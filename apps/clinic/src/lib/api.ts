@@ -11,7 +11,15 @@ import type {
   Vitals,
 } from '@medaccess/shared';
 
+import { getAuthToken, useAuthStore } from '@/store/auth';
+
 const BASE = import.meta.env.VITE_API_BASE || '';
+
+/** Authorization header for provider-scoped endpoints (queue, status updates). */
+function authHeaders(): Record<string, string> {
+  const token = getAuthToken();
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
 
 export interface Citation {
   id: string;
@@ -305,7 +313,8 @@ function normalizeAppointment(a: AppointmentRecord): AppointmentRecord {
 export async function getReferrals(facilityId?: string): Promise<AppointmentRecord[]> {
   const params = new URLSearchParams();
   if (facilityId) params.set('facilityId', facilityId);
-  const res = await fetch(`${BASE}/api/appointments?${params}`);
+  const res = await fetch(`${BASE}/api/appointments?${params}`, { headers: authHeaders() });
+  if (res.status === 401) { useAuthStore.getState().logout(); throw new Error('Your session expired — please sign in again.'); }
   if (!res.ok) throw await safeError(res);
   const data = await res.json();
   return ((data.appointments ?? []) as AppointmentRecord[]).map(normalizeAppointment);
@@ -318,9 +327,10 @@ export async function updateReferral(
 ): Promise<AppointmentRecord> {
   const res = await fetch(`${BASE}/api/appointments/${id}`, {
     method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
     body: JSON.stringify({ status, doctorNotes }),
   });
+  if (res.status === 401) { useAuthStore.getState().logout(); throw new Error('Your session expired — please sign in again.'); }
   if (!res.ok) throw await safeError(res);
   const data = await res.json();
   return data.appointment as AppointmentRecord;
