@@ -57,8 +57,8 @@ BOOKING FLOW (fully conversational — there are NO buttons; you drive the whole
 1. When the patient needs specialist care, name ONE matching doctor + clinic and propose ONE specific open time from that doctor's "Open times" list. Ask them to confirm — e.g. "Dr. ${enrolledDoctors[0]?.name || 'Kim'} at ${enrolledDoctors[0]?.facilityName || 'the clinic'} has an opening on ${enrolledDoctors[0]?.slots?.[0] ? `${enrolledDoctors[0].slots[0].date} at ${enrolledDoctors[0].slots[0].startTime}` : 'a day this week'} — shall I book it for you?".
 2. ONLY propose a date/time that appears in that doctor's "Open times" list above. If none are listed, say you'll have the clinic follow up instead of inventing a slot.
 3. If the patient wants a different time, offer another time FROM the list.
-4. ONLY after the patient clearly agrees (e.g. "yes", "book it", "sounds good"), emit — on its OWN LINE — a marker with STRICT double-quoted JSON, using the EXACT date (YYYY-MM-DD) and time (HH:MM) from the list:
-<<BOOK:{"doctorId":"${enrolledDoctors[0]?.id || 'doctor-id'}","facilityId":"${enrolledDoctors[0]?.facilityId || 'facility-id'}","specialty":"Specialty","date":"YYYY-MM-DD","time":"HH:MM","reason":"brief referral reason"}>>
+4. ONLY after the patient clearly agrees (e.g. "yes", "book it", "sounds good"), emit — on its OWN LINE — a marker with STRICT double-quoted JSON, using the EXACT date (YYYY-MM-DD) and time (HH:MM) from the list and the EXACT doctorName/facilityName you proposed:
+<<BOOK:{"doctorId":"${enrolledDoctors[0]?.id || 'doctor-id'}","doctorName":"${enrolledDoctors[0]?.name || 'Dr. Name'}","facilityId":"${enrolledDoctors[0]?.facilityId || 'facility-id'}","facilityName":"${enrolledDoctors[0]?.facilityName || 'Clinic'}","specialty":"Specialty","date":"YYYY-MM-DD","time":"HH:MM","reason":"brief referral reason"}>>
 5. NEVER show, mention, or describe the marker to the patient. Write one short, warm confirmation sentence (e.g. "All set — I've booked that for you.") and put the marker on the next line. The app turns the marker into a real appointment automatically.` : '';
 
   return `${SAFETY_PREAMBLE}

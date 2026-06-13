@@ -20,6 +20,7 @@ interface BookingAction {
   doctorId: string;
   doctorName: string;
   facilityId: string;
+  facilityName?: string;
   specialty: string;
   reason: string;
   // Present when the agent booked conversationally (real injected slot) → auto-book silently.
@@ -113,6 +114,7 @@ export default function Chat() {
         doctorId: payload.doctorId,
         doctorName: payload.doctorName,
         facilityId: payload.facilityId,
+        facilityName: payload.facilityName,
         specialty: payload.specialty,
         reason: payload.reason,
         date: payload.date,
@@ -412,12 +414,16 @@ export default function Chat() {
     if (!patientPhone) { setPendingBooking(booking); return; }
     try {
       const imageReportId = lastImageAnalysisRef.current?.reportId;
+      // Carry the urgency we detected for this conversation (don't under-triage
+      // every chat-booked referral to "soon"). Fall back to the marker default.
+      const lastAssistant = [...messages].reverse().find((m) => m.role === 'assistant' && m.content.trim());
+      const urgency = ctaSpec?.urgency ?? (lastAssistant ? detectUrgency(lastAssistant.content) : 'see-clinician-soon');
       const result = await bookAppointment({
         patientPhone,
         doctorId:      booking.doctorId,
         facilityId:    booking.facilityId,
         specialty:     booking.specialty,
-        urgency:       'see-clinician-soon',
+        urgency,
         scheduledDate: booking.date,
         scheduledTime: booking.time,
         agentSummary:  buildAgentSummary(booking.specialty, booking.reason),
@@ -428,7 +434,7 @@ export default function Chat() {
       addAppointment({
         appointmentId:    result.appointmentId,
         facilityId:       booking.facilityId,
-        facilityName:     '',
+        facilityName:     booking.facilityName ?? '',
         doctorId:         booking.doctorId,
         doctorName:       booking.doctorName,
         specialty:        booking.specialty,
