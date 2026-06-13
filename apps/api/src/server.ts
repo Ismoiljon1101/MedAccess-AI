@@ -9,6 +9,7 @@ import express from 'express';
 import cors from 'cors';
 import { connectDB, dbReady } from '@medaccess/db';
 
+import authRouter         from './routes/auth.js';
 import chatRouter         from './routes/chat.js';
 import symptomsRouter     from './routes/symptoms.js';
 import triageRouter       from './routes/triage.js';
@@ -46,6 +47,7 @@ app.get('/api/health', (_req, res) => {
   });
 });
 
+app.use('/api/auth',         authRouter);
 app.use('/api/patients',     patientsRouter);
 app.use('/api/chat',         chatRouter);
 app.use('/api/symptoms',     symptomsRouter);

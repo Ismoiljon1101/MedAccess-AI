@@ -243,6 +243,39 @@ export const DoctorRegisterSchema = z.object({
   consultationMinutes: z.number().default(30),
 });
 
+// ---------- Auth (clinic / provider portal) --------------------------
+
+export const AccountRoleSchema = z.enum(['doctor', 'pharmacist', 'admin']);
+
+export const RegisterSchema = z.object({
+  email: z.string().email(),
+  password: z.string().min(6, 'Password must be at least 6 characters').max(128),
+  name: z.string().min(1).max(200),
+  role: AccountRoleSchema,
+  facilityId: z.string().optional(),
+  doctorId: z.string().optional(),
+  specialty: z.string().optional(),
+  occupation: z.string().optional(),
+  clinicName: z.string().optional(),
+});
+
+export const LoginSchema = z.object({
+  email: z.string().email(),
+  password: z.string().min(1),
+});
+
+export const AuthUserSchema = z.object({
+  id: z.string(),
+  email: z.string(),
+  name: z.string(),
+  role: AccountRoleSchema,
+  facilityId: z.string().optional(),
+  doctorId: z.string().optional(),
+  specialty: z.string().optional(),
+  occupation: z.string().optional(),
+  clinicName: z.string().optional(),
+});
+
 // ---------- Transcription --------------------------------------------
 
 export const TranscribeResponseSchema = z.object({
@@ -277,6 +310,10 @@ export type AppointmentStatus = z.infer<typeof AppointmentStatusSchema>;
 export type BookAppointment = z.infer<typeof BookAppointmentSchema>;
 export type FacilityRegister = z.infer<typeof FacilityRegisterSchema>;
 export type DoctorRegister = z.infer<typeof DoctorRegisterSchema>;
+export type AccountRole = z.infer<typeof AccountRoleSchema>;
+export type RegisterRequest = z.infer<typeof RegisterSchema>;
+export type LoginRequest = z.infer<typeof LoginSchema>;
+export type AuthUser = z.infer<typeof AuthUserSchema>;
 
 // Backwards compat alias — remove after all consumers updated
 export const ClinicResultSchema = FacilityResultSchema;
