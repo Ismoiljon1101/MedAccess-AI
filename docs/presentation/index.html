@@ -605,8 +605,8 @@
 
   <!-- 9 · HYBRID VISION -->
   <section class="slide vision-slide">
-    <div class="kicker reveal">Multimodal Vision</div>
-    <h2 class="reveal">A generalist LLM <span class="grad">plus</span> specialist models trained on real medical data.</h2>
+    <div class="kicker reveal">Specialist Vision</div>
+    <h2 class="reveal">Specialist models read the image <span class="grad">on local infra</span> — the LLM explains it in plain language.</h2>
     <div class="duel reveal">
       <div class="race">
         <div class="track">
@@ -632,7 +632,7 @@
       <div class="card"><span class="badge b-done pulse">LIVE</span><h3 style="margin-top:10px">Diabetic retinopathy</h3><p>Fundus ONNX classifier · auto-downloaded on boot</p></div>
       <div class="card"><span class="badge b-block">QUEUED</span><h3 style="margin-top:10px">Malaria smear</h3><p>YOLOv8s-Malaria · MIT · 99.1% F1 — re-sourcing weights</p></div>
     </div>
-    <p class="small reveal" style="margin-top:18px">We run <b>both</b>, show <b>both</b>, and flag disagreements — never silently override. Sidecar ~200ms on local WiFi; Node degrades to LLM-only if it's offline.</p>
+    <p class="small reveal" style="margin-top:18px">The image is read <b>locally</b> by the specialist sidecar (~200ms on local WiFi) and <b>never sent to a cloud LLM</b> — the LLM only narrates the findings. Sidecar offline → graceful text-only guidance.</p>
   </section>
 
   <!-- 10 · ARCHITECTURE -->

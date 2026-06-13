@@ -5,15 +5,18 @@
 
 ---
 
-## Why a hybrid pipeline
+## Why a sidecar-only pipeline (v1.0 design)
 
-Generic multimodal LLMs (Claude Sonnet 4.5 Vision, Gemini 2.0 Vision, GPT-4o Vision) read medical images well across many domains but plateau around **70–90% accuracy** on condition-specific benchmarks. Purpose-built CV models trained on labeled medical datasets (HAM10000 for skin, CheXpert for chest X-ray, EyePACS for diabetic retinopathy) reach **92–95%+** on the same images for the conditions they were trained on.
+Purpose-built CV models trained on labeled medical datasets (HAM10000 for skin, CheXpert for chest X-ray, EyePACS for diabetic retinopathy) reach **92–95%+** accuracy for the conditions they were trained on — well above what a generalist multimodal LLM achieves.
 
-We want both:
-- **LLM** — generalist coverage, natural-language explanation, never fails entirely
-- **Specialist** — high-accuracy on the conditions that matter, with explicit per-class confidence
+**The image NEVER goes to a cloud LLM.** Two reasons: privacy (medical images stay on local infra) and accuracy (the specialist sidecar is the source of truth). The pipeline is:
 
-**Merge rule (clinical safety):** show both reads to the user/clinician. If they disagree, label the disagreement explicitly. Never silently override one with the other.
+- **Specialist sidecar** (`services/image-ml/`) — runs the local CV models, returns structured per-class findings + confidence. This is the only thing that "sees" the image.
+- **LLM** — receives the sidecar's findings **as text only** and writes a warm, plain-language explanation for the patient. It never reads the pixels.
+
+**Graceful degradation (B6):** if the sidecar is unset or unreachable, the image is dropped (never uploaded anywhere) and the LLM returns general text-only guidance based on the image-type hint — the upload no longer hard-fails.
+
+> Historical note: an earlier design proposed running a generalist LLM-vision read *and* the specialist in parallel and flagging disagreements. That "both reads" approach was dropped for v1.0 in favour of the privacy-preserving sidecar-only pipeline above.
 
 ---
 
@@ -88,4 +91,4 @@ services/vision.ts                          services/image-ml/  (Python, :5001)
 
 - [ ] Do we run image triage (skin vs xray vs eye) inside the Python service or via a lightweight LLM call from Node?
 - [ ] Per-condition confidence thresholds — fixed (e.g. 0.7) or per-model calibrated?
-- [ ] Disagreement UI — minor wording change in Patient `Chat.tsx` for displaying both reads. Otabek owns once Temirlan's first model lands.
+- [x] ~~Disagreement UI — display both reads.~~ Dropped: sidecar-only pipeline (no second LLM-vision read to disagree with).

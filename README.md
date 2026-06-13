@@ -132,7 +132,7 @@ Most clinical-AI products stop at the read. We close the loop.
 | 3 | **Patients Queue** | Clinic | Incoming referral queue with urgency badges (RED→GREEN), MA Agent summary, full session context, Confirm/Decline actions |
 | 4 | **Interview** | Clinic | Structured diagnostic intake for clinicians — one focused question at a time, RAG context, citation chips per turn |
 | 5 | **Symptom Analysis** | Clinic | Ranked differential (3–6 conditions) with calibrated probabilities, urgency level, red-flag callouts |
-| 6 | **Report Reading** | Both | Upload X-ray / ECG / lab / dermatology photo → structured plain-language reading. Hybrid: multimodal LLM + (optional) specialist CV models from `services/image-ml/` |
+| 6 | **Report Reading** | Both | Upload X-ray / skin / eye photo → specialist CV models in `services/image-ml/` read it locally; the LLM turns those findings into a plain-language explanation. The image never leaves to a cloud LLM. |
 | 7 | **Triage** | Both | Manchester-style colors (RED → BLUE) with target time-to-care and immediate action list |
 
 ### Eight Cross-cutting Differentiators
@@ -144,7 +144,7 @@ Most clinical-AI products stop at the read. We close the loop.
 | 3 | **MA Agent identity** | Patients talk to "MA Agent" — a named, trusted assistant. System prompt refuses to reveal model/provider. |
 | 4 | **Multilingual** (auto-detect, 17 surfaced) | Model mirrors the user's language. Hindi → Hindi, Uzbek → Uzbek. |
 | 5 | **Voice-first** | Full-screen immersive voice mode (LiveKit + Web Speech API) + inline mic — zero API key needed for demos. |
-| 6 | **Hybrid multimodal vision** | Snap an X-ray or skin photo → generalist multimodal LLM **plus** (optional) specialist CV sidecar (`services/image-ml/`) for body-part accuracy. Both reads shown — disagreements flagged, never silently overridden. |
+| 6 | **Local specialist vision** | Snap an X-ray, skin, or eye photo → a local specialist CV sidecar (`services/image-ml/`) reads it for condition-specific accuracy; the LLM narrates the findings in plain language. The image stays on local infra — never sent to a cloud LLM. Sidecar offline → graceful text-only guidance. |
 | 7 | **Medical RAG** | Every chat turn grounded in 31 vetted clinical docs; sources surface as chips below each answer. |
 | 8 | **Installable PWA** | One tap on a phone → standalone app icon → works under spotty connectivity. |
 
@@ -312,7 +312,7 @@ Our frontend UI architecture implements the **Atomic Design methodology** to org
 | [`docs/team/`](./docs/team/) | Per-engineer files (Ismail, Mirsaid, Temirlan, Otabek, Sobirov) — role, lane, owned files, sprint tasks |
 | [`research/`](./research/) | **Strategic research** — Pareto disease survey, model survey, dataset/license review, image-quality UX. **Top 5 diseases + models locked** ([`research/00-overview.md`](./research/00-overview.md)). |
 | [`docs/qa/issues.md`](./docs/qa/issues.md) | QA bug inbox (Mirsaid files, engineers pull) |
-| [`docs/architecture/image-pipeline.md`](./docs/architecture/image-pipeline.md) | Hybrid LLM + specialist CV pipeline design |
+| [`docs/architecture/image-pipeline.md`](./docs/architecture/image-pipeline.md) | Sidecar-only specialist CV pipeline (LLM narrates findings; image never sent to cloud) |
 | [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md) | Layered system architecture |
 | [`docs/ER_MODEL.md`](./docs/ER_MODEL.md) · [`docs/ER_model.mmd`](./docs/ER_model.mmd) | Database schema + Mermaid diagram |
 | [`services/image-ml/README.md`](./services/image-ml/README.md) | Python sidecar service spec |
