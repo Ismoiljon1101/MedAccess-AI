@@ -74,7 +74,7 @@ function VoiceUI({
   model: string;
   sessionId?: string;
   language: string;
-  onEnd: () => void;
+  onEnd: (sessionId?: string) => void;
 }) {
   const { patientProfile, addAppointment } = useAppStore();
   const patientPhone = patientProfile?.phone;
@@ -348,7 +348,7 @@ function VoiceUI({
       <div className="shrink-0 flex items-center justify-between px-5 pt-safe-top py-4">
         <button
           type="button"
-          onClick={onEnd}
+          onClick={() => onEnd(liveSessionRef.current)}
           aria-label="Exit voice mode"
           className="flex h-11 w-11 items-center justify-center rounded-full bg-white/8 text-ink-400 hover:text-white transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/60 active:scale-95"
         >
@@ -500,7 +500,7 @@ export default function VoiceMode() {
         model={selectedModel}
         sessionId={sessionId}
         language={language}
-        onEnd={() => navigate(-1)}
+        onEnd={(sid) => navigate(sid ? `/?s=${sid}` : '/')}
       />
     </>
   );

@@ -3,7 +3,7 @@ import { ChatRequestSchema, interviewSystemPrompt } from '@medaccess/shared';
 import { Interview, dbReady } from '@medaccess/db';
 import { chat, chatStream } from '../services/llm.js';
 import { formatContext, ragStatus, retrieve, toCitations } from '../services/rag.js';
-import { appendMessage, ensureSession, getSession, newSessionId, replaceMessages } from '../utils/sessions.js';
+import { appendMessage, ensureSession, getSession, getOrLoadSession, newSessionId, replaceMessages } from '../utils/sessions.js';
 import { searchEnrolled, getUpcomingSlots } from '../services/facility.service.js';
 import { getIdByPhone } from '../services/patient.service.js';
 import { HttpError } from '../middleware/error.js';
@@ -79,7 +79,7 @@ router.post('/', async (req, res, next) => {
   try {
     const parsed = ChatRequestSchema.parse(req.body);
     const sessionId = parsed.sessionId || newSessionId();
-    const session = getSession(sessionId) || ensureSession(sessionId);
+    const session = (await getOrLoadSession(sessionId)) || ensureSession(sessionId);
 
     if (parsed.history?.length && session.messages.length === 0) {
       replaceMessages(sessionId, parsed.history);
@@ -139,7 +139,7 @@ router.post('/stream', async (req, res, next) => {
     const lng = req.body.lng ? parseFloat(req.body.lng) : undefined;
 
     const sessionId = parsed.sessionId || newSessionId();
-    const session = getSession(sessionId) || ensureSession(sessionId);
+    const session = (await getOrLoadSession(sessionId)) || ensureSession(sessionId);
 
     if (parsed.history?.length && session.messages.length === 0) {
       replaceMessages(sessionId, parsed.history);

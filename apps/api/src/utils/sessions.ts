@@ -65,6 +65,36 @@ export function getSession(id: string | undefined): Session | null {
   return session;
 }
 
+/**
+ * Like getSession, but awaits the MongoDB load on a cache miss instead of firing
+ * it and returning null. Prevents the chat routes from creating an EMPTY session
+ * (and answering with no history) right after an API restart (C7).
+ */
+export async function getOrLoadSession(id: string | undefined): Promise<Session | null> {
+  if (!id) return null;
+  const cached = store.get(id);
+  if (cached) {
+    if (now() - cached.updatedAt > SESSION_TTL_MS) { store.delete(id); return null; }
+    return cached;
+  }
+  if (dbReady()) {
+    try {
+      const doc = await Interview.findOne({ sessionId: id }).lean();
+      if (doc) {
+        const loaded: Session = {
+          id,
+          messages: doc.messages || [],
+          createdAt: (doc as any).createdAt?.getTime?.() || now(),
+          updatedAt: (doc as any).updatedAt?.getTime?.() || now(),
+        };
+        store.set(id, loaded);
+        return loaded;
+      }
+    } catch { /* non-fatal */ }
+  }
+  return null;
+}
+
 export function ensureSession(id: string): Session {
   const existing = getSession(id);
   if (existing) return existing;
