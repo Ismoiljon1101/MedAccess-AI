@@ -7,6 +7,7 @@ import {
   searchFacilities, getFacilitySlots, bookAppointment,
   type FacilityResult, type DoctorResult, type SlotResult,
 } from '@/lib/api';
+import { useAppStore } from '@/store/app';
 
 interface BookingFlowProps {
   specialty: string;
@@ -65,6 +66,15 @@ function matchingDoctor(f: FacilityResult, specialty: string, preferredDoctorId?
 export default function BookingFlow(props: BookingFlowProps) {
   const { specialty, urgency, lat, lng, patientPhone, sessionId, agentSummary, imageReportId,
           preferredDoctorId, preferredFacilityId, onBooked, onClose } = props;
+
+  const { patientProfile, setPatientProfile } = useAppStore();
+  // Anonymous patients (no phone identity yet) enter their name + phone here so
+  // the booking creates a real patient record that the clinic actually receives.
+  const needsIdentity = !patientPhone?.trim();
+  const [idName, setIdName]   = useState(patientProfile?.fullName && patientProfile.fullName !== 'Guest' ? patientProfile.fullName : '');
+  const [idPhone, setIdPhone] = useState(patientProfile?.phone ?? '');
+  const effectivePhone = (patientPhone || idPhone).trim();
+  const effectiveName  = (idName || patientProfile?.fullName || '').trim();
 
   const [step, setStep]           = useState<Step>('clinic');
   const [loading, setLoading]     = useState(true);
@@ -144,11 +154,14 @@ export default function BookingFlow(props: BookingFlowProps) {
 
   async function confirm() {
     if (!facility || !doctor || !slot) return;
+    if (!effectivePhone) { setError('A phone number is required to book.'); return; }
+    if (!effectiveName)  { setError('Your name is required to book.'); return; }
     setStep('booking');
     setError(null);
     try {
       const result = await bookAppointment({
-        patientPhone,
+        patientPhone:  effectivePhone,
+        patientName:   effectiveName,
         doctorId:      doctor.id,
         facilityId:    facility.id,
         scheduledDate: date,
@@ -159,6 +172,11 @@ export default function BookingFlow(props: BookingFlowProps) {
         agentAnalysis: imageReportId ? { imageReportId } : undefined,
         sessionId,
       });
+      // Persist the identity so the rest of the app (Records, future bookings)
+      // is now linked to this patient instead of staying anonymous.
+      if (needsIdentity) {
+        setPatientProfile({ ...(patientProfile ?? {}), fullName: effectiveName, phone: effectivePhone });
+      }
       setStep('done');
       onBooked({
         date: result.scheduledDate,
@@ -326,19 +344,44 @@ export default function BookingFlow(props: BookingFlowProps) {
               </div>
             )}
 
+            {/* Identity capture for anonymous patients — so the booking creates
+                a real patient the clinic receives (no more dead "Sign in"). */}
+            {needsIdentity && slot && (
+              <div className="mt-3 space-y-2 rounded-xl border border-ink-700/60 bg-ink-900/50 p-3">
+                <p className="text-[11px] font-medium text-ink-300">Your details</p>
+                <input
+                  className="input h-9 text-sm"
+                  placeholder="Full name"
+                  value={idName}
+                  onChange={(e) => { setIdName(e.target.value); setError(null); }}
+                  autoComplete="name"
+                />
+                <input
+                  className="input h-9 text-sm"
+                  type="tel"
+                  inputMode="tel"
+                  placeholder="Phone (e.g. +82 10…)"
+                  value={idPhone}
+                  onChange={(e) => { setIdPhone(e.target.value); setError(null); }}
+                  autoComplete="tel"
+                />
+                <p className="text-[10px] text-ink-500">Used to link your records and let the clinic reach you.</p>
+              </div>
+            )}
+
             {/* Confirm */}
             <button
               type="button"
-              disabled={!slot || !patientPhone}
+              disabled={!slot || !effectivePhone || !effectiveName}
               onClick={confirm}
               className="mt-3 w-full flex items-center justify-center gap-1.5 rounded-xl border border-brand-500/50 bg-brand-600/25 py-2.5 text-xs font-semibold text-brand-200 hover:bg-brand-600/40 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/60 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100"
             >
               <Clock size={13} />
-              {!patientPhone
-                ? 'Sign in to book'
-                : slot
-                  ? `Confirm ${date} at ${slot.startTime}`
-                  : 'Select a time'}
+              {!slot
+                ? 'Select a time'
+                : !effectivePhone || !effectiveName
+                  ? 'Enter your name & phone'
+                  : `Confirm ${date} at ${slot.startTime}`}
             </button>
           </>
         )}

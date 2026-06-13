@@ -14,6 +14,7 @@
     "build:clinic": "pnpm --filter @medaccess/clinic run build",
     "build:patient": "pnpm --filter @medaccess/patient run build",
     "start": "pnpm --filter @medaccess/api run start",
+    "db:clean": "pnpm --filter @medaccess/api exec tsx src/scripts/clean-db.ts",
     "qr": "node scripts/lan-qr.mjs",
     "qr:web": "node scripts/lan-qr-server.mjs",
     "tunnel": "node scripts/tunnel.mjs",

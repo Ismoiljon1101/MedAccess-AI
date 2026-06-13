@@ -73,6 +73,11 @@ interface AppState {
   upsertSession: (meta: Omit<ChatSessionMeta, 'updatedAt'> & { updatedAt?: number }) => void;
   removeSession: (sessionId: string) => void;
   clearHistory: () => void;
+
+  // The chat the user is currently in — persisted so navigating away from the
+  // Chat tab and back resumes the same conversation instead of starting fresh.
+  activeSessionId: string | null;
+  setActiveSessionId: (id: string | null) => void;
 }
 
 export const useAppStore = create<AppState>()(
@@ -117,8 +122,14 @@ export const useAppStore = create<AppState>()(
           return { chatHistory: [entry, ...s.chatHistory].slice(0, 50) };
         }),
       removeSession: (sessionId) =>
-        set((s) => ({ chatHistory: s.chatHistory.filter((h) => h.sessionId !== sessionId) })),
-      clearHistory: () => set({ chatHistory: [] }),
+        set((s) => ({
+          chatHistory: s.chatHistory.filter((h) => h.sessionId !== sessionId),
+          activeSessionId: s.activeSessionId === sessionId ? null : s.activeSessionId,
+        })),
+      clearHistory: () => set({ chatHistory: [], activeSessionId: null }),
+
+      activeSessionId: null,
+      setActiveSessionId: (activeSessionId) => set({ activeSessionId }),
     }),
     { name: 'medaccess-patient-prefs' },
   ),

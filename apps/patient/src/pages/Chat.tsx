@@ -47,12 +47,16 @@ const GREETING: Message = {
 };
 
 export default function Chat() {
-  const { language, upsertSession, patientProfile, addAppointment, voiceAutoPlay } = useAppStore();
+  const { language, upsertSession, patientProfile, addAppointment, voiceAutoPlay, setActiveSessionId } = useAppStore();
   const patientPhone = patientProfile?.phone;
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
 
-  const resumeId = searchParams.get('s') ?? undefined;
+  // Resume the URL session if present, else the last active one from the store
+  // (so leaving the Chat tab and coming back doesn't start a brand-new chat).
+  const [resumeId] = useState<string | undefined>(
+    () => searchParams.get('s') ?? useAppStore.getState().activeSessionId ?? undefined,
+  );
 
   const [messages, setMessages]       = useState<Message[]>([GREETING]);
   const [input, setInput]             = useState('');
@@ -289,6 +293,7 @@ export default function Chat() {
             if (event.data.sessionId) {
               resolvedSid = event.data.sessionId;
               setSessionId(resolvedSid);
+              setActiveSessionId(event.data.sessionId); // persist so navigation resumes this chat
             }
             if (event.data.citations?.length) {
               resolvedCitations = event.data.citations;
@@ -423,8 +428,19 @@ export default function Chat() {
   // ── Conversational booking: agent emitted a real slot → book silently ─────
   async function autoBook(booking: BookingAction) {
     if (!booking.date || !booking.time) return;
-    // No identity → can't complete server-side; fall back to the in-chat picker.
-    if (!patientPhone) { setPendingBooking(booking); return; }
+    // No identity yet → open the booking picker (pre-selected doctor) so the
+    // patient enters name + phone and the booking actually completes & reaches
+    // the clinic, instead of silently doing nothing after the agent says "booked".
+    if (!patientPhone) {
+      openBooking({
+        specialty: booking.specialty,
+        urgency: ctaSpec?.urgency ?? 'see-clinician-soon',
+        reason: booking.reason,
+        preferredDoctorId: booking.doctorId,
+        preferredFacilityId: booking.facilityId,
+      });
+      return;
+    }
     try {
       const imageReportId = lastImageAnalysisRef.current?.reportId;
       // Carry the urgency we detected for this conversation (don't under-triage
@@ -539,6 +555,7 @@ export default function Chat() {
     setMessages([GREETING]);
     setInput('');
     setSessionId(undefined);
+    setActiveSessionId(null);
     setLoadError(null);
     setAvatarState('idle');
     setIsReasoning(false);
