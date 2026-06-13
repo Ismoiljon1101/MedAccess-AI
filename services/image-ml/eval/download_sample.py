@@ -2,6 +2,9 @@
 Download the ISIC 2018 Task 3 held-out test set from Harvard Dataverse.
 No Kaggle / no login needed — fully public.
 
+Author:  Temirlan
+Created: 2026-06-14
+
 Downloads:
   - Ground truth labels (130 KB)     → eval/sample_data/ground_truth.tab
   - Test images zip (421 MB)         → eval/sample_data/ISIC2018_Test.zip (then extracted)
