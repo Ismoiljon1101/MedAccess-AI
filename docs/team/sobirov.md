@@ -42,12 +42,39 @@ Sobirov does NOT touch (no exceptions):
 
 This is slower than just "do the task." That's intentional — you're learning.
 
-## Current sprint tasks (start here)
+## 🎯 PRIORITY ASSIGNMENT (Ismail, do this first)
 
-1. **Add screenshots** for `docs/screenshots/` listed in [`TODO.md`](../../TODO.md) Day 11. You don't need to write code — just take clean screenshots of each page.
-2. **Pull 3 SEV-3/4 bugs** from `docs/qa/issues.md` (after Mirsaid files them) and walk through the process above with the agent.
-3. **Spellcheck pass** on README.md. Open a PR with typo fixes only. Tag Ismail for review.
-4. **Add `aria-label`** to every icon-only button you can find (search: `<button` followed by no text, only `<Icon />`). One PR per page is fine.
+You own the **full human UI/UX + workflow review** of the whole project. A human has to
+judge feel, copy, and real-world flow — the agent can't. Your master checklist is
+[`docs/qa/ui-ux-review.md`](../qa/ui-ux-review.md). Two parts:
+
+1. **OpenRouter key (gate G1).** Confirm the key Mirsaid procured is installed and live:
+   `curl localhost:4000/api/health` must show `providers.openrouter: true`. If false, the
+   whole AI half is dead — flag it to Ismail before testing anything AI. (Issue #003.)
+2. **Page-by-page review.** Walk every screen of the patient app and the clinic app, plus
+   the end-to-end workflow, on a **real phone** where you can. Mark each item PASS/FAIL.
+
+### How the agent runs your review (it enforces this)
+
+When you confirm "I am Sobirov", the agent will:
+1. Open [`docs/qa/ui-ux-review.md`](../qa/ui-ux-review.md) and start at the first unchecked item.
+2. Ask you **ONE item at a time** — never dump the whole list. It waits for your answer.
+3. Require a **clear** answer: `PASS` or `FAIL`. On FAIL you must say:
+   **what you did · what you expected · what actually happened · where you want it fixed.**
+4. If your answer is vague ("kinda", "looks off", "sometimes"), it **asks again** until it's
+   precise. It will not tick the box on a fuzzy answer.
+5. On PASS it ticks `[x]`. On FAIL it marks `❌` and files a numbered bug into
+   [`docs/qa/issues.md`](../qa/issues.md) (correct severity, full repro, your requested fix).
+6. It keeps the scorecard at the bottom of the review doc up to date as you go.
+
+Be strict. The point is to find every real problem, page by page, before the demo.
+
+## Secondary tasks (after the review, or when blocked)
+
+1. **Add screenshots** for `docs/screenshots/` listed in [`TODO.md`](../../TODO.md). Just take clean screenshots of each page.
+2. **Fix issue #004** (SEV-4 doc): update TODO.md §4 endpoint list to current routes (`/api/facilities`, `/api/appointments`, `/api/maps`).
+3. **Spellcheck pass** on README.md. PR with typo fixes only. Tag Ismail.
+4. **Add `aria-label`** to any icon-only button still missing one. One PR per page.
 
 ## Escalation
 
