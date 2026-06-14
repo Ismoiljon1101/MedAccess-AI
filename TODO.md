@@ -530,8 +530,10 @@ All bugs live in [`docs/qa/issues.md`](./docs/qa/issues.md). Format and severity
 
 > Senior + QA review focused on stability. Baseline `pnpm typecheck` and full `pnpm build` **green across all 5 workspaces**. Commits only (not pushed — pending Ismail review).
 
-**Bug found + fixed (data integrity):**
-- **Cancelled appointments never freed their time slot.** `updateStatus` only flipped the appointment status; the `TimeSlot` stayed `isBooked:true` and (with the unique index on doctor/date/time) that slot was unbookable forever. Fixed: cancel now frees the slot in both DB (`slotId → isBooked:false, appointmentId:null`) and in-memory paths. **Verified e2e:** book 14→13 slots, cancel 13→14.
+**Bugs found + fixed:**
+- **(data integrity) Cancelled appointments never freed their time slot.** `updateStatus` only flipped the appointment status; the `TimeSlot` stayed `isBooked:true` and (with the unique index on doctor/date/time) that slot was unbookable forever. Fixed: cancel now frees the slot in both DB (`slotId → isBooked:false, appointmentId:null`) and in-memory paths. **Verified e2e:** book 14→13 slots, cancel 13→14.
+- **(stability — likely the "it froze / didn't work") LLM calls hung ~60-90s on a rate-limited free tier.** The OpenAI SDK's default `maxRetries=2` honors the free tier's long `Retry-After` on a 429 and *sleeps* before retrying, freezing chat/triage/symptoms/reports. Fixed in `llm.ts buildClient`: `maxRetries=0` (we have our own key fallback) + a 30s `timeout` ceiling. **Verified:** triage 90s+ hang → **3.6s** friendly "AI service is busy, try again". Tunable via `LLM_TIMEOUT_MS` / `LLM_MAX_RETRIES`.
+  - NOTE: the free OpenRouter key(s) are currently rate-limited, so AI replies return the busy message until a funded key is installed (issue #003, Sobirov). The code now degrades fast + cleanly regardless.
 
 **Reviewed and confirmed healthy (no change needed):**
 - Removed conversational-proposal code (B1): no live dangling refs — only comments/docs mention it.
