@@ -235,12 +235,23 @@ export async function updateStatus(
     if (doctorNotes)       update['doctorNotes'] = doctorNotes.slice(0, 4000);
     if (status === 'confirmed') update['confirmedAt'] = new Date();
     if (status === 'completed') update['completedAt'] = new Date();
-    return Appointment.findByIdAndUpdate(id, update, { new: true }).lean();
+    const updated = await Appointment.findByIdAndUpdate(id, update, { new: true }).lean();
+    // Cancelling must free the time slot so it can be booked again — otherwise a
+    // declined appointment blocks that doctor/date/time forever.
+    if (updated && status === 'cancelled' && (updated as any).slotId) {
+      await TimeSlot.findByIdAndUpdate((updated as any).slotId, { isBooked: false, appointmentId: null }).catch(() => {});
+    }
+    return updated;
   }
 
   const appt = inMemoryAppointments.find((a) => a._id === id);
   if (!appt) return null;
   appt.status = status;
   if (doctorNotes) appt.doctorNotes = doctorNotes.slice(0, 4000);
+  // Free the in-memory slot gate on cancel so the time reopens.
+  if (status === 'cancelled') {
+    const booked = inMemoryBookedSlots.get(`${appt.doctorId}_${appt.scheduledDate}`);
+    booked?.delete(appt.scheduledTime);
+  }
   return appt;
 }
