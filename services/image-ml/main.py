@@ -1,7 +1,11 @@
 """
 MedAccess AI — Medical Image ML sidecar service.
 
-Owner: Temirlan (models, preprocessing, eval)
+Owner:        Temirlan (models, preprocessing, eval)
+Last modified: 2026-06-14  Temirlan
+Changes:      FastAPI lifespan migration, eye DR double-softmax fix,
+              fundus auto-detection heuristic, HAM10000 class label
+              order fix (5.8% → 74.2% accuracy), Windows UTF-8 fix.
 Interface contract jointly with Ismail.
 
 Pipeline:
@@ -25,6 +29,13 @@ import os
 import ssl
 import sys
 import time
+
+# Windows console defaults to cp1252 which can't encode Unicode progress bars
+# (e.g. TorchXRayVision tqdm uses █ █). Force UTF-8 so downloads don't crash.
+if sys.platform == "win32":
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")  # type: ignore
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")  # type: ignore
+from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Literal
 
@@ -59,15 +70,17 @@ EYE_DR_ONNX_PATH    = MODELS_DIR / "eye-dr-detect.onnx"        # diabetic retino
 # Skin_Disease_AI 6-class labels (Xception, 92% accuracy, NadavIs56/Skin_Disease_AI)
 SKIN_XCEPTION_CLASSES = ["acne", "carcinoma", "eczema", "keratosis", "millia", "rosacea"]
 
-# HAM10000 7-class skin lesion labels (matches training order)
+# HAM10000 7-class skin lesion labels.
+# Order matches PyTorch ImageFolder alphabetical sort of the HAM10000 dx folder names:
+# akiec → bcc → bkl → df → mel → nv → vasc
 HAM10000_CLASSES = [
-    "melanoma",
-    "melanocytic nevus",
-    "basal cell carcinoma",
-    "actinic keratosis",
-    "benign keratosis",
-    "dermatofibroma",
-    "vascular lesion",
+    "actinic keratosis",    # akiec (index 0)
+    "basal cell carcinoma", # bcc   (index 1)
+    "benign keratosis",     # bkl   (index 2)
+    "dermatofibroma",       # df    (index 3)
+    "melanoma",             # mel   (index 4)
+    "melanocytic nevus",    # nv    (index 5)
+    "vascular lesion",      # vasc  (index 6)
 ]
 
 # BlairFerg DR ONNX is a binary classifier — output shape [1, 2]:
@@ -78,12 +91,16 @@ DR_CLASSES = [
     "diabetic retinopathy detected",
 ]
 
-# TorchXRayVision pathology labels (DenseNet121-all outputs 18 pathologies)
+# TorchXRayVision DenseNet121-all reports 18 pathologies. This allow-list MUST
+# stay in sync with model.pathologies — anything not here is dropped from the
+# response. Previously only 14 were listed, silently discarding Lung Opacity,
+# Lung Lesion, Fracture, and Enlarged Cardiomediastinum (all clinically real).
 XRAY_PATHOLOGIES = [
     "Atelectasis", "Cardiomegaly", "Consolidation", "Edema",
     "Effusion", "Emphysema", "Fibrosis", "Hernia",
     "Infiltration", "Mass", "Nodule", "Pleural_Thickening",
     "Pneumonia", "Pneumothorax",
+    "Lung Lesion", "Fracture", "Lung Opacity", "Enlarged Cardiomediastinum",
 ]
 
 # Lazy model cache
@@ -172,17 +189,63 @@ def get_eye_model() -> tuple[object | None, str, str]:
     return _models["eye"]  # type: ignore
 
 
-def get_xray_model() -> object | None:
-    """TorchXRayVision DenseNet121-all — auto-downloads on first call (~135 MB)."""
-    if "xray" not in _models:
+_XRAY_CORRUPTION_MARKERS = (
+    "unexpected eof", "corrupt", "pytorchstreamreader",
+    "central directory", "invalid load key", "ran out of input",
+)
+
+
+def _clear_torchxrayvision_cache() -> int:
+    """Delete cached TorchXRayVision DenseNet weights so the next load re-downloads.
+
+    A download interrupted midway (e.g. the Windows cp1252 crash we hit) leaves a
+    truncated .pt that fails to load forever. We remove it so the package can
+    re-fetch a clean copy. Returns the number of files deleted.
+    """
+    cache_dir = Path.home() / ".torchxrayvision" / "models_data"
+    if not cache_dir.exists():
+        return 0
+    deleted = 0
+    for f in cache_dir.glob("*densenet121*.pt"):
         try:
-            import torchxrayvision as xrv  # type: ignore
-            import torch  # type: ignore
-            model = xrv.models.DenseNet(weights="densenet121-res224-all")
-            model.eval()
-            _models["xray"] = model
-            print("[image-ml] TorchXRayVision loaded")
-        except Exception as exc:
+            f.unlink()
+            print(f"[image-ml] removed corrupt xray weight: {f.name}")
+            deleted += 1
+        except OSError as exc:
+            print(f"[image-ml] could not remove {f.name}: {exc}")
+    return deleted
+
+
+def get_xray_model() -> object | None:
+    """TorchXRayVision DenseNet121-all — auto-downloads on first call (~27 MB).
+
+    Self-heals one class of failure: if a previous download was truncated, the
+    cached .pt is corrupt and load raises an EOF-style error. We detect that,
+    clear the cache, and retry the download exactly once.
+    """
+    if "xray" in _models:
+        return _models["xray"]
+
+    def _load() -> object:
+        import torchxrayvision as xrv  # type: ignore
+        model = xrv.models.DenseNet(weights="densenet121-res224-all")
+        model.eval()
+        return model
+
+    try:
+        _models["xray"] = _load()
+        print("[image-ml] TorchXRayVision loaded")
+    except Exception as exc:
+        is_corruption = any(m in str(exc).lower() for m in _XRAY_CORRUPTION_MARKERS)
+        if is_corruption and _clear_torchxrayvision_cache():
+            print(f"[image-ml] xray weights were corrupt ({exc}); re-downloading...")
+            try:
+                _models["xray"] = _load()
+                print("[image-ml] TorchXRayVision loaded after re-download")
+            except Exception as exc2:
+                print(f"[image-ml] TorchXRayVision load failed after retry: {exc2}")
+                _models["xray"] = None
+        else:
             print(f"[image-ml] TorchXRayVision load failed: {exc}")
             _models["xray"] = None
     return _models["xray"]
@@ -215,15 +278,45 @@ def preprocess_xray(img: np.ndarray):
 
 # ── Image type detection ──────────────────────────────────────────────────────
 
+def _looks_like_fundus(img: np.ndarray) -> bool:
+    """Fundus photos have two distinctive properties:
+    1. Dark circular vignette — the camera FOV limiter makes corners much darker than center.
+    2. Reddish/orange dominant hue — retinal tissue is red, optic disc is orange-yellow.
+    Both must be true to avoid misclassifying warm-toned skin lesions as fundus.
+    """
+    h, w = img.shape[:2]
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+
+    # Corner darkness: sample 1/6 of the shorter dimension from each corner
+    c = min(h, w) // 6
+    corner_mean = float(np.mean([
+        gray[:c, :c].mean(), gray[:c, -c:].mean(),
+        gray[-c:, :c].mean(), gray[-c:, -c:].mean(),
+    ]))
+    center_mean = float(gray[h // 4: 3 * h // 4, w // 4: 3 * w // 4].mean())
+    has_vignette = center_mean > 0 and (corner_mean / center_mean) < 0.35
+
+    if not has_vignette:
+        return False
+
+    # Red/orange hue check (OpenCV HSV hue range 0–180; red wraps at 0 and 180)
+    hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
+    hue = hsv[:, :, 0]
+    red_orange_ratio = float(((hue < 25) | (hue > 155)).mean())
+    return red_orange_ratio > 0.30
+
+
 def detect_image_type(hint: str, img: np.ndarray) -> Literal["skin", "xray", "eye", "malaria", "other", "unknown"]:
     h = hint.lower().strip()
     if h in {"skin", "xray", "eye", "malaria"}:
         return h  # type: ignore
-    # Heuristic: X-rays are near-grayscale (low saturation)
     hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
     mean_sat = float(np.mean(hsv[:, :, 1]))
     if mean_sat < 20:
         return "xray"
+    # Check fundus before skin — both are high-saturation but fundus has vignette + red hue
+    if mean_sat > 45 and _looks_like_fundus(img):
+        return "eye"
     if mean_sat > 45:
         return "skin"
     return "unknown"
@@ -231,18 +324,8 @@ def detect_image_type(hint: str, img: np.ndarray) -> Literal["skin", "xray", "ey
 
 # ── FastAPI ───────────────────────────────────────────────────────────────────
 
-app = FastAPI(title="MedAccess Image ML", version="0.3.0")
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["http://localhost:4000"],
-    allow_methods=["POST", "GET"],
-    allow_headers=["*"],
-)
-
-
-@app.on_event("startup")
-def _pull_weights_on_startup() -> None:
+@asynccontextmanager
+async def lifespan(app: FastAPI):
     """Auto-download any missing managed weights on boot.
 
     Set SKIP_MODEL_DOWNLOADS=1 to disable (e.g. CI, air-gapped deployments).
@@ -251,11 +334,22 @@ def _pull_weights_on_startup() -> None:
     """
     if os.environ.get("SKIP_MODEL_DOWNLOADS") == "1":
         print("[startup] SKIP_MODEL_DOWNLOADS=1 — skipping weight auto-download")
-        return
-    try:
-        ensure_all()
-    except Exception as exc:
-        print(f"[startup] weight auto-download error (continuing): {exc}")
+    else:
+        try:
+            ensure_all()
+        except Exception as exc:
+            print(f"[startup] weight auto-download error (continuing): {exc}")
+    yield
+
+
+app = FastAPI(title="MedAccess Image ML", version="0.3.0", lifespan=lifespan)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:4000"],
+    allow_methods=["POST", "GET"],
+    allow_headers=["*"],
+)
 
 
 class Finding(BaseModel):
@@ -515,9 +609,14 @@ async def analyze(
             inp = np.transpose(img_norm, (2, 0, 1))[np.newaxis, ...].astype(np.float32)
             input_name = sess.get_inputs()[0].name  # type: ignore
             out = sess.run(None, {input_name: inp})[0][0]  # type: ignore
-            # Apply softmax in numpy
-            exps = np.exp(out - np.max(out))
-            probs = exps / exps.sum()
+            # BlairFerg ONNX already applies softmax internally (outputs sum to ~1.0).
+            # Do NOT apply softmax again — it compresses confident predictions incorrectly.
+            already_prob = bool(np.all(out >= 0) and np.all(out <= 1) and 0.98 <= float(out.sum()) <= 1.02)
+            if already_prob:
+                probs = out
+            else:
+                exps = np.exp(out - np.max(out))
+                probs = exps / exps.sum()
             findings = []
             for idx, conf in enumerate(probs):
                 if idx >= len(DR_CLASSES):

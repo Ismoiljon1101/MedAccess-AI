@@ -9,9 +9,16 @@
 
 ## Why this service exists
 
-Generic multimodal LLMs read medical images at roughly **70–90% accuracy** on common tasks. For specific conditions — skin lesions, chest X-ray nodules, diabetic retinopathy — purpose-built CV models reach **92–95%+** on the same datasets. We want specialist accuracy on the conditions that matter, with the LLM as a generalist fallback and natural-language explainer.
+Generic multimodal LLMs read medical images at roughly **70–90% accuracy** on common tasks. For specific conditions — skin lesions, chest X-ray findings, diabetic retinopathy — purpose-built CV models reach **92–95%+** on the same datasets. We want specialist accuracy on the conditions that matter, with the LLM as a generalist fallback and natural-language explainer.
 
-The Node API always calls the multimodal LLM **and** (when this sidecar is reachable) the specialist model. The patient sees both reads. Disagreements are surfaced, never silently overridden — clinical safety floor.
+> **Current vs. target — read this before quoting numbers.** The 92–95% figure is the achievable
+> ceiling that motivates this service, *not* what our current checkpoints deliver. Our live skin
+> model (a ConvNeXt community checkpoint) measures **74.2% top-1 / 96.6% top-3** on the ISIC 2018
+> held-out test set — see [Eval harness](#eval-harness). The locked EfficientNet-B0 upgrade is the
+> path toward the 90%+ range. Eye and X-ray accuracy are **not yet benchmarked** (harnesses are
+> ready; labelled datasets pending). Don't present these as cleared, validated, or 90%+ today.
+
+The Node API always calls the LLM **and** (when this sidecar is reachable) the specialist model. The patient sees both reads. Disagreements are surfaced, never silently overridden — clinical safety floor.
 
 ---
 
@@ -19,99 +26,201 @@ The Node API always calls the multimodal LLM **and** (when this sidecar is reach
 
 ```bash
 cd services/image-ml
-python -m venv .venv
-# Windows:  .venv\Scripts\activate
-# macOS:    source .venv/bin/activate
+python -m venv venv
+# Windows:  venv\Scripts\activate
+# macOS:    source venv/bin/activate
 pip install -r requirements.txt
-uvicorn main:app --reload --port 5001
+python main.py   # boots on :5001, auto-downloads missing weights
 ```
 
-Then:
+> **Windows only:** TorchXRayVision's download progress bar uses Unicode block characters that
+> Windows cp1252 can't encode. Set `PYTHONUTF8=1` before starting the server, or the first
+> X-ray inference call will crash while downloading weights (~27 MB):
+> ```
+> $env:PYTHONUTF8 = "1"; python main.py
+> ```
+
+Then verify:
 ```bash
 curl http://localhost:5001/healthz
-# → { "ok": true, "service": "medaccess-image-ml", ... }
+# → { "ok": true, "models_loaded": ["skin-convnext-ham10000", "eye-dr-onnx", "torchxrayvision-available"], ... }
 ```
 
-To call from Node, set `IMAGE_ML_URL=http://localhost:5001` in the root `.env`. If the env var is unset, the Node API skips this sidecar entirely (graceful degradation).
+To call from Node, set `IMAGE_ML_URL=http://localhost:5001` in the root `.env`.
 
-### Specialist models (auto-pulled on startup)
-
-On first boot, `model_manager.py` downloads any missing weights from HuggingFace into `models/` so a fresh clone "just works." Subsequent boots are instant (idempotent — already-present files are skipped).
-
-| Model file | Modality | Source | Size | Notes |
-|---|---|---|---|---|
-| `skin-convnext-ham10000.pth` | Skin lesions (HAM10000 7-class) | `Ratnakar01/convnext_ham10000_best` | 334 MB | ConvNeXt-Base, loaded via `timm` |
-| `eye-dr-detect.onnx` | Diabetic retinopathy (binary) | `BlairFerg/diabetic-retinopathy-detection` | 214 MB | Auto-runs via `onnxruntime` |
-| (auto-fetched) | Chest X-ray (18 pathologies) | TorchXRayVision DenseNet121-all | ~135 MB | First inference call fetches from xrv CDN |
-| `malaria-yolov8s.pt` | Blood-smear parasites | _(none — original HF source 401s)_ | — | Missing → `/analyze` returns `skipped:true`. Temirlan picks alternative or trains. |
-
-Manual control:
-- `curl -X POST http://localhost:5001/admin/pull-models` — pull anything missing
-- `curl -X POST 'http://localhost:5001/admin/pull-models?force=true'` — re-download everything
-- `SKIP_MODEL_DOWNLOADS=1 uvicorn main:app --port 5001` — air-gapped boot
-
-⚠️ **Accuracy note:** the skin (ConvNeXt) and eye (DR ONNX) checkpoints are open-weight community models. They prove the specialist-routing pipeline but have NOT been independently evaluated against benchmark splits. Run `eval/` before any clinical claim. None are FDA/CE cleared.
+Set `SKIP_MODEL_DOWNLOADS=1` to boot without downloading (air-gapped / CI).
 
 ---
 
-## HTTP contract (stable — do not break)
+## Specialist models
+
+On first boot, `model_manager.py` auto-downloads any missing weights from HuggingFace into `models/`.
+
+| Modality | Model | Source | Size | Status |
+|---|---|---|---|---|
+| **Skin lesions** (7 classes) | ConvNeXt-Base HAM10000 | `Ratnakar01/convnext_ham10000_best` | 334 MB | Live — auto-downloads |
+| **Chest X-ray** (18 pathologies) | TorchXRayVision DenseNet121-all | txrv CDN (Apache 2.0) | ~27 MB | Live — downloads on first inference, self-heals corrupt cache |
+| **Diabetic retinopathy** (binary) | DR ONNX classifier | `BlairFerg/diabetic-retinopathy-detection` | 214 MB | Live — auto-downloads |
+| **Malaria** blood smear | YOLOv8s | ~~keremberke/yolov8s-malaria-detection~~ | — | Broken — HF source 401. Blocked on Temirlan picking replacement or training. |
+
+**Planned upgrade (blocked):** EfficientNet-B0 (95.5% accuracy) is the locked skin model decision (Ismail, 2026-06-04). Blocked on ONNX conversion on x86/Mac. ConvNeXt is the temporary replacement until conversion is done. See `convert_skin_to_onnx.py`.
+
+Manual download control:
+```bash
+python download_weights.py           # download any missing managed weights
+python download_weights.py --force   # re-download everything
+
+curl -X POST http://localhost:5001/admin/pull-models          # via API
+curl -X POST 'http://localhost:5001/admin/pull-models?force=true'
+```
+
+---
+
+## HTTP contract (stable — do not break without Ismail)
 
 ### `GET /healthz`
 ```json
-{ "ok": true, "service": "medaccess-image-ml", "version": "0.1.0", "models_loaded": [] }
+{
+  "ok": true,
+  "service": "medaccess-image-ml",
+  "version": "0.3.0",
+  "models_loaded": ["skin-convnext-ham10000", "eye-dr-onnx", "torchxrayvision-available"],
+  "managed_models": {
+    "skin-convnext-ham10000": { "present": true, "size_mb": 334 },
+    "eye-dr-onnx": { "present": true, "size_mb": 214 }
+  }
+}
 ```
 
 ### `POST /analyze`
-Multipart form: `image` (file, required), `hint` (string, optional — one of `skin` / `xray` / `eye`).
+Multipart form: `image` (file, required) · `hint` (string, optional: `skin` / `xray` / `eye` / `malaria`)
 
-**Response (matches `AnalyzeResponse` in `main.py`):**
+If no `hint` is passed, the sidecar auto-detects image type using:
+- Low HSV saturation → X-ray
+- High saturation + dark circular vignette + reddish hue → eye fundus
+- High saturation (no fundus pattern) → skin
+
+**Response:**
 ```json
 {
   "image_type": "skin",
   "skipped": false,
   "skipped_reason": "",
   "findings": [
-    { "label": "melanoma",      "confidence": 0.87, "notes": "ABCD criteria suggest..." },
-    { "label": "seborrheic keratosis", "confidence": 0.09, "notes": "" }
+    { "label": "melanoma", "confidence": 0.87, "notes": "ConvNeXt HAM10000 community checkpoint" },
+    { "label": "benign keratosis", "confidence": 0.06, "notes": "" }
   ],
-  "model_used": "yolov8-ham10000-v1",
+  "model_used": "skin-convnext-ham10000",
   "processing_ms": 412
 }
 ```
 
-`skipped: true` means no specialist model handled this image (e.g. body part not yet supported). Node ignores it and uses just the LLM reading.
+`skipped: true` means no specialist model handled this image. Node falls back to LLM-only reading.
 
 ---
 
-## Roadmap (Temirlan's sprint)
+## Eval harness
 
-**Research locked** (see [`research/00-overview.md`](../../research/00-overview.md) + [`research/Medical ML for Rural Settings.md`](../../research/Medical%20ML%20for%20Rural%20Settings.md)):
+Three eval scripts in `eval/`, one per modality. Each replicates the exact preprocessing the
+live `/analyze` endpoint uses, so the numbers reflect production behaviour. Every script has a
+`--smoke-test` (or `--skip-download`) path so you can verify the harness runs before sourcing data.
 
-| Phase | Disease | Model | Dataset | License | Target accuracy | Status |
-|---|---|---|---|---|---|---|
-| **1. Malaria** (ship first — MIT, fastest inference) | Malaria smear | YOLOv8n-Malaria | NIH Thin Blood Smear | MIT ✅ | ≥ 96% sensitivity | 🔲 Todo |
-| **2. Pneumonia** (coordinate with Otabek on X-ray alignment UI) | Pneumonia | TorchXRayVision DenseNet121 | VinDr-CXR + CheXpert + MIMIC-CXR + PadChest | Apache 2.0 ✅ | ≥ 0.85 AUROC | 🔲 Todo |
-| **3. Skin lesions** (non-commercial pilot only) | Skin/melanoma | YOLOv8n-cls + CLAHE | HAM10000 (7 classes) | CC BY-NC ⚠️ | ≥ 91% top-3 (w/ CLAHE) | 🔲 Todo |
-| *Defer v0.1* | Diabetic retinopathy | ResNet50-DR | EyePACS + APTOS + Messidor | Non-commercial ⚠️ | ≥ 0.89 AUROC | Deferred |
-| *Defer v0.1* | Scabies | MobileNetV2-ScabAI | CMCH Scabio | Non-commercial ❌ | 87.5% accuracy | Deferred — dataset too small |
+### Skin — ISIC 2018 (no Kaggle required)
+```bash
+python eval/download_sample.py                 # download ISIC 2018 Task 3 test set + run eval
+python eval/download_sample.py --skip-download  # re-run on already-downloaded images
+python eval/skin_eval.py --raw-dir data/ham10000_raw --meta-csv data/ham10000_metadata.csv
+```
+Writes `eval/results_skin.md`. **Current: 74.2% top-1, 96.6% top-3** on 1511 held-out images.
 
-Eval results go into `services/image-ml/eval/results.md` per phase — committed alongside model code so reviewers can verify clinical claims.
+### Eye (diabetic retinopathy) — bring your own dataset
+```bash
+python eval/eye_eval.py --smoke-test           # verify harness, no dataset needed
+python eval/eye_eval.py --images-dir data/aptos/train_images --labels-csv data/aptos/train.csv
+```
+Dataset-agnostic (APTOS / EyePACS / Messidor columns auto-detected). Binary metrics: accuracy,
+sensitivity, specificity, PPV, NPV, AUROC. Writes `eval/results_eye.md`. **No numbers yet** — there's
+no clean no-auth DR set; run it once you have APTOS (needs Kaggle) or any local folder + labels CSV.
+
+### Chest X-ray — bring your own dataset
+```bash
+python eval/xray_eval.py --smoke-test          # verify harness, no dataset needed
+python eval/xray_eval.py --images-dir data/nih/images --labels-csv data/nih/Data_Entry_2017.csv
+```
+Multi-label per-pathology AUROC (NIH ChestX-ray14 "Finding Labels" or per-pathology columns
+auto-detected). Writes `eval/results_xray.md`. **No numbers yet** — same dataset-access reason as eye.
+
+**Accuracy note:** All three checkpoints are open-weight community models; none are FDA/CE cleared.
+Only skin is benchmarked so far — see `eval/results_*.md`. Commit the `results_*.md` after each run.
+
+---
+
+## Inference sanity check
+
+Quick test that models load and forward-pass correctly (no dataset needed):
+
+```bash
+python test_inference.py              # synthetic images
+python test_inference.py --image path/to/image.jpg  # real image
+```
+
+Checks: model loads without partial-weight failures, output probabilities are valid (sum ~1.0, no NaN/Inf), auto-detection heuristics work correctly.
+
+---
+
+## Development notes
+
+### Adding a new model
+1. Add a `ManagedModel` entry to `model_manager.py` → `MODELS` list
+2. Add a loader function in `main.py` following the `get_skin_model()` pattern
+3. Add inference logic in the `/analyze` endpoint
+4. Add your modality to `detect_image_type()` if auto-detection is needed
+5. Write an eval script in `eval/` before claiming accuracy numbers
+6. Model choice / license / clinical use → Ismail must approve (soft gate)
+
+### Preprocessing
+- **Skin:** CLAHE contrast enhancement on L channel (LAB space) — boosts accuracy ~5% on dermoscopy vs raw
+- **X-ray:** grayscale normalize to TorchXRayVision expected range, resize 224×224
+- **Eye:** ImageNet normalization (mean/std), resize 224×224
+
+### ONNX models
+Some ONNX models (e.g. the DR eye classifier) bake softmax into the graph. Always check raw output before assuming it's logits. The sidecar detects this automatically: if raw output already sums to ~1.0, softmax is not applied again.
+
+---
+
+## Known issues and further work needed
+
+### Your lane (Temirlan)
+| # | Issue | Priority |
+|---|---|---|
+| 1 | **Malaria model** — HF source dead, no replacement wired. Currently *unreachable* via the Node flow (no `malaria` hint is sent), so it's dormant and degrades to `skipped:true` — not breaking anything. Pick a checkpoint / train only if malaria becomes a demo target. | Low |
+| 2 | **EfficientNet-B0 skin model** — blocked on ONNX conversion on x86/Mac (Ismail's machine). Once `models/skin-xception.onnx` arrives, sidecar auto-loads it. This is the path to closing the 74.2% → 90%+ gap. | Blocked on Ismail |
+| 3 | **Eye DR accuracy** — `eval/eye_eval.py` built + smoke-tested; accuracy still unverified. Needs a labelled fundus set (APTOS / EyePACS / Messidor). | Medium |
+| 4 | **X-ray accuracy** — `eval/xray_eval.py` built + smoke-tested; per-pathology AUROC still unverified. Needs NIH ChestX-ray14 / VinDr-CXR. | Medium |
+| 5 | **Skin melanoma recall** — top-1 melanoma recall is only 60.2% (see `eval/results_skin.md`). Surface top-3 differentials in the UI, never a single label. Mitigated by the EfficientNet-B0 upgrade (#2). | Medium |
+| 6 | **Docker verify** — run `docker build` and confirm the container boots clean (validates the `COPY model_manager.py` fix). | Low |
+
+### Node side (Ismail's lane — flag in PR)
+| # | Issue |
+|---|---|
+| 6 | `MLAnalyzeResponse` in `vision.ts` is missing `"malaria"` from the `image_type` union |
+| 7 | Hint regex in `vision.ts` has no malaria keywords (`blood smear`, `microscopy`, `malaria`) |
+| 8 | `IMAGE_ML_URL` unset throws 503 — but architecture docs say graceful degradation. Clarify intent. |
 
 ---
 
 ## Don't commit
 
-- Trained / downloaded model weights (use `download_weights.sh` instead)
-- Local `.venv/`
-- `__pycache__/`, `.pytest_cache/`
-- Any dataset files
-
-(Add to root `.gitignore` if not already there.)
+- Model weights (`models/*.pt`, `*.pth`, `*.onnx`) — use `download_weights.py` instead
+- `venv/` — recreate with `pip install -r requirements.txt`
+- `eval/sample_data/` — downloaded test images (large, re-downloadable)
+- `data/` — training datasets
+- `__pycache__/`
 
 ---
 
 ## Escalation
 
-- HTTP contract changes (request or response shape) → Ismail must approve. Node depends on it.
-- Adding a new dataset or model → check the license and clinical-use restrictions. HAM10000 is CC BY-NC 4.0 (research/eval only) — fine for a demo, **not** fine for a commercial deployment without renegotiating.
-- Anything internal (preprocessing pipeline, threshold tuning, code structure) → Temirlan's call.
+- HTTP contract changes (request/response shape) → Ismail must approve
+- New model / dataset → Ismail approves license + clinical-use restrictions
+- Preprocessing, inference internals, eval scripts → Temirlan's call

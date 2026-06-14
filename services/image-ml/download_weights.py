@@ -1,92 +1,54 @@
 """
-Download pre-trained model weights for MedAccess sidecar.
+Download pre-trained model weights for MedAccess image-ml sidecar.
+
+Owner:        Temirlan
+Last modified: 2026-06-14  Temirlan
+Changes:      Rewrote — old script pointed to dead keremberke URL.
+              Now delegates entirely to model_manager.ensure_all().
 
 Run: python download_weights.py
+     python download_weights.py --force   # re-download even if present
 
-Models downloaded:
-  malaria-yolov8s.pt  — YOLOv8s trained on NIH malaria smear dataset (MIT)
-                        Source: keremberke/yolov8s-malaria-detection (HuggingFace)
-
-Note: skin-ham10000.pt must be trained locally — run train_skin.py
+All managed models are defined in model_manager.py (single source of truth).
+This script is a convenience wrapper around model_manager.ensure_all().
 """
 
-import ssl
+import argparse
 import sys
-import urllib.request
-from pathlib import Path
-
-# Korean ISP TLS bypass
-ssl._create_default_https_context = ssl._create_unverified_context  # type: ignore
-
-MODELS_DIR = Path(__file__).parent / "models"
-MODELS_DIR.mkdir(exist_ok=True)
-
-WEIGHTS = [
-    (
-        "malaria-yolov8s.pt",
-        "https://huggingface.co/keremberke/yolov8s-malaria-detection/resolve/main/best.pt",
-        "MIT — YOLOv8s malaria parasite detector (NIH Thin Blood Smear dataset)",
-    ),
-]
+from model_manager import ensure_all, model_status, MODELS
 
 
-def download(name: str, url: str, desc: str) -> None:
-    dst = MODELS_DIR / name
-    if dst.exists():
-        print(f"  [skip] {name} already exists ({dst.stat().st_size // 1024} KB)")
-        return
-    print(f"  Downloading {name}  ({desc})")
-    print(f"    from {url}")
+def main() -> None:
+    parser = argparse.ArgumentParser(description="Download MedAccess sidecar model weights")
+    parser.add_argument("--force", action="store_true", help="Re-download even if already present")
+    args = parser.parse_args()
 
-    opener = urllib.request.build_opener(
-        urllib.request.HTTPSHandler(context=ssl._create_unverified_context())
-    )
-    downloaded = 0
+    print("=== MedAccess weight downloader ===\n")
+    print(f"Managed models ({len(MODELS)}):")
+    for m in MODELS:
+        status = "present" if m.is_present() else "missing"
+        print(f"  {m.key}  ({m.filename})  [{status}]")
+    print()
 
-    def progress(count: int, block: int, total: int) -> None:
-        nonlocal downloaded
-        downloaded = count * block
-        if total > 0:
-            pct = min(100, downloaded * 100 // total)
-            bar = "█" * (pct // 5) + "░" * (20 - pct // 5)
-            print(f"\r    [{bar}] {pct}%  {downloaded // 1024} KB", end="", flush=True)
+    results = ensure_all(force=args.force)
 
-    try:
-        with opener.open(url) as r:
-            total = int(r.headers.get("Content-Length", 0))
-            data = b""
-            block = 65536
-            count = 0
-            while True:
-                chunk = r.read(block)
-                if not chunk:
-                    break
-                data += chunk
-                count += 1
-                progress(count, block, total)
-        print()
-        dst.write_bytes(data)
-        print(f"    ✓ saved {dst.stat().st_size // 1024} KB → {dst}")
-    except Exception as exc:
-        print(f"\n    ✗ failed: {exc}")
+    print("\n=== Result ===")
+    all_ok = True
+    for key, present in results.items():
+        icon = "✓" if present else "✗"
+        print(f"  {icon} {key}  {'OK' if present else 'FAILED — sidecar will return skipped:true for this modality'}")
+        if not present:
+            all_ok = False
+
+    status = model_status()
+    missing = [k for k, v in status.items() if not v["present"]]
+    if missing:
+        print(f"\n⚠  Missing models: {', '.join(missing)}")
+        print("   Those modalities will return skipped:true until weights are added.")
         sys.exit(1)
 
-
-def verify(name: str) -> None:
-    """Quick sanity-check that the file loads as a YOLO model."""
-    try:
-        from ultralytics import YOLO  # type: ignore
-        m = YOLO(str(MODELS_DIR / name))
-        print(f"  ✓ {name} loads OK  (task={m.task})")
-    except Exception as exc:
-        print(f"  ✗ {name} load error: {exc}")
+    print("\nDone. Start sidecar: python main.py")
 
 
 if __name__ == "__main__":
-    print("=== MedAccess weight downloader ===\n")
-    for name, url, desc in WEIGHTS:
-        download(name, url, desc)
-    print("\n=== Verifying ===")
-    for name, _, _ in WEIGHTS:
-        verify(name)
-    print("\nDone. Start sidecar: python main.py")
+    main()
