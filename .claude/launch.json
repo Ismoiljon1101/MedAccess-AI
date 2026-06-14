@@ -37,7 +37,7 @@
       "autoPort": false
     },
     {
-      "name": "pitch-deck",
+      "name": "presentation",
       "runtimeExecutable": "python",
       "runtimeArgs": ["-m", "http.server", "4321", "--directory", "docs/presentation"],
       "port": 4321,
