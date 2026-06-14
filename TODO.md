@@ -526,6 +526,24 @@ All bugs live in [`docs/qa/issues.md`](./docs/qa/issues.md). Format and severity
 
 ---
 
+## 12.8 · Stability / QA review pass (2026-06-14, solo)
+
+> Senior + QA review focused on stability. Baseline `pnpm typecheck` and full `pnpm build` **green across all 5 workspaces**. Commits only (not pushed — pending Ismail review).
+
+**Bug found + fixed (data integrity):**
+- **Cancelled appointments never freed their time slot.** `updateStatus` only flipped the appointment status; the `TimeSlot` stayed `isBooked:true` and (with the unique index on doctor/date/time) that slot was unbookable forever. Fixed: cancel now frees the slot in both DB (`slotId → isBooked:false, appointmentId:null`) and in-memory paths. **Verified e2e:** book 14→13 slots, cancel 13→14.
+
+**Reviewed and confirmed healthy (no change needed):**
+- Removed conversational-proposal code (B1): no live dangling refs — only comments/docs mention it.
+- `TimeSlot` unique index `(doctorId,date,startTime)` present (A3 backstop) + `book()` rollback on appointment-create failure (C1).
+- Voice/transcribe degrades to 503 + browser Web-Speech fallback when `OPENAI_API_KEY` is unset (no raw crash).
+- `optionalAuth` tolerates missing/invalid/stale tokens (guest clinic access never 401s; expired account token clears on `/me` bootstrap).
+- Central error handler maps 429/502/503/5xx to friendly retryable messages; never leaks raw internals on a true 500.
+- Image upload degrades to text-only guidance when the sidecar is down (B6); image never sent to a cloud LLM.
+- Patient session persistence (activeSessionId) + Records↔server status reconcile (C4) intact.
+
+---
+
 ## 12 · Code Audit — full-stack pass (2026-06-12, Ismail)
 
 > Autonomous audit of the whole flow: patient chat → booking → clinic queue, plus backend services, schemas, and UI/UX. `pnpm typecheck` is **clean** across all 5 workspaces (no mechanical type errors). Findings below are logic / UX / data-integrity issues found by reading the source.
