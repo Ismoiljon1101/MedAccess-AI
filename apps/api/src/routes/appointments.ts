@@ -3,7 +3,7 @@ import { BookAppointmentSchema, AppointmentStatusSchema } from '@medaccess/share
 import { book, getQueue, updateStatus, getPatientAppointments } from '../services/appointment.service.js';
 import { findDoctorById } from '../services/facility.service.js';
 import { getIdByPhone, findOrCreate } from '../services/patient.service.js';
-import { requireAuth, requireRole, optionalAuth } from '../middleware/auth.js';
+import { optionalAuth } from '../middleware/auth.js';
 import { HttpError } from '../middleware/error.js';
 
 const router = Router();
@@ -63,9 +63,11 @@ router.post('/', async (req, res, next) => {
 });
 
 // GET /api/appointments
-//  · `?patientPhone=` → patient self-service history (open, no auth)
-//  · otherwise        → provider clinic queue (requires auth; scoped to the
-//    account's facility so a clinic only sees its own patients — fixes C14)
+//  · `?patientPhone=` → patient self-service history
+//  · otherwise        → provider clinic queue
+// Auth is OPTIONAL so the demo is frictionless (anyone can open the clinic and
+// try it). If a signed-in provider account IS present and tied to a facility,
+// we scope the queue to that facility; otherwise the full queue is returned.
 router.get('/', optionalAuth, async (req, res, next) => {
   try {
     const { facilityId, doctorId, status, patientPhone } = req.query as Record<string, string | undefined>;
@@ -77,13 +79,9 @@ router.get('/', optionalAuth, async (req, res, next) => {
       return res.json({ appointments, total: (appointments as any[]).length });
     }
 
-    // Provider queue — must be authenticated.
-    if (!req.user) return next(new HttpError(401, 'Authentication required', { code: 'Unauthorized' }));
-
-    // Scope to the account's facility unless they're an admin (who may pass an
-    // explicit facilityId, or see all). Doctors/pharmacists are pinned to theirs.
+    // Optional facility scoping for a signed-in, facility-bound provider.
     let scopedFacilityId = facilityId;
-    if (req.user.role !== 'admin' && req.user.facilityId) {
+    if (req.user && req.user.role !== 'admin' && req.user.facilityId) {
       scopedFacilityId = req.user.facilityId;
     }
 
@@ -92,8 +90,9 @@ router.get('/', optionalAuth, async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-// PATCH /api/appointments/:id — update status (confirm / cancel / complete)
-router.patch('/:id', requireAuth, requireRole('doctor', 'pharmacist', 'admin'), async (req, res, next) => {
+// PATCH /api/appointments/:id — update status (confirm / cancel / complete).
+// Open (optional auth) so the clinic demo works without a login wall.
+router.patch('/:id', optionalAuth, async (req, res, next) => {
   try {
     const { status, doctorNotes } = req.body;
 

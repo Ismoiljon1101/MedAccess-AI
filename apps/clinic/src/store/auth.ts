@@ -24,6 +24,8 @@ interface AuthStore {
 
   login: (email: string, password: string) => Promise<void>;
   register: (data: RegisterRequest) => Promise<void>;
+  /** Frictionless demo entry — no account/password, no server call. */
+  guestLogin: (u: { name: string; role: Role; specialty?: string; occupation?: string; clinicName?: string }) => void;
   logout: () => void;
   /** Validate a persisted token on app load; clears it if invalid. */
   bootstrap: () => Promise<void>;
@@ -57,6 +59,20 @@ export const useAuthStore = create<AuthStore>()(
         const { token, user } = await res.json();
         set({ token, user, bootstrapped: true });
       },
+
+      guestLogin: (u) => set({
+        token: null,
+        bootstrapped: true,
+        user: {
+          id: `guest_${Math.random().toString(36).slice(2, 8)}`,
+          email: '',
+          name: u.name,
+          role: u.role,
+          specialty: u.specialty,
+          occupation: u.occupation,
+          clinicName: u.clinicName,
+        },
+      }),
 
       logout: () => set({ token: null, user: null }),
 

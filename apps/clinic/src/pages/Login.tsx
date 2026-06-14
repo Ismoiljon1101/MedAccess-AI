@@ -86,6 +86,7 @@ type Mode = 'signin' | 'register';
 export default function Login() {
   const doLogin    = useAuthStore((s) => s.login);
   const doRegister = useAuthStore((s) => s.register);
+  const guestLogin = useAuthStore((s) => s.guestLogin);
 
   const [mode, setMode] = useState<Mode>('signin');
 
@@ -291,6 +292,25 @@ export default function Login() {
           <p className="text-center text-xs text-ink-500">
             No account? <button type="button" className="text-accent-400 hover:underline" onClick={() => { setMode('register'); setError(''); }}>Create one</button>
           </p>
+
+          {/* Frictionless demo entry — no account needed */}
+          <div className="pt-4 border-t border-ink-700/50">
+            <p className="text-center text-[11px] text-ink-500 mb-2">Just exploring? Jump straight in:</p>
+            <div className="grid grid-cols-3 gap-2">
+              {ROLES.map((r) => (
+                <button
+                  key={r.role}
+                  type="button"
+                  onClick={() => guestLogin({ name: `Demo ${r.title}`, role: r.role })}
+                  className={`flex flex-col items-center gap-1.5 rounded-xl border border-ink-700/60 py-3 transition ${r.ring} ${r.bg}`}
+                >
+                  <span className={r.color}>{r.icon}</span>
+                  <span className="text-[11px] font-medium text-ink-200">{r.title}</span>
+                </button>
+              ))}
+            </div>
+            <p className="text-center text-[10px] text-ink-600 mt-2">Guest mode · no sign-up required</p>
+          </div>
         </div>
       )}
 
