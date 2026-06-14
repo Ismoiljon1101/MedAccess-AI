@@ -246,12 +246,14 @@ git push origin fix/your-fix-name
 8. 📋 **End-to-end verification** — full loop test before v0.1.0
 9. 📋 Tag `v0.1.0` when DoD green
 
-### Mirsaid — ⚠️ NOTHING DONE YET (as of 2026-06-14)
-1. ➡️ ~~OpenRouter credit/key~~ **reassigned to Sobirov (2026-06-14).**
-2. ⬜ MongoDB Atlas free cluster → hand `MONGODB_URI` to Ismail (Signal / 1Password, never email).
-3. ⬜ LiveKit Cloud account → hand `LIVEKIT_*` creds (only if voice realtime is wanted; push-to-talk works without it).
-4. ⬜ Full QA pass per [§6 Acceptance Criteria](#6--acceptance-criteria-for-v010). File every issue to [`docs/qa/issues.md`](./docs/qa/issues.md).
-5. ⬜ Record 90s backup demo video → `docs/demo-backup.mp4` (gitignored; link here).
+### Mirsaid — ❌ INACTIVE (not engaged as of 2026-06-14). Tasks redistributed:
+1. ➡️ ~~OpenRouter credit/key~~ → **Sobirov** (issue #003).
+2. 🟡 ~~MongoDB Atlas~~ → **not needed for the demo.** API runs on local Mongo (or in-memory fallback); persistence across one machine is fine. Defer Atlas to hosting/post-demo (Ismail if/when needed).
+3. 🟢 ~~LiveKit~~ → **dropped.** Push-to-talk voice works with zero LiveKit creds.
+4. ➡️ ~~Full QA pass~~ → **Sobirov** (the full UI/UX + workflow review in [`docs/qa/ui-ux-review.md`](./docs/qa/ui-ux-review.md)).
+5. ➡️ Backup 90s demo video → **Ismail** (record during a verified happy-path run) or Sobirov while testing.
+
+> Net effect: no demo-critical task is orphaned. Only real owner needed is the OpenRouter key (Sobirov).
 
 ### Temirlan
 **Research complete — unblocked.** Read [`research/00-overview.md`](./research/00-overview.md) first (executive summary) then [`research/Medical ML for Rural Settings.md`](./research/Medical%20ML%20for%20Rural%20Settings.md) (full report with citations).
