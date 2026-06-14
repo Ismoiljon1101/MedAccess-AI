@@ -69,9 +69,9 @@ Sobirov pulls SEV-3 / SEV-4 with `owner: unassigned`. Otabek and Ismail handle S
 - **Repro:** `curl localhost:4000/api/health` → `providers.openrouter:false`. Chat/symptoms/triage/reports all fail.
 - **Expected:** AI features stream responses
 - **Actual:** No key set in `.env`, so the LLM gateway is disabled. This is the single biggest demo blocker.
-- **Owner:** Mirsaid (procure OpenRouter key) → Ismail (install in `.env`)
+- **Owner:** Sobirov (owns the OpenRouter key end-to-end — reassigned from Mirsaid 2026-06-14; Ismail approves spend)
 - **Status:** open
-- **Notes:** Not code — purely an env/credential gap. Nothing in the AI half of the loop can be verified until this is set.
+- **Notes:** Not code — purely an env/credential gap. Nothing in the AI half of the loop can be verified until this is set. Sobirov: obtain key → root `.env` `OPENROUTER_API_KEY` → restart API → `health.providers.openrouter === true`. Never commit the key.
 
 ## #004 · [SEV-4] TODO §4 endpoint checklist references removed `/api/clinics`
 - **Found on:** Docs, 2026-06-08

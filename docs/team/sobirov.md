@@ -48,9 +48,11 @@ This is slower than just "do the task." That's intentional — you're learning.
 human has to judge feel, copy, and real-world flow — the agent can't. Your master checklist is
 [`docs/qa/ui-ux-review.md`](../qa/ui-ux-review.md). Two parts:
 
-1. **OpenRouter key (gate G1).** Confirm the key Mirsaid procured is installed and live:
-   `curl localhost:4000/api/health` must show `providers.openrouter: true`. If false, the
-   whole AI half is dead — flag it to Ismail before testing anything AI. (Issue #003.)
+1. **OpenRouter key — YOU OWN THIS (gate G1, issue #003, the #1 blocker).** Get the key,
+   put it in the root `.env` as `OPENROUTER_API_KEY` (and `OPENROUTER_API_KEY_FALLBACK` if you
+   have a second), restart the API, and confirm `curl localhost:4000/api/health` shows
+   `providers.openrouter: true`. Without it the whole AI half is dead. Ismail approves any spend.
+   The agent may help you with the `.env` line and the health check, but never commit the key.
 2. **Page-by-page review.** Walk every screen of the patient app and the clinic app, plus
    the end-to-end workflow, on a **real phone** where you can. Mark each item PASS/FAIL.
 

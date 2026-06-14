@@ -247,8 +247,7 @@ git push origin fix/your-fix-name
 9. 📋 Tag `v0.1.0` when DoD green
 
 ### Mirsaid — ⚠️ NOTHING DONE YET (as of 2026-06-14)
-All five remain open. #1 is the single biggest demo blocker (issue #003).
-1. ⬜ OpenRouter credit ≥ $20 in account (and hand the key to Ismail → installed in `.env`). **BLOCKER.**
+1. ➡️ ~~OpenRouter credit/key~~ **reassigned to Sobirov (2026-06-14).**
 2. ⬜ MongoDB Atlas free cluster → hand `MONGODB_URI` to Ismail (Signal / 1Password, never email).
 3. ⬜ LiveKit Cloud account → hand `LIVEKIT_*` creds (only if voice realtime is wanted; push-to-talk works without it).
 4. ⬜ Full QA pass per [§6 Acceptance Criteria](#6--acceptance-criteria-for-v010). File every issue to [`docs/qa/issues.md`](./docs/qa/issues.md).
@@ -292,7 +291,7 @@ All five remain open. #1 is the single biggest demo blocker (issue #003).
 ### Sobirov — 🎯 NEW PRIMARY ASSIGNMENT (2026-06-14): full human UI/UX + workflow review
 Owns the whole-project human QA pass. Master checklist: [`docs/qa/ui-ux-review.md`](./docs/qa/ui-ux-review.md).
 The agent walks him through it **one item at a time, strictly** (see [`docs/team/sobirov.md`](./docs/team/sobirov.md)); every FAIL → a bug in [`docs/qa/issues.md`](./docs/qa/issues.md).
-1. ⬜ **Verify OpenRouter key live** (gate G1) — `health.providers.openrouter === true`. Flag to Ismail if false (issue #003).
+1. ⬜ **OpenRouter key — OWNS IT (issue #003, the #1 blocker).** Procure/obtain the key, put it in root `.env` as `OPENROUTER_API_KEY` (optionally `OPENROUTER_API_KEY_FALLBACK`), restart the API, and confirm `curl localhost:4000/api/health` → `providers.openrouter: true`. Ismail approves any spend.
 2. ⬜ **Patient app review** — Part A (A0–A11): Welcome, Chat, booking, image, voice, Find Care, Records, Profile, Settings, Emergency, shell/PWA.
 3. ⬜ **Clinic app review** — Part B (B0–B6): Login/guest, Dashboard, Patient Queue, Prescriptions, Interview/Symptoms/Reports/Triage, Profile/Settings, shell.
 4. ⬜ **End-to-end workflow** — Part C (C1–C7): closed loop, image loop, voice loop, multilingual, emergency, resilience, real-device.
