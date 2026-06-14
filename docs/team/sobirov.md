@@ -42,10 +42,10 @@ Sobirov does NOT touch (no exceptions):
 
 This is slower than just "do the task." That's intentional — you're learning.
 
-## 🎯 PRIORITY ASSIGNMENT (Ismail, do this first)
+## 🎯 PRIORITY ASSIGNMENT (assigned by Ismail — Sobirov, this is yours)
 
-You own the **full human UI/UX + workflow review** of the whole project. A human has to
-judge feel, copy, and real-world flow — the agent can't. Your master checklist is
+**You, Sobirov,** own the **full human UI/UX + workflow review** of the whole project. A
+human has to judge feel, copy, and real-world flow — the agent can't. Your master checklist is
 [`docs/qa/ui-ux-review.md`](../qa/ui-ux-review.md). Two parts:
 
 1. **OpenRouter key (gate G1).** Confirm the key Mirsaid procured is installed and live:
