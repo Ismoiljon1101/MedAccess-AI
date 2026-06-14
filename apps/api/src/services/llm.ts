@@ -13,6 +13,13 @@ function buildClient(apiKey: string): OpenAI {
       'HTTP-Referer': process.env.OPENROUTER_APP_URL || 'http://localhost:5173',
       'X-Title': process.env.OPENROUTER_APP_NAME || 'MedAccess AI',
     },
+    // Fail fast on a rate-limited/slow upstream instead of hanging. The SDK's
+    // default maxRetries=2 honors the free tier's long `Retry-After` on a 429 —
+    // it SLEEPS (~60s) before retrying, freezing the request. We do our own key
+    // fallback (withFallback) and surface a friendly "busy, retry" message, so
+    // disable SDK retries and put a hard ceiling on each call.
+    timeout: Number(process.env.LLM_TIMEOUT_MS) || 30_000,
+    maxRetries: Number(process.env.LLM_MAX_RETRIES ?? 0),
   });
 }
 
