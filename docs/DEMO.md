@@ -9,24 +9,25 @@
 ## Pre-flight checklist (do before starting the demo)
 
 - [ ] `pnpm dev` running — patient app on `localhost:5174`, clinic on `localhost:5173`, API on `localhost:4000`
-- [ ] `OPENROUTER_API_KEY` set in `.env`
+- [ ] `OPENROUTER_API_KEY` set in `.env` and live (`curl localhost:4000/api/health` → `providers.openrouter:true`). **A funded key — free tier rate-limits mid-demo.**
+- [ ] **Seed the demo clinics:** `pnpm db:clean && node scripts/seed-demo.mjs` (Find Care is empty without this — 9 Seoul clinics + 14 demo doctors)
 - [ ] Browser open, patient tab active, **Welcome screen visible** (clear localStorage first: DevTools → Application → Clear Site Data)
-- [ ] Clinic tab open on `/patients` (login: doctor, specialty = General Practice)
+- [ ] Clinic tab open on `localhost:5173` → on the login screen tap **"Jump straight in → Doctor"** (guest entry, no password) → lands on the Patient Queue
 - [ ] Mic permission granted (for voice mode demo)
-- [ ] Network stable (optional: set `OPENROUTER_CHAT_MODEL=qwen/qwen3.5-plus-20260420` in `.env`)
+- [ ] (Optional) Image sidecar running on `:5001` for live image analysis; if off, upload still returns text-only guidance
 
 ---
 
 ## Scene 1 — Patient onboarding (0:00 – 0:30)
 
-**Say:** "A rural patient in Uzbekistan opens MedAccess AI for the first time — no account, no install, just a link."
+**Say:** "Dilnoza is an Uzbek-speaking migrant worker in Seoul. She opens MedAccess AI for the first time — no account, no install, just a link, and it speaks her language."
 
 1. Show the **Welcome screen** — animated logo, feature pills (AI triage · Voice · 12 languages · Private).
 2. Tap **Get Started**.
-3. Enter name: **Dilnoza**, language: **Uzbek**, city: **Tashkent**.
+3. Enter name: **Dilnoza**, phone: **any number** (links her records), language: **Uzbek**, city: **Seoul**.
 4. Tap **Enter MedAccess AI** → lands on the Chat screen.
 
-**Key point:** Zero sign-up. Data stays on the device.
+**Key point:** Phone links records across visits — no password, no account. Clinics are real Seoul facilities (the seeded demo set), so booking lands a real appointment.
 
 ---
 
@@ -36,7 +37,7 @@
 
 1. Type (or voice): `"Men 3 kundan beri isitmam bor, bosh og'riqi va ko'ngil aynish bor"` *(Uzbek: "I've had a fever for 3 days, headache and nausea")*
 2. Wait for streaming response — show citation chips appearing inline.
-3. Send follow-up: `"Haroratim 38.5°C, Toshkentda yashayman"`.
+3. Send follow-up: `"Haroratim 38.5°C"` *(38.5°C fever)*.
 4. After 3 turns the **"Find Care →"** CTA card appears below the clinical snapshot — highlight:
    - Detected specialty (General Practice / Infectious Disease)
    - Urgency badge (Moderate / Urgent)
@@ -53,10 +54,10 @@
 
 **Say:** "For patients who can't type, the app has a full voice mode."
 
-1. Tap the **mic** icon at the bottom of Chat.
-2. Speak a symptom — show the avatar animation + live transcript.
-3. Show AI response read back (if voiceAutoPlay is on).
-4. Tap the **X** to return to text chat.
+1. Tap the **headphones** icon in the chat bar → full-screen voice mode opens.
+2. **Hold** the mic button, speak a symptom, **release** to send — show the avatar animation + live transcript.
+3. The AI reply is read back aloud automatically.
+4. Tap **X** to return to text chat (the conversation carries over).
 
 ---
 
@@ -96,10 +97,10 @@
 
 **Say:** "Providers can also upload medical images directly in the chat for AI analysis."
 
-1. Switch to the **clinic Interview tab**.
-2. Upload a chest X-ray sample image (use any JPEG in `docs/sample-images/` or download one).
-3. Show the analysis result — key observations, possible findings, suggested follow-up, disclaimer.
-4. If `IMAGE_ML_URL` is set: mention specialist models (malaria smear, X-ray pneumonia) run in parallel via the Python sidecar.
+1. Switch to the **clinic Reports tab** (or upload via the patient Chat 📷 button).
+2. Upload a chest X-ray / skin / eye sample image.
+3. Show the analysis — key observations, possible findings, suggested follow-up, disclaimer.
+4. **Key point:** the image is read **only** by the local specialist sidecar (4 modalities, 27 conditions — 18 X-ray pathologies, 7 skin lesions, diabetic retinopathy, malaria); the LLM only narrates the text findings. The image never goes to a cloud model. If the sidecar is off, it degrades to text-only guidance.
 
 ---
 
@@ -122,7 +123,7 @@
 | **31-doc RAG corpus** — WHO guidelines, clinical protocols, drug references | Scene 2 (citations) |
 | **Installable PWA** — works offline, no App Store | Intro |
 | **No stored PII** — all patient data in localStorage, cleared on reset | Scene 1 |
-| **Specialist ML models** — malaria, pneumonia, skin (Phase 1–3) — coming in the sidecar | Scene 6 |
+| **Specialist ML models LIVE** — 3 running (X-ray 18 pathologies, skin, diabetic retinopathy), image never leaves local infra | Scene 6 |
 | **Open-source, MIT license** | Wrap-up |
 
 ---

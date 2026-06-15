@@ -119,7 +119,7 @@ Most clinical-AI products stop at the read. We close the loop.
 
 ### Strategy in three lines
 
-1. **Pareto-focused.** Specialist models for the 5 diseases that cause ~80% of clinic visits in our target markets — **Malaria · Pneumonia · Skin lesions · Diabetic retinopathy · Scabies**. Models locked per research (YOLOv8n-Malaria MIT, TorchXRayVision Apache 2.0, YOLOv8n-cls HAM10000 demo-only, ResNet50-DR non-profit). LLM fallback for the long tail. See [`research/00-overview.md`](./research/00-overview.md).
+1. **Pareto-focused.** Specialist models for the common conditions that cause ~80% of clinic visits — **4 modalities · 27 conditions**: chest X-ray (TorchXRayVision DenseNet121-all, 18 pathologies, Apache 2.0), skin lesions (ConvNeXt-Base HAM10000, 7 types), diabetic retinopathy (ONNX fundus), malaria smear (YOLOv8s, MIT). Out-of-scope/rare conditions return low confidence and are routed to a clinician — never falsely cleared. See [`docs/architecture/image-pipeline.md`](./docs/architecture/image-pipeline.md).
 2. **Cheap stack.** Free / cheap Chinese models (Qwen 3.6 Plus free, Qwen 3.5 Flash ~$0.07/$0.26 per 1M tok) instead of premium Western models. Budget-friendly demo and deploy.
 3. **Better photos = better diagnosis.** Patient-side image-quality guidance (modal + checklist + retake) ships before any model upgrade. The cheapest accuracy gain we have, benefits every downstream model.
 
@@ -143,7 +143,7 @@ Most clinical-AI products stop at the read. We close the loop.
 | 2 | **Universal care discovery** | Tiered: enrolled clinics first (in-app booking), then Google / Naver Maps fallback with one-tap navigation. Patient always finds *somewhere* to go — even where we have zero enrolled clinics. Every map listing is a clinic we can recruit. |
 | 3 | **MA Agent identity** | Patients talk to "MA Agent" — a named, trusted assistant. System prompt refuses to reveal model/provider. |
 | 4 | **Multilingual** (auto-detect, 17 surfaced) | Model mirrors the user's language. Hindi → Hindi, Uzbek → Uzbek. |
-| 5 | **Voice-first** | Full-screen immersive voice mode (LiveKit + Web Speech API) + inline mic — zero API key needed for demos. |
+| 5 | **Voice-first** | Full-screen push-to-talk voice mode — hold to speak, release to send (Whisper STT with browser Web Speech fallback). Zero API key needed for demos. |
 | 6 | **Local specialist vision** | Snap an X-ray, skin, or eye photo → a local specialist CV sidecar (`services/image-ml/`) reads it for condition-specific accuracy; the LLM narrates the findings in plain language. The image stays on local infra — never sent to a cloud LLM. Sidecar offline → graceful text-only guidance. |
 | 7 | **Medical RAG** | Every chat turn grounded in 31 vetted clinical docs; sources surface as chips below each answer. |
 | 8 | **Installable PWA** | One tap on a phone → standalone app icon → works under spotty connectivity. |
@@ -338,7 +338,7 @@ Our frontend UI architecture implements the **Atomic Design methodology** to org
 | **LLM (fast + vision)** | `qwen/qwen3.6-flash` ($0.19/$1.13 per 1M tok) | Cheapest multimodal; used for triage, symptoms, and image analysis |
 | **LLM (premium upgrade path)** | `anthropic/claude-sonnet-4.5` | Available via `OPENROUTER_CHAT_MODEL` env-var swap if budget allows |
 | **Voice STT** | Web Speech API (primary) + OpenAI Whisper (optional) | Zero-key fallback for demos; Whisper for production accuracy |
-| **Voice mode** | LiveKit + Web Speech TTS | Full-screen immersive voice UI; standalone fallback if LiveKit unconfigured |
+| **Voice mode** | Push-to-talk (Whisper STT + Web Speech TTS) | Full-screen hold-to-speak UI; needs no LiveKit. (`/api/voice/token` + `LIVEKIT_*` exist for an optional realtime path the current UI doesn't use.) |
 | **Avatar** | Lottie (`lottie-react`) | Animated doctor avatar, 3 states: idle / listening / thinking |
 | **RAG** | BM25 over **31 seed docs** | Zero infra; covers 25+ clinical topics; embeddings deferred |
 | **Sessions** | In-memory map + TTL sweep | Zero infra; Redis deferred |
@@ -452,14 +452,39 @@ Specialist medical-image models lose 15–25% accuracy when fed non-curated pati
 
 ### Pareto-focused specialist models
 
-Research is complete. Top 5 diseases locked: **Malaria** (YOLOv8n-Malaria, MIT ✅), **Pneumonia** (TorchXRayVision DenseNet121, Apache 2.0 ✅), **Skin lesions** (YOLOv8n-cls + HAM10000, CC BY-NC ⚠️ demo-only), **Diabetic retinopathy** (ResNet50-DR, non-commercial ⚠️ non-profit only), **Scabies** (deferred — dataset too small). Browser-WASM execution explicitly rejected for performance reasons; v0.1 uses the local Python sidecar (~200ms over WiFi), post-MVP path is native mobile wrapper via ONNX Runtime Mobile + NNAPI/CoreML. Full report: [`research/Medical ML for Rural Settings.md`](./research/Medical%20ML%20for%20Rural%20Settings.md).
+Live models in the sidecar today: **Chest X-ray** — TorchXRayVision DenseNet121-all, 18 pathologies (Apache 2.0 ✅); **Skin lesions** — ConvNeXt-Base on HAM10000, 7 classes ✅; **Diabetic retinopathy** — ONNX fundus classifier (binary) ✅; **Malaria** — YOLOv8s smear detector (MIT ⚠️ weight present, eval pending). Scabies deferred (dataset too small). Browser-WASM execution explicitly rejected for performance reasons; v0.1 uses the local Python sidecar (~200ms over WiFi), post-MVP path is native mobile wrapper via ONNX Runtime Mobile + NNAPI/CoreML. Full condition list: [`docs/architecture/image-pipeline.md`](./docs/architecture/image-pipeline.md) · research: [`research/Medical ML for Rural Settings.md`](./research/Medical%20ML%20for%20Rural%20Settings.md).
 
-### Multimodal vision
+### Specialist vision (local-only — the image never reaches a cloud LLM)
 
-Any OpenRouter model with vision support works (`qwen/qwen3.6-flash`,
-`anthropic/claude-sonnet-4.5`, `openai/gpt-4o`, `google/gemini-2.0-flash-exp:free`). The image is base64-encoded
-client-side and passed through the OpenRouter chat completions endpoint with
-`response_format: { type: 'json_object' }` so the read is always structured.
+The uploaded image is sent **only** to the local Python specialist sidecar
+(`services/image-ml/`, `IMAGE_ML_URL`). The sidecar runs the CV models and
+returns structured per-class findings + confidence. Those **text** findings —
+never the image — are then handed to the OpenRouter LLM, which writes the
+plain-language explanation (`response_format: { type: 'json_object' }`). If the
+sidecar is unreachable, the image is dropped (never uploaded anywhere) and the
+LLM returns generic text guidance from the modality hint. No image is ever
+base64-encoded to a cloud model. See [`docs/architecture/image-pipeline.md`](./docs/architecture/image-pipeline.md).
+
+**Coverage: 4 modalities · 27 conditions** — 18 chest-X-ray pathologies, 7 skin-lesion
+types, diabetic retinopathy, malaria smear. These are the common high-volume conditions
+(the ~20% of presentations that make up ~80% of real cases); anything outside the trained
+set returns low confidence and is routed to a clinician rather than falsely cleared.
+
+### Scope, value, and honest limits
+
+This is a **decision-support copilot, not a diagnostic device.** The design choice is
+deliberately Pareto: cover the common high-volume conditions — the ~20% of presentations
+that account for ~80% of real cases — extremely well, and route everything else safely.
+
+- **What it does well:** the common cases (pneumonia and 17 other chest findings, melanoma
+  and 6 other skin lesions, diabetic retinopathy, malaria), multilingual triage, and — the
+  headline — *closing the loop* from an AI chat to a real, confirmed clinic appointment.
+- **What it does NOT do:** diagnose rare / out-of-scope conditions. Those return low
+  confidence and are routed to a clinician — never falsely cleared. It is not a substitute
+  for a doctor and is not yet clinically validated or regulatory-cleared.
+- **Why it's beneficial anyway:** for an underserved patient whose alternative is *no read
+  and no access*, a fast, private, plain-language triage that ends in a real booking is a
+  meaningful improvement — and it tells the truth about its own confidence.
 
 ### Medical RAG
 
@@ -500,7 +525,8 @@ Base URL: `http://localhost:4000` (or proxied via `/api/*` in dev).
 ```
 
 ### `POST /api/voice/token`
-Returns a LiveKit room token for the immersive voice mode.
+Returns a LiveKit room token for an optional realtime voice path. The shipped voice
+mode is push-to-talk (Whisper + Web Speech) and does **not** require this endpoint.
 ```json
 { "token": "...", "url": "wss://...", "room": "session-xyz", "identity": "patient-abc" }
 ```

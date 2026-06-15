@@ -306,7 +306,7 @@ erDiagram
 
 7. **Pharmacy model:** Pharmacy = `FACILITY` with `type='pharmacy'`. Pharmacists are `DOCTOR` records with `specialty='Pharmacy'` at that facility. Prescription requests routed to the pharmacy's pharmacist staff.
 
-8. **OSM data source:** `FACILITY.source` tracks data provenance (`osm | google | naver | manual`). `sourceId` enables deduplication. Real Uzbekistan facility data seeded from OpenStreetMap.
+8. **Facility data source:** `FACILITY.source` tracks provenance (`osm | google | naver | manual | registered`). Demo data is **9 real Seoul facilities with real coordinates + fictional demo doctors**, registered via the public API by `scripts/seed-demo.mjs` (Korea-first market; no Uzbekistan seed). `db:clean` wipes it; re-seed to restore.
 
 9. **Geo-ready:** `FACILITY` has `lat`/`lng` indexed. Future: add `{ type: 'Point', coordinates: [lng, lat] }` GeoJSON field for MongoDB `$geoNear` queries.
 

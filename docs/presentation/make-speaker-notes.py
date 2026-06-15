@@ -93,15 +93,17 @@ SLIDES = [
      "Manchester-style triage. Every module feeds the same loop: patient to clinic.",
      "Not a feature — a full journey, both sides of the visit."),
 
-    ("09", "Generalist LLM plus specialist medical models", "~30s",
+    ("09", "Specialist models read the image; the LLM only explains", "~30s",
      "On medical images we made a bet the research supports. Generic vision LLMs plateau around seventy "
      "to ninety percent on condition-specific reads. Purpose-built models reach ninety-two plus. So we "
      "run specialist models locally: chest X-ray across eighteen pathologies, skin lesions, diabetic "
-     "retinopathy — all three live in this demo build — with the malaria smear model queued. The "
-     "important part: the language model never diagnoses from pixels. The specialist model reads; the "
-     "LLM explains in plain language; and any disagreement is flagged, never silently overridden. These "
-     "five diseases drive roughly eighty percent of visits in our target clinics.",
-     "Specialists detect, the LLM only explains — disagreements are flagged."),
+     "retinopathy — all three live in this demo build — with the malaria smear model queued. Twenty-seven "
+     "conditions across four modalities. The important part, and a real privacy guarantee: the image is "
+     "read only by the local model and is never sent to a cloud LLM — the language model only receives the "
+     "model's text findings and explains them in plain language. Anything outside the trained set returns "
+     "low confidence and is routed to a clinician. These common conditions drive roughly eighty percent of "
+     "visits in our target clinics.",
+     "Image stays local; the LLM only explains the local model's findings."),
 
     ("10", "Clean monorepo. One contract. Graceful degradation.", "~20s",
      "Architecture in one breath: two React PWAs, one Express API, and a single Zod schema contract "
