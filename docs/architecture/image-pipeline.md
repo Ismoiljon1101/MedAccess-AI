@@ -1,7 +1,7 @@
 # Medical Image Pipeline — Architecture
 
 > **Owners:** Ismail (Node integration, clinical-safety merge rules) + Temirlan (Python specialist models)
-> **Status:** scaffold shipped; specialist models not yet implemented
+> **Status:** live — 3 specialist models running (X-ray, skin, eye); malaria weight present, eval pending. Coverage: 4 modalities / 27 conditions (see below).
 
 ---
 
@@ -17,6 +17,34 @@ Purpose-built CV models trained on labeled medical datasets (HAM10000 for skin, 
 **Graceful degradation (B6):** if the sidecar is unset or unreachable, the image is dropped (never uploaded anywhere) and the LLM returns general text-only guidance based on the image-type hint — the upload no longer hard-fails.
 
 > Historical note: an earlier design proposed running a generalist LLM-vision read *and* the specialist in parallel and flagging disagreements. That "both reads" approach was dropped for v1.0 in favour of the privacy-preserving sidecar-only pipeline above.
+
+---
+
+## What the local models can detect (v1.0 coverage)
+
+**4 imaging modalities · 27 conditions.** These are the conditions the local specialist
+models were trained on. Anything outside this set is **not** reliably detectable — the
+agent treats it as decision-support and routes the patient to a clinician (rare cases are
+never falsely cleared).
+
+### 1 · Chest X-ray — 18 pathologies (TorchXRayVision DenseNet121-all, Apache-2.0) ✅ live
+Atelectasis · Cardiomegaly · Consolidation · Edema · Effusion · Emphysema · Fibrosis ·
+Hernia · Infiltration · Mass · Nodule · Pleural Thickening · Pneumonia · Pneumothorax ·
+Lung Lesion · Fracture · Lung Opacity · Enlarged Cardiomediastinum
+
+### 2 · Skin lesions — 7 types (ConvNeXt-Base, HAM10000) ✅ live
+Actinic keratosis · Basal cell carcinoma · Benign keratosis · Dermatofibroma ·
+Melanoma · Melanocytic nevus · Vascular lesion
+
+### 3 · Eye / diabetic retinopathy — binary (ONNX fundus classifier) ✅ live
+Diabetic retinopathy detected vs. not detected (grade not separated in v1.0)
+
+### 4 · Malaria — blood-smear parasite detection (YOLOv8s, MIT) ⚠️ weight present, eval pending
+Detects malaria parasites in a microscopy smear image
+
+> **Totals:** 18 + 7 + 1 + 1 = **27 detectable conditions** across X-ray, skin, eye, and
+> microscopy. Confidence is always returned and shown; the model only reports what it was
+> trained on, so a rare/out-of-scope condition yields low/no confidence → "see a clinician".
 
 ---
 

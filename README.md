@@ -132,7 +132,7 @@ Most clinical-AI products stop at the read. We close the loop.
 | 3 | **Patients Queue** | Clinic | Incoming referral queue with urgency badges (RED→GREEN), MA Agent summary, full session context, Confirm/Decline actions |
 | 4 | **Interview** | Clinic | Structured diagnostic intake for clinicians — one focused question at a time, RAG context, citation chips per turn |
 | 5 | **Symptom Analysis** | Clinic | Ranked differential (3–6 conditions) with calibrated probabilities, urgency level, red-flag callouts |
-| 6 | **Report Reading** | Both | Upload X-ray / skin / eye photo → specialist CV models in `services/image-ml/` read it locally; the LLM turns those findings into a plain-language explanation. The image never leaves to a cloud LLM. |
+| 6 | **Report Reading** | Both | Upload X-ray / skin / eye photo → specialist CV models in `services/image-ml/` read it locally; the LLM turns those findings into a plain-language explanation. The image never leaves to a cloud LLM. **Coverage: 4 modalities · 27 conditions** (18 chest-X-ray pathologies, 7 skin-lesion types, diabetic retinopathy, malaria smear) — full list in [`docs/architecture/image-pipeline.md`](./docs/architecture/image-pipeline.md). Out-of-scope/rare conditions → low confidence → routed to a clinician. |
 | 7 | **Triage** | Both | Manchester-style colors (RED → BLUE) with target time-to-care and immediate action list |
 
 ### Eight Cross-cutting Differentiators
