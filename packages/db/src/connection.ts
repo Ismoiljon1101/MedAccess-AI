@@ -1,11 +1,14 @@
 import mongoose from 'mongoose';
 
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/medaccess';
-
 let isConnected = false;
 
 export async function connectDB(): Promise<void> {
   if (isConnected) return;
+
+  // Read the URI at call time, not module load — server.ts loads dotenv in its
+  // body, so a module-level const would capture the value BEFORE .env is applied
+  // and silently fall back to localhost (the bug that hid a configured Atlas URI).
+  const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/medaccess';
 
   await mongoose.connect(MONGODB_URI, {
     serverSelectionTimeoutMS: 5000,
