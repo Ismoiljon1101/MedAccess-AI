@@ -89,10 +89,18 @@ export default function Chat() {
 
   // ── Parse booking marker from text ───────────────────────────────
   function parseBookingMarker(text: string): { cleanText: string; booking?: BookingAction } {
+    // Strip the booking marker from the visible message — BOTH a completed
+    // `<<BOOK:{…}>>` and one that is still streaming in (opening token seen, the
+    // closing `>>` not yet arrived). Without the second strip, the raw
+    // doctorId/facilityId JSON leaks into the bubble token-by-token as it streams,
+    // looking like the agent suddenly spits out random variables mid-answer.
+    const cleanText = text
+      .replace(/<<BOOK:[\s\S]*?>>/g, '')   // completed marker(s) — keep surrounding text
+      .replace(/<<BOOK[\s\S]*$/, '')        // a marker still mid-stream (no closing >> yet)
+      .trim();
+
     const match = text.match(/<<BOOK:([\s\S]*?)>>/);
-    if (!match) return { cleanText: text };
-    // Always strip the marker from the visible message, even if the payload is malformed.
-    const cleanText = text.replace(/<<BOOK:[\s\S]*?>>/, '').trim();
+    if (!match) return { cleanText };
 
     let payload: any;
     try {
