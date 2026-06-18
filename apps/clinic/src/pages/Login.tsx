@@ -6,7 +6,9 @@ import {
 import { useAuthStore, type Role, type AuthUser } from '@/store/auth';
 import { MEDICAL_SPECIALTIES } from '@medaccess/shared';
 
-const BASE = import.meta.env.DEV ? 'http://localhost:4000' : '';
+// Relative by default so requests ride the Vite dev proxy (/api → :4000) and work
+// over the Cloudflare tunnel on phones. Override with VITE_API_BASE for a split deploy.
+const BASE = import.meta.env.VITE_API_BASE || '';
 
 interface FacilityOption {
   id: string;
